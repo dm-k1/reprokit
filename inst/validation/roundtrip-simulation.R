@@ -1,5 +1,5 @@
 # Round-trip simulation: for each exact handler, random designs ->
-# kit() -> reproduce() and compare with the base-R result on the raw data.
+# sufficient_stats() -> reproduce() and compare with the base-R result on the raw data.
 # PASS criterion (ADR 0005), worst over all designs and all reported numbers:
 #   scaled difference |original - reproduced| / max(1, |original|) < 1e-8
 #   (= absolute for numbers up to 1, relative for larger ones such as a big F).
@@ -64,14 +64,47 @@ lm_design <- function() {
   list(x = fit, args = list())
 }
 
-designs <- list(t_independent = t_design, lm = lm_design)
+random_alternative <- function() sample(c("two.sided", "less", "greater"), 1L)
+random_conf_level <- function() sample(c(0.9, 0.95, 0.99), 1L)
+
+# One random one-sample design: random n, location, spread and test value.
+t_one_sample_design <- function() {
+  n <- sample(10:100, 1L)
+  d <- data.frame(y = rnorm(n, runif(1, -2, 2), runif(1, 0.5, 3)))
+  list(x = y ~ 1, args = list(data = d, test = "one_sample", mu = runif(1, -1, 1),
+                              alternative = random_alternative(),
+                              conf_level = random_conf_level()))
+}
+
+# One random paired design: correlated pre/post scores, random shift and test value.
+t_paired_design <- function() {
+  n <- sample(10:100, 1L)
+  pre <- rnorm(n, 0, runif(1, 0.5, 3))
+  d <- data.frame(pre = pre, post = runif(1, -1, 1) * pre + rnorm(n, runif(1, -2, 2)))
+  list(x = Pair(pre, post) ~ 1,
+       args = list(data = d, test = "paired", mu = runif(1, -1, 1),
+                   alternative = random_alternative(), conf_level = random_conf_level()))
+}
+
+# One random correlation design: true r anywhere in (-0.95, 0.95).
+cor_pearson_design <- function() {
+  n <- sample(10:300, 1L)
+  rho <- runif(1, -0.95, 0.95)
+  a <- rnorm(n)
+  d <- data.frame(a = a * runif(1, 0.1, 10), b = rho * a + sqrt(1 - rho^2) * rnorm(n))
+  list(x = ~ a + b, args = list(data = d, test = "pearson", alternative = random_alternative(),
+                                conf_level = random_conf_level()))
+}
+
+designs <- list(t_independent = t_design, t_one_sample = t_one_sample_design,
+                t_paired = t_paired_design, cor_pearson = cor_pearson_design, lm = lm_design)
 
 rows <- lapply(names(designs), function(name) {
   h <- get_handler(name)
   diffs <- vapply(seq_len(n_designs), function(i) {
     ex <- designs[[name]]()
-    k <- do.call(kit, c(list(ex$x), ex$args, list(sharing_reason = "simulation")))
-    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reproduce(k))
+    s <- do.call(sufficient_stats, c(list(ex$x), ex$args, list(sharing_reason = "simulation")))
+    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reproduce(s))
   }, numeric(2))
   worst <- apply(diffs, 1L, max)
   data.frame(handler = name, designs = n_designs,
