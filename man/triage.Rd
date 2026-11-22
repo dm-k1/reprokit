@@ -4,13 +4,17 @@
 \alias{triage}
 \title{Triage: can this result be reproduced without the raw data?}
 \usage{
-triage(x, ...)
+triage(x, ..., threshold = 5)
 }
 \arguments{
-\item{x}{A fitted model object (e.g. from \code{lm()}), or another object a
-handler recognises.}
+\item{x}{A fitted model object (e.g. from \code{lm()}), a formula with \code{data}
+and \code{test} (e.g. \verb{y ~ group, data = d, test = "welch"}), or another
+object a handler recognises.}
 
-\item{...}{Passed to the handler's triage function.}
+\item{...}{Passed to the handler (e.g. \code{data}, \code{test}).}
+
+\item{threshold}{Smallest group or cell size whose summaries are clearly
+less identifying than the raw data (ADR 0004 condition 3). Default 5.}
 }
 \value{
 An object of class \code{reprokit_triage}: a list with \code{verdict},
@@ -23,4 +27,5 @@ itself an answer.
 }
 \examples{
 triage(list())   # unsupported input still gets a verdict
+triage(extra ~ group, data = sleep, test = "welch")
 }

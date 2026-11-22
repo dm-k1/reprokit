@@ -4,13 +4,26 @@
 
 expect_reproduces <- function(original, refitted, tolerance = 1e-8) {
   act <- testthat::quasi_label(rlang::enquo(refitted), arg = "refitted")
-  diff <- abs(unlist(original) - unlist(act$val))
+  if (!identical(names(original), names(act$val))) {
+    testthat::fail(sprintf("%s reports different quantities: %s vs %s.", act$lab,
+                           paste(names(original), collapse = ","),
+                           paste(names(act$val), collapse = ",")))
+    return(invisible(act$val))
+  }
+  diff <- roundtrip_diff(original, act$val)
   testthat::expect(
-    length(original) == length(act$val) && all(diff <= tolerance),
-    sprintf("%s differs from the original by up to %g (tolerance %g).",
-            act$lab, max(diff), tolerance)
+    all(diff <= tolerance),
+    sprintf("%s differs from the original by up to %g (tolerance %g), at %s.",
+            act$lab, max(diff), tolerance, names(diff)[which.max(diff)])
   )
   invisible(act$val)
+}
+
+# |original - refitted| per element; equal values (including Inf CI bounds) give 0.
+roundtrip_diff <- function(original, refitted) {
+  o <- unlist(original)
+  r <- unlist(refitted)
+  ifelse(o == r, 0, abs(o - r))
 }
 
 # A registered handler that exists only for the duration of one test.

@@ -26,11 +26,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: First Last \email{first.last@example.com}
+\strong{Maintainer}: D.M. Kloppenburg \email{192165061+dm-k1@users.noreply.github.com}
 
 Authors:
 \itemize{
-  \item First Last \email{first.last@example.com}
+  \item D.M. Kloppenburg \email{192165061+dm-k1@users.noreply.github.com}
 }
 
 }

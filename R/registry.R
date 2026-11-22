@@ -12,18 +12,37 @@
 #' @param needs What the kit must store, in words.
 #' @param catch Pitfalls, in words (`NA` if none).
 #' @param lost Character vector: what readers lose compared with raw data.
-#' @param matches `function(x)` returning `TRUE` if this handler handles `x`.
-#' @param triage `function(x, ...)` returning a list with `verdict` and
-#'   `reason`; `NULL` means "always `verdict`".
-#' @param kit,refit Functions, or `NULL` for triage-only handlers.
-#' @param example A fitted model this handler supports. Required for
-#'   `summaries_suffice` handlers: the round-trip test refits it from its kit.
+#' @param matches `function(x, ...)` returning `TRUE` if this handler handles
+#'   `x`. It receives the same `...` as [triage()], so a formula can be matched
+#'   on the declared `test`.
+#' @param triage `function(x, ..., threshold)` returning a list with `verdict`
+#'   and `reason`; `NULL` means "always `verdict`". A `summaries_suffice`
+#'   verdict is then still checked against `disclosure` (ADR 0004 condition 3).
+#' @param kit `function(x, ...)` returning `list(stats = , meta = )`: the
+#'   sufficient statistics at full precision. `NULL` for triage-only handlers.
+#' @param refit `function(kit)` returning the named numeric vector that
+#'   `reported` returns, computed from the kit alone.
+#' @param reported `function(x, ...)` returning a named numeric vector of what
+#'   a paper reports, computed from the raw data with base R. Required for
+#'   `summaries_suffice` handlers: it is the reference in the round-trip test.
+#' @param disclosure `function(k, threshold)`, where `k` is what `kit` returns
+#'   (`list(stats = , meta = )`), returning
+#'   `list(passed = , checked = , problems = )`. A risk reduction, never a
+#'   guarantee.
+#' @param conventions Character vector of choices the author must declare
+#'   (test variant, SS type, effect-size formula), or `NULL`.
+#' @param formula_tests Character vector of `test =` values this handler
+#'   accepts with a formula (e.g. `c("student", "welch")`), or `NULL`. Used to
+#'   tell users which tests exist when no handler matches.
+#' @param example `function()` returning `list(x = , args = list(...))`, an
+#'   input this handler supports. Required for `summaries_suffice` handlers.
 #' @return `name`, invisibly.
 #' @keywords internal
 #' @noRd
 register_handler <- function(name, family, analysis, verdict, needs, catch = NA_character_,
                              lost, matches, triage = NULL, kit = NULL, refit = NULL,
-                             example = NULL) {
+                             reported = NULL, disclosure = NULL, conventions = NULL,
+                             formula_tests = NULL, example = NULL) {
   check_verdict(verdict)
   stopifnot(
     is.character(name), length(name) == 1L, nzchar(name),
@@ -31,16 +50,24 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.function(matches),
     is.null(triage) || is.function(triage),
     is.null(kit) || is.function(kit),
-    is.null(refit) || is.function(refit)
+    is.null(refit) || is.function(refit),
+    is.null(reported) || is.function(reported),
+    is.null(disclosure) || is.function(disclosure),
+    is.null(conventions) || is.character(conventions),
+    is.null(formula_tests) || is.character(formula_tests),
+    is.null(example) || is.function(example)
   )
-  if (verdict == "summaries_suffice" && (is.null(kit) || is.null(refit) || is.null(example))) {
-    stop("Handler '", name, "' claims exact reproduction but has no kit/refit/example.",
-         call. = FALSE)
+  exact_parts <- list(kit = kit, refit = refit, reported = reported, example = example)
+  missing_parts <- names(exact_parts)[vapply(exact_parts, is.null, logical(1))]
+  if (verdict == "summaries_suffice" && length(missing_parts) > 0L) {
+    stop("Handler '", name, "' claims exact reproduction but has no ",
+         paste(missing_parts, collapse = "/"), ".", call. = FALSE)
   }
   assign(name, list(
     name = name, family = family, analysis = analysis, verdict = verdict,
-    needs = needs, catch = catch, lost = lost,
-    matches = matches, triage = triage, kit = kit, refit = refit, example = example
+    needs = needs, catch = catch, lost = lost, matches = matches, triage = triage,
+    kit = kit, refit = refit, reported = reported, disclosure = disclosure,
+    conventions = conventions, formula_tests = formula_tests, example = example
   ), envir = .registry)
   invisible(name)
 }

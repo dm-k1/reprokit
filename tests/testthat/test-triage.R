@@ -9,7 +9,7 @@ test_that("triage never errors on unsupported input", {
 test_that("triage uses the matching handler", {
   local_handler(
     "test_dummy", family = "Test", analysis = "Dummy", verdict = "synthetic_possible",
-    needs = "nothing", lost = "exactness", matches = function(x) inherits(x, "dummy")
+    needs = "nothing", lost = "exactness", matches = function(x, ...) inherits(x, "dummy")
   )
   res <- triage(structure(list(), class = "dummy"))
   expect_identical(res$verdict, "synthetic_possible")
@@ -19,7 +19,7 @@ test_that("triage uses the matching handler", {
 test_that("a failing handler becomes a verdict, not a crash", {
   local_handler(
     "test_broken", family = "Test", analysis = "Broken", verdict = "synthetic_possible",
-    needs = "nothing", lost = "exactness", matches = function(x) inherits(x, "broken"),
+    needs = "nothing", lost = "exactness", matches = function(x, ...) inherits(x, "broken"),
     triage = function(x, ...) stop("boom")
   )
   res <- expect_no_error(triage(structure(list(), class = "broken")))

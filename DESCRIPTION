@@ -2,7 +2,8 @@ Package: reprokit
 Title: Reproduce and Check Results When Raw Data Cannot Be Shared
 Version: 0.0.0.9000
 Authors@R:
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
+    person("D.M.", "Kloppenburg", , "192165061+dm-k1@users.noreply.github.com",
+           role = c("aut", "cre"))
 Description: Helps authors who cannot share raw data report the sufficient
     statistics that let readers reproduce their results exactly, or decide
     that synthetic data or the raw data are needed. Helps readers check
