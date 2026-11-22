@@ -10,6 +10,7 @@
 #' @param ... Passed to the handler (e.g. `data`, `test`).
 #' @param threshold Smallest group or cell size whose summaries are clearly
 #'   less identifying than the raw data (ADR 0004 condition 3). Default 5.
+#'   The total sample size must also be at least `2 * threshold` (ADR 0006).
 #' @return An object of class `reprokit_triage`: a list with `verdict`,
 #'   `reason`, `handler` (or `NA`) and `lost`.
 #' @export
@@ -53,22 +54,44 @@ triage_with <- function(handler, x, ..., threshold) {
   } else {
     handler$triage(x, ..., threshold = threshold)
   }
-  # ADR 0004 condition 3, decided per dataset: summaries of tiny groups are
-  # close to the raw data, so they protect no one and the verdict drops.
-  if (res$verdict == "summaries_suffice" && !is.null(handler$disclosure)) {
-    check <- handler$disclosure(handler$kit(x, ...), threshold)
-    if (!check$passed) {
+  # ADR 0004 condition 3, decided per dataset: summaries of tiny samples or
+  # tiny groups are close to the raw data, so they protect no one and the
+  # verdict drops. First the general minimum n (every handler, ADR 0006), then
+  # the handler's own check of its groups or cells.
+  if (res$verdict == "summaries_suffice" && !is.null(handler$kit)) {
+    k <- handler$kit(x, ...)
+    problems <- minimum_n_problem(k$meta$n, threshold)
+    if (length(problems) == 0L && !is.null(handler$disclosure)) {
+      problems <- handler$disclosure(k, threshold)$problems
+    }
+    if (length(problems) > 0L) {
       res <- list(
         verdict = "needs_raw_data",
         reason = paste0(
           "The summaries would be close to the raw data (ADR 0004 condition 3 fails: ",
-          paste(check$problems, collapse = "; "),
+          paste(problems, collapse = "; "),
           "), so they give no real privacy gain, only less information."
         )
       )
     }
   }
   res
+}
+
+# General minimum sample size, for every handler (ADR 0006): n >= 2 * threshold.
+# With n close to the number of stored statistics, the summaries pin down the
+# rows (n = 2: mean and SD give both values exactly).
+minimum_n <- function(threshold) 2 * threshold
+
+minimum_n_problem <- function(n, threshold) {
+  if (is.null(n) || is.na(n)) {
+    return("the handler did not report the sample size n")
+  }
+  if (n < minimum_n(threshold)) {
+    return(paste0("total n = ", n, " is below the minimum of ", minimum_n(threshold),
+                  " (2 x threshold)"))
+  }
+  character()
 }
 
 no_handler_reason <- function(x) {

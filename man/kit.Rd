@@ -31,5 +31,5 @@ class \code{reprokit_impossible} that says why.
 \examples{
 k <- kit(extra ~ group, data = sleep, test = "welch",
          sharing_reason = "Consent did not cover public sharing.")
-refit(k)
+reproduce(k)
 }

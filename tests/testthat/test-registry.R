@@ -13,7 +13,7 @@ test_that("coverage_table() has a fixed shape even when empty", {
   expect_named(coverage_table(), c("family", "analysis", "verdict", "needs", "catch", "handler"))
 })
 
-test_that("a handler claiming exact reproduction must supply kit and refit", {
+test_that("a handler claiming exact reproduction must supply kit and reproduce", {
   expect_error(
     register_handler(
       "test_bad", family = "Test", analysis = "Bad", verdict = "summaries_suffice",
@@ -23,7 +23,7 @@ test_that("a handler claiming exact reproduction must supply kit and refit", {
   )
 })
 
-test_that("every handler that claims exact reproduction round-trips at 1e-8", {
+test_that("every handler that claims exact reproduction round-trips (scaled difference < 1e-8)", {
   # Grows automatically as handlers are added.
   exact <- Filter(function(n) get_handler(n)$verdict == "summaries_suffice", handlers())
   expect_gt(length(exact), 0L)
@@ -31,6 +31,6 @@ test_that("every handler that claims exact reproduction round-trips at 1e-8", {
     h <- get_handler(name)
     ex <- h$example()
     k <- do.call(kit, c(list(ex$x), ex$args, list(sharing_reason = "test")))
-    expect_reproduces(do.call(h$reported, c(list(ex$x), ex$args)), refit(k))
+    expect_reproduces(do.call(h$reported, c(list(ex$x), ex$args)), reproduce(k))
   }
 })

@@ -5,7 +5,7 @@
 #' readers, and what those readers lose.
 #'
 #' Two directions use the same statistics:
-#' * **share** -- [triage()], `kit()`, `refit()`, `appendix()` (planned)
+#' * **share** -- [triage()], `kit()`, `reproduce()`, `appendix()` (planned)
 #' * **check** -- `check_*()` consistency checks (planned)
 #'
 #' @keywords internal

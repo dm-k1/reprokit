@@ -17,7 +17,7 @@
 #' @examples
 #' k <- kit(extra ~ group, data = sleep, test = "welch",
 #'          sharing_reason = "Consent did not cover public sharing.")
-#' refit(k)
+#' reproduce(k)
 kit <- function(x, ..., sharing_reason, lost = NULL, threshold = 5) {
   handler <- find_handler(x, ...)
   tr <- triage(x, ..., threshold = threshold)
@@ -47,11 +47,11 @@ kit <- function(x, ..., sharing_reason, lost = NULL, threshold = 5) {
 #' @examples
 #' k <- kit(extra ~ group, data = sleep, test = "welch",
 #'          sharing_reason = "Consent did not cover public sharing.")
-#' refit(k)
-refit <- function(kit) {
+#' reproduce(k)
+reproduce <- function(kit) {
   if (!is_kit(kit)) stop("`kit` must be a reprokit kit, made by kit().", call. = FALSE)
   if (kit$verdict != "summaries_suffice") {
-    abort_impossible("refit this kit", kit$verdict_reason)
+    abort_impossible("reproduce this kit", kit$verdict_reason)
   }
-  get_handler(kit$handler)$refit(kit)
+  get_handler(kit$handler)$reproduce(kit)
 }

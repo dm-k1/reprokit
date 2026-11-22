@@ -1,27 +1,24 @@
-# Linear regression (OLS) fitted with lm(), numeric and factor predictors.
-# In one line: n, the column means and the covariance matrix of
-# [model matrix, outcome] determine every number in summary(lm) exactly.
+# Linear regression (OLS or weighted least squares) fitted with lm(), numeric
+# and factor predictors, optional weights and offset.
+# In one line: n, the sum of weights, the (weighted) column means and the
+# (weighted) centred cross-products of [model matrix, outcome - offset]
+# determine every number in summary(lm) exactly.
+# Unweighted is the special case: sum of weights = n, cross-products = (n - 1) * cov.
 
 register_lm <- function() {
   register_handler(
     name = "lm",
     family = "Linear models",
-    analysis = "Linear regression, lm() (numeric and factor predictors)",
+    analysis = "Linear regression, lm() (numeric and factor predictors, weights, offset)",
     verdict = "summaries_suffice",
-    needs = "n, means and covariance matrix of the model-matrix columns and the outcome",
-    catch = "declare the contrasts; no weights or offset",
+    needs = paste0("n, means and covariance matrix of the model-matrix columns and the outcome ",
+                   "(with weights: sum of weights, weighted means and weighted cross-products)"),
+    catch = "declare the contrasts; an offset is stored as outcome minus offset",
     lost = c("residual diagnostics (normality, outliers, influence)",
              "refitting with other predictors or transformations"),
     # Exactly "lm": aov, glm and multivariate lm get their own handlers.
     matches = function(x, ...) identical(class(x), "lm"),
     triage = function(x, ..., threshold) {
-      if (!is.null(stats::weights(x)) || !is.null(stats::model.offset(stats::model.frame(x)))) {
-        return(list(
-          verdict = "needs_raw_data",
-          reason = paste0("Weighted regression and offsets have no validated round-trip yet ",
-                          "(ADR 0004: no round-trip test, no claim).")
-        ))
-      }
       if (x$rank < ncol(stats::model.matrix(x))) {
         return(list(
           verdict = "needs_raw_data",
@@ -31,10 +28,10 @@ register_lm <- function() {
       }
       list(verdict = "summaries_suffice",
            reason = paste0("Summary statistics suffice: n, the means and the covariance ",
-                           "matrix of the predictors and outcome determine the OLS fit exactly."))
+                           "matrix of the predictors and outcome determine the fit exactly."))
     },
     kit = lm_kit,
-    refit = lm_refit,
+    reproduce = lm_reproduce,
     reported = lm_reported,
     disclosure = lm_disclosure,
     conventions = "contrasts for factor predictors (stored in the kit)",
@@ -44,44 +41,70 @@ register_lm <- function() {
   )
 }
 
+# summary.lm treats an offset as part of the outcome (fitted - offset is what
+# it explains) and rows with weight 0 as absent, so the kit does the same.
 lm_kit <- function(x, ...) {
-  intercept <- attr(stats::terms(x), "intercept") == 1L
+  mf <- stats::model.frame(x)
   predictors <- stats::model.matrix(x)
   predictors <- predictors[, colnames(predictors) != "(Intercept)", drop = FALSE]
-  y <- stats::model.response(stats::model.frame(x))
+  offset <- stats::model.offset(mf)
+  y <- stats::model.response(mf) - if (is.null(offset)) 0 else offset
   z <- cbind(predictors, "(response)" = y)
+  w <- stats::weights(x)
+  weighted <- !is.null(w)
+  if (weighted) {
+    z <- z[w > 0, , drop = FALSE]
+    w <- w[w > 0]
+  }
+  n <- nrow(z)
+  stats <- if (weighted) {
+    mean_w <- colSums(w * z) / sum(w)
+    centred <- sweep(z, 2L, mean_w)
+    list(n = n, sum_w = sum(w), mean = mean_w, sscp = crossprod(sqrt(w) * centred))
+  } else {
+    list(n = n, mean = colMeans(z), cov = stats::cov(z))
+  }
   list(
-    stats = list(
-      n = nrow(z),
-      mean = colMeans(z),
-      cov = stats::cov(z)
-    ),
+    stats = stats,
     meta = list(
-      n = nrow(z),
-      intercept = intercept,
+      n = n,
+      intercept = attr(stats::terms(x), "intercept") == 1L,
+      weighted = weighted,
+      offset = !is.null(offset),
       response = deparse(stats::formula(x)[[2L]]),
       formula = deparse(stats::formula(x)),
-      contrasts = x$contrasts,
-      binary_columns = colnames(z)[apply(z, 2L, function(z) all(z %in% c(0, 1)))]
-    )
+      contrasts = x$contrasts
+    ),
+    # Used by the disclosure check only; not stored in the kit.
+    check = list(binary_counts = binary_counts(z))
   )
 }
 
-lm_refit <- function(kit) {
+# Sum of weights W and centred cross-products S, for both kit forms.
+lm_crossproducts <- function(kit) {
+  if (isTRUE(kit$meta$weighted)) {
+    list(w = kit$stats$sum_w, s = kit$stats$sscp)
+  } else {
+    list(w = kit$stats$n, s = (kit$stats$n - 1) * kit$stats$cov)
+  }
+}
+
+lm_reproduce <- function(kit) {
   n <- kit$stats$n
+  cp <- lm_crossproducts(kit)
+  sum_w <- cp$w
+  s <- cp$s
   y_col <- "(response)"
   x_cols <- setdiff(names(kit$stats$mean), y_col)
   p <- length(x_cols)
   m <- kit$stats$mean[x_cols]
   y_mean <- kit$stats$mean[[y_col]]
-  covs <- kit$stats$cov
 
   if (kit$meta$intercept) {
-    # Centred cross-products: (n - 1) times the covariances.
-    tss <- (n - 1) * covs[y_col, y_col]
+    tss <- s[y_col, y_col]
     if (p > 0L) {
-      sxx <- (n - 1) * covs[x_cols, x_cols, drop = FALSE]
-      sxy <- (n - 1) * covs[x_cols, y_col]
+      sxx <- s[x_cols, x_cols, drop = FALSE]
+      sxy <- s[x_cols, y_col]
       sxx_inv <- solve(sxx)
       slopes <- drop(sxx_inv %*% sxy)
       rss <- tss - sum(sxy * slopes)
@@ -92,15 +115,15 @@ lm_refit <- function(kit) {
     rdf <- n - p - 1
     sigma2 <- rss / rdf
     estimate <- c("(Intercept)" = y_mean - sum(m * slopes), slopes)
-    var_intercept <- sigma2 * (1 / n + if (p > 0L) drop(t(m) %*% sxx_inv %*% m) else 0)
+    var_intercept <- sigma2 * (1 / sum_w + if (p > 0L) drop(t(m) %*% sxx_inv %*% m) else 0)
     se <- sqrt(c(var_intercept, if (p > 0L) sigma2 * diag(sxx_inv)))
     mss <- tss - rss
     df_int <- 1
   } else {
-    # Uncentred cross-products, rebuilt from means and covariances.
-    xtx <- (n - 1) * covs[x_cols, x_cols, drop = FALSE] + n * tcrossprod(m)
-    xty <- (n - 1) * covs[x_cols, y_col] + n * m * y_mean
-    yty <- (n - 1) * covs[y_col, y_col] + n * y_mean^2
+    # Uncentred cross-products, rebuilt from the means and centred cross-products.
+    xtx <- s[x_cols, x_cols, drop = FALSE] + sum_w * tcrossprod(m)
+    xty <- s[x_cols, y_col] + sum_w * m * y_mean
+    yty <- s[y_col, y_col] + sum_w * y_mean^2
     xtx_inv <- solve(xtx)
     estimate <- drop(xtx_inv %*% xty)
     rss <- yty - sum(xty * estimate)
@@ -150,34 +173,39 @@ coef_vector <- function(estimate, se, t, p) {
                   paste0(rep(c("estimate", "se", "t", "p"), each = length(terms)), ":", terms))
 }
 
-# Checks the counts the kit reveals. For 0/1 columns (dummies, logicals,
-# binary outcome) the kit gives each column's count (n * mean) and each pair's
-# 2 x 2 table ((n - 1) * cov + n * mean_i * mean_j). Any cell with
-# 0 < count < threshold is flagged. Continuous columns are not checked.
+# Counts of people behind the 0/1 columns (dummies, logicals, binary outcome):
+# n, each column's count of 1s and each pair's count of (1, 1). Unweighted
+# counts over the rows in the fit, so weights cannot hide a small cell.
+binary_counts <- function(z) {
+  b <- colnames(z)[apply(z, 2L, function(col) all(col %in% c(0, 1)))]
+  zb <- z[, b, drop = FALSE]
+  list(n = nrow(z), ones = colSums(zb), both = crossprod(zb))
+}
+
+# Any cell of a 0/1 column or of a pair's 2 x 2 table with 0 < count < threshold
+# is flagged. Continuous columns are not checked.
 lm_disclosure <- function(k, threshold) {
-  n <- k$stats$n
-  b <- k$meta$binary_columns
-  m <- k$stats$mean[b]
+  counts <- k$check$binary_counts
+  n <- counts$n
+  ones <- counts$ones
+  b <- names(ones)
   problems <- character()
   flag <- function(count, label) {
-    count <- round(count)
     if (count > 0 && count < threshold) problems <<- c(problems, paste0(label, ": n = ", count))
   }
   for (i in b) {
-    flag(n * m[[i]], paste0(i, " = 1"))
-    flag(n - n * m[[i]], paste0(i, " = 0"))
+    flag(ones[[i]], paste0(i, " = 1"))
+    flag(n - ones[[i]], paste0(i, " = 0"))
   }
   pairs <- if (length(b) >= 2L) utils::combn(b, 2L, simplify = FALSE) else list()
   for (pair in pairs) {
     i <- pair[1]
     j <- pair[2]
-    n11 <- (n - 1) * k$stats$cov[i, j] + n * m[[i]] * m[[j]]
-    n1x <- n * m[[i]]
-    nx1 <- n * m[[j]]
+    n11 <- counts$both[i, j]
     flag(n11, paste0(i, " = 1 & ", j, " = 1"))
-    flag(n1x - n11, paste0(i, " = 1 & ", j, " = 0"))
-    flag(nx1 - n11, paste0(i, " = 0 & ", j, " = 1"))
-    flag(n - n1x - nx1 + n11, paste0(i, " = 0 & ", j, " = 0"))
+    flag(ones[[i]] - n11, paste0(i, " = 1 & ", j, " = 0"))
+    flag(ones[[j]] - n11, paste0(i, " = 0 & ", j, " = 1"))
+    flag(n - ones[[i]] - ones[[j]] + n11, paste0(i, " = 0 & ", j, " = 0"))
   }
   list(passed = length(problems) == 0L,
        checked = "counts of 0/1 columns and their pairwise tables",

@@ -1,8 +1,8 @@
-test_that("kit() dispatches to the matching handler and refit() reproduces", {
+test_that("kit() dispatches to the matching handler and reproduce() reproduces", {
   k <- kit(extra ~ group, data = sleep, test = "student", sharing_reason = "test")
   expect_s3_class(k, "reprokit_kit")
   expect_identical(k$handler, "t_independent")
-  expect_reproduces(t_independent_reported(extra ~ group, sleep, "student"), refit(k))
+  expect_reproduces(t_independent_reported(extra ~ group, sleep, "student"), reproduce(k))
 })
 
 test_that("kit() refuses unknown input with reprokit_impossible", {
@@ -21,12 +21,12 @@ test_that("kit() refuses when the handler says summaries do not suffice", {
                class = "reprokit_impossible")
 })
 
-test_that("refit() refuses a kit that is not summaries_suffice", {
+test_that("reproduce() refuses a kit that is not summaries_suffice", {
   args <- valid_kit_args()
   args$verdict <- "needs_raw_data"
   k <- do.call(new_kit, args)
-  expect_error(refit(k), class = "reprokit_impossible")
-  expect_error(refit(list()), "must be a reprokit kit")
+  expect_error(reproduce(k), class = "reprokit_impossible")
+  expect_error(reproduce(list()), "must be a reprokit kit")
 })
 
 test_that("the handler's lost list is a floor: users can add, not remove", {

@@ -6,7 +6,7 @@ test_that("Student and Welch reproduce t.test for every alternative", {
                sharing_reason = "test")
       expect_reproduces(
         t_independent_reported(y ~ g, d, test, alternative = alt, conf_level = 0.9),
-        refit(k)
+        reproduce(k)
       )
     }
   }

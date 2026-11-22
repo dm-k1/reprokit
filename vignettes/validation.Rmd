@@ -26,7 +26,8 @@ knitr::kable(coverage_table())
 
 For each handler:
 
-1. **Round-trip**: `refit(kit(model))` matches the original within `1e-8`.
+1. **Round-trip**: `reproduce(kit(model))` matches the original with a scaled
+   difference `|original - reproduced| / max(1, |original|)` below `1e-8`.
 2. **Reference implementation**: agreement with `lavaan`, `metafor` or
    `statcheck` where one exists.
 3. **Refusal**: requests that need the raw data stop with class

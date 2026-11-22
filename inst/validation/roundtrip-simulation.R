@@ -1,18 +1,18 @@
 # Round-trip simulation: for each exact handler, random designs ->
-# kit() -> refit() and compare with the base-R result on the raw data.
-# Two criteria, worst over all designs and all reported numbers:
-#   absolute: |original - refitted| < 1e-8
-#   scaled:   |original - refitted| / max(1, |original|) < 1e-8
-#             (= absolute for numbers up to 1, relative for larger ones such as a big F)
+# kit() -> reproduce() and compare with the base-R result on the raw data.
+# PASS criterion (ADR 0005), worst over all designs and all reported numbers:
+#   scaled difference |original - reproduced| / max(1, |original|) < 1e-8
+#   (= absolute for numbers up to 1, relative for larger ones such as a big F).
+# The worst absolute difference is shown for information only.
 # Run: Rscript inst/validation/roundtrip-simulation.R   (after devtools::load_all())
 
 n_designs <- 200L
 tolerance <- 1e-8
 set.seed(20261122)
 
-worst_diff <- function(original, refitted) {
-  stopifnot(identical(names(original), names(refitted)))
-  d <- ifelse(original == refitted, 0, abs(original - refitted))
+worst_diff <- function(original, reproduced) {
+  stopifnot(identical(names(original), names(reproduced)))
+  d <- ifelse(original == reproduced, 0, abs(original - reproduced))
   c(absolute = max(d), scaled = max(d / pmax(1, abs(original))))
 }
 
@@ -30,7 +30,8 @@ t_design <- function() {
 }
 
 # One random lm design: 0-4 numeric predictors, 0-1 factor with 2-4 levels,
-# optional interaction, optional no-intercept. Large-ish cells so disclosure passes.
+# optional interaction, optional no-intercept, optional weights (sometimes with
+# zeros) and optional offset. Large-ish cells so disclosure passes.
 lm_design <- function() {
   n <- sample(40:300, 1L)
   k_num <- sample(0:4, 1L)
@@ -48,7 +49,19 @@ lm_design <- function() {
   }), 0) + rnorm(n, sd = runif(1, 0.5, 5))
   rhs <- if (length(terms)) paste(terms, collapse = " + ") else "1"
   if (length(terms) && runif(1) < 0.2) rhs <- paste("0 +", rhs)
-  list(x = stats::lm(stats::as.formula(paste("y ~", rhs)), data = d), args = list())
+  if (runif(1) < 0.4) {
+    d$off <- rnorm(n, sd = 2)
+    rhs <- paste(rhs, "+ offset(off)")
+  }
+  d$w <- if (runif(1) < 0.4) runif(n, 0.1, 5) else NULL
+  if (!is.null(d$w) && runif(1) < 0.3) d$w[sample(n, 3L)] <- 0
+  fit <- if (is.null(d$w)) {
+    stats::lm(stats::as.formula(paste("y ~", rhs)), data = d)
+  } else {
+    # lm() finds w in d; lintr cannot see that.
+    stats::lm(stats::as.formula(paste("y ~", rhs)), data = d, weights = w)  # nolint
+  }
+  list(x = fit, args = list())
 }
 
 designs <- list(t_independent = t_design, lm = lm_design)
@@ -58,12 +71,12 @@ rows <- lapply(names(designs), function(name) {
   diffs <- vapply(seq_len(n_designs), function(i) {
     ex <- designs[[name]]()
     k <- do.call(kit, c(list(ex$x), ex$args, list(sharing_reason = "simulation")))
-    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), refit(k))
+    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reproduce(k))
   }, numeric(2))
   worst <- apply(diffs, 1L, max)
-  pass <- ifelse(worst < tolerance, "PASS", "FAIL")
   data.frame(handler = name, designs = n_designs,
-             worst_absolute = signif(worst[["absolute"]], 3), absolute = pass[["absolute"]],
-             worst_scaled = signif(worst[["scaled"]], 3), scaled = pass[["scaled"]])
+             worst_absolute = signif(worst[["absolute"]], 3),
+             worst_scaled = signif(worst[["scaled"]], 3),
+             result = if (worst[["scaled"]] < tolerance) "PASS" else "FAIL")
 })
 print(do.call(rbind, rows), row.names = FALSE)

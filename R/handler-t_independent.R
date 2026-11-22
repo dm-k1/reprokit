@@ -16,7 +16,7 @@ register_t_independent <- function() {
         test %in% c("student", "welch")
     },
     kit = t_independent_kit,
-    refit = t_independent_refit,
+    reproduce = t_independent_reproduce,
     reported = t_independent_reported,
     disclosure = function(k, threshold) {
       small <- k$stats$n[k$stats$n < threshold]
@@ -63,7 +63,7 @@ t_independent_kit <- function(x, data, test, alternative = "two.sided", conf_lev
   )
 }
 
-t_independent_refit <- function(kit) {
+t_independent_reproduce <- function(kit) {
   n <- unname(kit$stats$n)
   m <- unname(kit$stats$mean)
   v <- unname(kit$stats$sd)^2

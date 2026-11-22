@@ -5,7 +5,7 @@
 1. Open a "New handler" issue: analysis, verdict, sufficient statistics, catch,
    reference implementation, what is lost.
 2. Add `R/handler-<name>.R` that calls `register_handler()` from `.onLoad()`.
-3. A `summaries_suffice` handler must supply `kit`, `refit` and an `example`
+3. A `summaries_suffice` handler must supply `kit`, `reproduce` and an `example`
    model; the round-trip test in `test-registry.R` then covers it automatically.
 4. Add refusal tests for what the handler cannot do (`class = "reprokit_impossible"`).
 5. Document the evidence in `vignettes/validation.Rmd`.
