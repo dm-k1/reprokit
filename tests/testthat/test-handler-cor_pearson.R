@@ -9,9 +9,10 @@ test_that("Pearson reproduces cor.test for every alternative", {
   }
 })
 
-test_that("the summary stores n and r only", {
+test_that("the summary stores n, M and SD of both variables, and r", {
   s <- sufficient_stats(~ mpg + wt, data = mtcars, test = "pearson", sharing_reason = "test")
-  expect_named(s$stats, c("n", "r"))
+  expect_named(s$stats, c("n", "mean", "sd", "r"))
+  expect_named(s$stats$mean, c("mpg", "wt"))
   expect_identical(s$stats$n, 32L)
 })
 

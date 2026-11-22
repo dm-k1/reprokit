@@ -1,6 +1,8 @@
 # Pearson correlation test, written as `~ x + y` (as in cor.test).
 # In one line: n and r determine t, df, p and the Fisher-z CI exactly.
-# Means and SDs are not needed, so they are not stored (ADR 0004 condition 3).
+# M and SD of both variables are stored too: they are what a paper's
+# descriptives table reports with r (ADR 0009), and readers need them to
+# interpret r.
 
 register_cor_pearson <- function() {
   register_handler(
@@ -8,7 +10,7 @@ register_cor_pearson <- function() {
     family = "Correlation",
     analysis = "Pearson correlation test",
     verdict = "summaries_suffice",
-    needs = "n and r",
+    needs = "n, M and SD of both variables, and r",
     lost = c("checking the scatterplot for outliers and non-linearity",
              "Spearman, Kendall or robust alternatives"),
     matches = function(x, test = NULL, ...) {
@@ -39,7 +41,12 @@ cor_pearson_summarise <- function(x, data, test, alternative = "two.sided", conf
   cols <- pearson_columns(x, data)
   n <- length(cols$x)
   list(
-    stats = list(n = n, r = stats::cor(cols$x, cols$y)),
+    stats = list(
+      n = n,
+      mean = stats::setNames(c(mean(cols$x), mean(cols$y)), all.vars(x)),
+      sd = stats::setNames(c(stats::sd(cols$x), stats::sd(cols$y)), all.vars(x)),
+      r = stats::cor(cols$x, cols$y)
+    ),
     meta = list(n = n, test = test, alternative = alternative, conf_level = conf_level,
                 variables = all.vars(x))
   )
