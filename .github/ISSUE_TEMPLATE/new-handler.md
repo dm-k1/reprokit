@@ -8,7 +8,7 @@ labels: handler
 
 **Verdict claimed**: summaries_suffice / synthetic_possible / needs_raw_data
 
-**Sufficient statistics**: (what the kit stores)
+**Sufficient statistics**: (what `sufficient_stats()` stores)
 
 **Catch**: (SS type, conventions, disclosure risk, ...)
 

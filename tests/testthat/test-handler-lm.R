@@ -7,7 +7,7 @@ test_that("lm with numeric and factor predictors reproduces summary(lm)", {
     lm(mpg ~ 0 + factor(am), data = mtcars)
   )
   for (fit in fits) {
-    expect_reproduces(lm_reported(fit), reproduce(kit(fit, sharing_reason = "test")))
+    expect_reproduces(lm_reported(fit), reproduce(sufficient_stats(fit, sharing_reason = "test")))
   }
 })
 
@@ -27,7 +27,7 @@ test_that("weighted lm and offsets reproduce summary(lm) exactly", {
   )
   for (fit in fits) {
     expect_identical(triage(fit)$verdict, "summaries_suffice")
-    expect_reproduces(lm_reported(fit), reproduce(kit(fit, sharing_reason = "test")))
+    expect_reproduces(lm_reported(fit), reproduce(sufficient_stats(fit, sharing_reason = "test")))
   }
 })
 
@@ -38,7 +38,7 @@ test_that("rank deficiency is downgraded with a reason", {
   tr <- triage(fit)
   expect_identical(tr$verdict, "needs_raw_data")
   expect_match(tr$reason, "rank-deficient")
-  expect_error(kit(fit, sharing_reason = "test"), class = "reprokit_impossible")
+  expect_error(sufficient_stats(fit, sharing_reason = "test"), class = "reprokit_impossible")
 })
 
 test_that("weights cannot hide a small cell from the disclosure check", {

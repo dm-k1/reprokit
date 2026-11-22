@@ -33,10 +33,10 @@ test_that("the general minimum n applies to every handler, with or without its o
     "test_mean", family = "Test", analysis = "Mean", verdict = "summaries_suffice",
     needs = "n and mean", lost = "the raw values",
     matches = function(x, ...) inherits(x, "test_sample"),
-    kit = function(x, ...) {
+    summarise = function(x, ...) {
       list(stats = list(mean = mean(unclass(x))), meta = list(n = length(x)))
     },
-    reproduce = function(kit) c(mean = kit$stats$mean),
+    reproduce = function(s) c(mean = s$stats$mean),
     reported = function(x, ...) c(mean = mean(unclass(x))),
     example = function() list(x = structure(1:20, class = "test_sample"), args = list())
   )
@@ -48,16 +48,17 @@ test_that("the general minimum n applies to every handler, with or without its o
   expect_identical(triage(sample_of(10))$verdict, "summaries_suffice")
   # The minimum follows the threshold.
   expect_identical(triage(sample_of(9), threshold = 4)$verdict, "summaries_suffice")
-  expect_error(kit(sample_of(9), sharing_reason = "test"), class = "reprokit_impossible")
+  expect_error(sufficient_stats(sample_of(9), sharing_reason = "test"),
+               class = "reprokit_impossible")
 })
 
-test_that("a kit without meta$n is downgraded rather than trusted", {
+test_that("a summary without meta$n is downgraded rather than trusted", {
   local_handler(
     "test_no_n", family = "Test", analysis = "No n", verdict = "summaries_suffice",
     needs = "mean", lost = "the raw values",
     matches = function(x, ...) inherits(x, "test_no_n"),
-    kit = function(x, ...) list(stats = list(mean = 1), meta = list()),
-    reproduce = function(kit) c(mean = 1), reported = function(x, ...) c(mean = 1),
+    summarise = function(x, ...) list(stats = list(mean = 1), meta = list()),
+    reproduce = function(s) c(mean = 1), reported = function(x, ...) c(mean = 1),
     example = function() list(x = structure(1, class = "test_no_n"), args = list())
   )
   tr <- triage(structure(1, class = "test_no_n"))

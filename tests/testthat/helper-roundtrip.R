@@ -1,5 +1,5 @@
 # Round-trip contract (plan section 6, ADR 0005): for every handler that claims
-# exact reproduction, reproduce(kit(model)) must match the original with a scaled
+# exact reproduction, reproduce(sufficient_stats(model)) must match the original with a scaled
 # difference |original - reproduced| / max(1, |original|) below 1e-8.
 # Absolute for numbers up to 1, relative above (a large F carries floating-point
 # noise in absolute terms). Rounding the stored statistics is a bug; this catches it.
@@ -37,7 +37,7 @@ local_handler <- function(name, ..., env = parent.frame()) {
   invisible(name)
 }
 
-valid_kit_args <- function() {
+valid_stats_args <- function() {
   list(
     handler = "example",
     verdict = "summaries_suffice",

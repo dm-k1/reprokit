@@ -1,6 +1,6 @@
-#' Make a kit: the sufficient statistics of one analysis
+#' Store the sufficient statistics of one analysis
 #'
-#' `kit()` finds the handler for `x`, checks that summaries suffice
+#' `sufficient_stats()` finds the handler for `x`, checks that summaries suffice
 #' ([triage()] must say `summaries_suffice`, which includes the disclosure
 #' check), and stores the statistics that determine the reported results at
 #' full precision. If summaries do not suffice, it refuses with an error of
@@ -12,46 +12,46 @@
 #' @param lost Extra things readers lose. They are added to the handler's own
 #'   list, which cannot be removed.
 #' @param threshold Smallest group or cell size for the disclosure check.
-#' @return An object of class `reprokit_kit`.
+#' @return An object of class `reprokit_sufficient_stats`.
 #' @export
 #' @examples
-#' k <- kit(extra ~ group, data = sleep, test = "welch",
-#'          sharing_reason = "Consent did not cover public sharing.")
-#' reproduce(k)
-kit <- function(x, ..., sharing_reason, lost = NULL, threshold = 5) {
+#' s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
+#'                       sharing_reason = "Consent did not cover public sharing.")
+#' reproduce(s)
+sufficient_stats <- function(x, ..., sharing_reason, lost = NULL, threshold = 5) {
   handler <- find_handler(x, ...)
   tr <- triage(x, ..., threshold = threshold)
   if (is.null(handler) || tr$verdict != "summaries_suffice") {
-    abort_impossible("make a kit that reproduces this result exactly", tr$reason)
+    abort_impossible("store sufficient statistics that reproduce this result exactly", tr$reason)
   }
-  s <- handler$kit(x, ...)
-  disclosure <- if (is.null(handler$disclosure)) list() else handler$disclosure(s, threshold)
-  new_kit(
+  summary <- handler$summarise(x, ...)
+  disclosure <- if (is.null(handler$disclosure)) list() else handler$disclosure(summary, threshold)
+  new_sufficient_stats(
     handler = handler$name,
     verdict = tr$verdict,
     verdict_reason = tr$reason,
-    stats = s$stats,
-    meta = s$meta,
+    stats = summary$stats,
+    meta = summary$meta,
     disclosure = c(disclosure, list(threshold = threshold)),
     sharing_reason = sharing_reason,
     lost = unique(c(handler$lost, lost))
   )
 }
 
-#' Recompute the reported results from a kit
+#' Recompute the reported results from the sufficient statistics
 #'
-#' @param kit A kit from [kit()].
+#' @param s An object made by [sufficient_stats()].
 #' @return A named numeric vector of what a paper reports (test statistic,
-#'   df, p, estimates, CI, ...), computed from the kit alone.
+#'   df, p, estimates, CI, ...), computed from `s` alone.
 #' @export
 #' @examples
-#' k <- kit(extra ~ group, data = sleep, test = "welch",
-#'          sharing_reason = "Consent did not cover public sharing.")
-#' reproduce(k)
-reproduce <- function(kit) {
-  if (!is_kit(kit)) stop("`kit` must be a reprokit kit, made by kit().", call. = FALSE)
-  if (kit$verdict != "summaries_suffice") {
-    abort_impossible("reproduce this kit", kit$verdict_reason)
+#' s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
+#'                       sharing_reason = "Consent did not cover public sharing.")
+#' reproduce(s)
+reproduce <- function(s) {
+  if (!is_sufficient_stats(s)) stop("`s` must be made by sufficient_stats().", call. = FALSE)
+  if (s$verdict != "summaries_suffice") {
+    abort_impossible("reproduce these statistics", s$verdict_reason)
   }
-  get_handler(kit$handler)$reproduce(kit)
+  get_handler(s$handler)$reproduce(s)
 }

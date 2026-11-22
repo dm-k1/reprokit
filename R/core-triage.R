@@ -58,11 +58,11 @@ triage_with <- function(handler, x, ..., threshold) {
   # tiny groups are close to the raw data, so they protect no one and the
   # verdict drops. First the general minimum n (every handler, ADR 0006), then
   # the handler's own check of its groups or cells.
-  if (res$verdict == "summaries_suffice" && !is.null(handler$kit)) {
-    k <- handler$kit(x, ...)
-    problems <- minimum_n_problem(k$meta$n, threshold)
+  if (res$verdict == "summaries_suffice" && !is.null(handler$summarise)) {
+    summary <- handler$summarise(x, ...)
+    problems <- minimum_n_problem(summary$meta$n, threshold)
     if (length(problems) == 0L && !is.null(handler$disclosure)) {
-      problems <- handler$disclosure(k, threshold)$problems
+      problems <- handler$disclosure(summary, threshold)$problems
     }
     if (length(problems) > 0L) {
       res <- list(
@@ -100,7 +100,7 @@ no_handler_reason <- function(x) {
            paste0('"', formula_tests(), '"', collapse = ", "), ".")
   } else if (inherits(x, "htest")) {
     paste0(" A test result does not contain the data; pass the formula and data ",
-           'instead, e.g. kit(y ~ group, data = d, test = "welch").')
+           'instead, e.g. sufficient_stats(y ~ group, data = d, test = "welch").')
   } else {
     ""
   }

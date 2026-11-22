@@ -15,11 +15,11 @@ register_t_independent <- function() {
       inherits(x, "formula") && is.character(test) && length(test) == 1L &&
         test %in% c("student", "welch")
     },
-    kit = t_independent_kit,
+    summarise = t_independent_summarise,
     reproduce = t_independent_reproduce,
     reported = t_independent_reported,
-    disclosure = function(k, threshold) {
-      small <- k$stats$n[k$stats$n < threshold]
+    disclosure = function(summary, threshold) {
+      small <- summary$stats$n[summary$stats$n < threshold]
       list(
         passed = length(small) == 0L,
         checked = "group sizes",
@@ -38,7 +38,8 @@ register_t_independent <- function() {
   )
 }
 
-t_independent_kit <- function(x, data, test, alternative = "two.sided", conf_level = 0.95, ...) {
+t_independent_summarise <- function(x, data, test, alternative = "two.sided", conf_level = 0.95,
+                                    ...) {
   alternative <- match.arg(alternative, c("two.sided", "less", "greater"))
   mf <- stats::model.frame(x, data)
   if (ncol(mf) != 2L) stop("The formula must be `outcome ~ group`.", call. = FALSE)
@@ -63,13 +64,13 @@ t_independent_kit <- function(x, data, test, alternative = "two.sided", conf_lev
   )
 }
 
-t_independent_reproduce <- function(kit) {
-  n <- unname(kit$stats$n)
-  m <- unname(kit$stats$mean)
-  v <- unname(kit$stats$sd)^2
+t_independent_reproduce <- function(s) {
+  n <- unname(s$stats$n)
+  m <- unname(s$stats$mean)
+  v <- unname(s$stats$sd)^2
   mean_diff <- m[1] - m[2]
 
-  if (kit$meta$test == "student") {
+  if (s$meta$test == "student") {
     df <- n[1] + n[2] - 2
     pooled_var <- ((n[1] - 1) * v[1] + (n[2] - 1) * v[2]) / df
     se <- sqrt(pooled_var * (1 / n[1] + 1 / n[2]))
@@ -79,8 +80,8 @@ t_independent_reproduce <- function(kit) {
     df <- sum(var_of_mean)^2 / sum(var_of_mean^2 / (n - 1))   # Welch-Satterthwaite
   }
   t <- mean_diff / se
-  ci <- t_ci(mean_diff, se, df, kit$meta$alternative, kit$meta$conf_level)
-  c(t = t, df = df, p = t_p(t, df, kit$meta$alternative),
+  ci <- t_ci(mean_diff, se, df, s$meta$alternative, s$meta$conf_level)
+  c(t = t, df = df, p = t_p(t, df, s$meta$alternative),
     mean_diff = mean_diff, ci_lower = ci[1], ci_upper = ci[2])
 }
 

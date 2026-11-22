@@ -30,11 +30,11 @@ register_lm <- function() {
            reason = paste0("Summary statistics suffice: n, the means and the covariance ",
                            "matrix of the predictors and outcome determine the fit exactly."))
     },
-    kit = lm_kit,
+    summarise = lm_summarise,
     reproduce = lm_reproduce,
     reported = lm_reported,
     disclosure = lm_disclosure,
-    conventions = "contrasts for factor predictors (stored in the kit)",
+    conventions = "contrasts for factor predictors (stored with the statistics)",
     example = function() {
       list(x = stats::lm(mpg ~ wt + factor(cyl), data = base_data("mtcars")), args = list())
     }
@@ -42,8 +42,8 @@ register_lm <- function() {
 }
 
 # summary.lm treats an offset as part of the outcome (fitted - offset is what
-# it explains) and rows with weight 0 as absent, so the kit does the same.
-lm_kit <- function(x, ...) {
+# it explains) and rows with weight 0 as absent, so the summary does the same.
+lm_summarise <- function(x, ...) {
   mf <- stats::model.frame(x)
   predictors <- stats::model.matrix(x)
   predictors <- predictors[, colnames(predictors) != "(Intercept)", drop = FALSE]
@@ -75,36 +75,36 @@ lm_kit <- function(x, ...) {
       formula = deparse(stats::formula(x)),
       contrasts = x$contrasts
     ),
-    # Used by the disclosure check only; not stored in the kit.
+    # Used by the disclosure check only; not stored.
     check = list(binary_counts = binary_counts(z))
   )
 }
 
-# Sum of weights W and centred cross-products S, for both kit forms.
-lm_crossproducts <- function(kit) {
-  if (isTRUE(kit$meta$weighted)) {
-    list(w = kit$stats$sum_w, s = kit$stats$sscp)
+# Sum of weights W and centred cross-products S, for both forms (weighted, unweighted).
+lm_crossproducts <- function(s) {
+  if (isTRUE(s$meta$weighted)) {
+    list(w = s$stats$sum_w, s = s$stats$sscp)
   } else {
-    list(w = kit$stats$n, s = (kit$stats$n - 1) * kit$stats$cov)
+    list(w = s$stats$n, s = (s$stats$n - 1) * s$stats$cov)
   }
 }
 
-lm_reproduce <- function(kit) {
-  n <- kit$stats$n
-  cp <- lm_crossproducts(kit)
+lm_reproduce <- function(s) {
+  n <- s$stats$n
+  cp <- lm_crossproducts(s)
   sum_w <- cp$w
-  s <- cp$s
+  sscp <- cp$s
   y_col <- "(response)"
-  x_cols <- setdiff(names(kit$stats$mean), y_col)
+  x_cols <- setdiff(names(s$stats$mean), y_col)
   p <- length(x_cols)
-  m <- kit$stats$mean[x_cols]
-  y_mean <- kit$stats$mean[[y_col]]
+  m <- s$stats$mean[x_cols]
+  y_mean <- s$stats$mean[[y_col]]
 
-  if (kit$meta$intercept) {
-    tss <- s[y_col, y_col]
+  if (s$meta$intercept) {
+    tss <- sscp[y_col, y_col]
     if (p > 0L) {
-      sxx <- s[x_cols, x_cols, drop = FALSE]
-      sxy <- s[x_cols, y_col]
+      sxx <- sscp[x_cols, x_cols, drop = FALSE]
+      sxy <- sscp[x_cols, y_col]
       sxx_inv <- solve(sxx)
       slopes <- drop(sxx_inv %*% sxy)
       rss <- tss - sum(sxy * slopes)
@@ -121,9 +121,9 @@ lm_reproduce <- function(kit) {
     df_int <- 1
   } else {
     # Uncentred cross-products, rebuilt from the means and centred cross-products.
-    xtx <- s[x_cols, x_cols, drop = FALSE] + sum_w * tcrossprod(m)
-    xty <- s[x_cols, y_col] + sum_w * m * y_mean
-    yty <- s[y_col, y_col] + sum_w * y_mean^2
+    xtx <- sscp[x_cols, x_cols, drop = FALSE] + sum_w * tcrossprod(m)
+    xty <- sscp[x_cols, y_col] + sum_w * m * y_mean
+    yty <- sscp[y_col, y_col] + sum_w * y_mean^2
     xtx_inv <- solve(xtx)
     estimate <- drop(xtx_inv %*% xty)
     rss <- yty - sum(xty * estimate)
@@ -184,8 +184,8 @@ binary_counts <- function(z) {
 
 # Any cell of a 0/1 column or of a pair's 2 x 2 table with 0 < count < threshold
 # is flagged. Continuous columns are not checked.
-lm_disclosure <- function(k, threshold) {
-  counts <- k$check$binary_counts
+lm_disclosure <- function(summary, threshold) {
+  counts <- summary$check$binary_counts
   n <- counts$n
   ones <- counts$ones
   b <- names(ones)

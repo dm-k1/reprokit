@@ -13,7 +13,7 @@ readers, and what those readers lose.
 \details{
 Two directions use the same statistics:
 \itemize{
-\item \strong{share} -- \code{\link[=triage]{triage()}}, \code{kit()}, \code{reproduce()}, \code{appendix()} (planned)
+\item \strong{share} -- \code{\link[=triage]{triage()}}, \code{\link[=sufficient_stats]{sufficient_stats()}}, \code{\link[=reproduce]{reproduce()}}, \code{appendix()} (planned)
 \item \strong{check} -- \verb{check_*()} consistency checks (planned)
 }
 }

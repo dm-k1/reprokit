@@ -9,7 +9,7 @@
 #' @param name Unique id, e.g. `"t_independent"`.
 #' @param family,analysis Labels for the coverage table.
 #' @param verdict One of [verdicts()].
-#' @param needs What the kit must store, in words.
+#' @param needs What must be stored, in words.
 #' @param catch Pitfalls, in words (`NA` if none).
 #' @param lost Character vector: what readers lose compared with raw data.
 #' @param matches `function(x, ...)` returning `TRUE` if this handler handles
@@ -18,17 +18,17 @@
 #' @param triage `function(x, ..., threshold)` returning a list with `verdict`
 #'   and `reason`; `NULL` means "always `verdict`". A `summaries_suffice`
 #'   verdict is then still checked against `disclosure` (ADR 0004 condition 3).
-#' @param kit `function(x, ...)` returning `list(stats = , meta = )`: the
+#' @param summarise `function(x, ...)` returning `list(stats = , meta = )`: the
 #'   sufficient statistics at full precision. `meta$n` must be the total sample
 #'   size (used by the general minimum-n check, ADR 0006). It may also return
-#'   `check`, information for `disclosure` only, which is not stored in the kit.
+#'   `check`, information for `disclosure` only, which is not stored.
 #'   `NULL` for triage-only handlers.
-#' @param reproduce `function(kit)` returning the named numeric vector that
-#'   `reported` returns, computed from the kit alone.
+#' @param reproduce `function(s)` returning the named numeric vector that
+#'   `reported` returns, computed from `s` (made by [sufficient_stats()]) alone.
 #' @param reported `function(x, ...)` returning a named numeric vector of what
 #'   a paper reports, computed from the raw data with base R. Required for
 #'   `summaries_suffice` handlers: it is the reference in the round-trip test.
-#' @param disclosure `function(k, threshold)`, where `k` is what `kit` returns
+#' @param disclosure `function(summary, threshold)`, where `summary` is what `summarise` returns
 #'   (`list(stats = , meta = , check = )`), returning
 #'   `list(passed = , checked = , problems = )`. A risk reduction, never a
 #'   guarantee.
@@ -43,7 +43,7 @@
 #' @keywords internal
 #' @noRd
 register_handler <- function(name, family, analysis, verdict, needs, catch = NA_character_,
-                             lost, matches, triage = NULL, kit = NULL, reproduce = NULL,
+                             lost, matches, triage = NULL, summarise = NULL, reproduce = NULL,
                              reported = NULL, disclosure = NULL, conventions = NULL,
                              formula_tests = NULL, example = NULL) {
   check_verdict(verdict)
@@ -52,7 +52,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.character(lost), length(lost) >= 1L,
     is.function(matches),
     is.null(triage) || is.function(triage),
-    is.null(kit) || is.function(kit),
+    is.null(summarise) || is.function(summarise),
     is.null(reproduce) || is.function(reproduce),
     is.null(reported) || is.function(reported),
     is.null(disclosure) || is.function(disclosure),
@@ -60,7 +60,8 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(formula_tests) || is.character(formula_tests),
     is.null(example) || is.function(example)
   )
-  exact_parts <- list(kit = kit, reproduce = reproduce, reported = reported, example = example)
+  exact_parts <- list(summarise = summarise, reproduce = reproduce, reported = reported,
+                      example = example)
   missing_parts <- names(exact_parts)[vapply(exact_parts, is.null, logical(1))]
   if (verdict == "summaries_suffice" && length(missing_parts) > 0L) {
     stop("Handler '", name, "' claims exact reproduction but has no ",
@@ -69,7 +70,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
   assign(name, list(
     name = name, family = family, analysis = analysis, verdict = verdict,
     needs = needs, catch = catch, lost = lost, matches = matches, triage = triage,
-    kit = kit, reproduce = reproduce, reported = reported, disclosure = disclosure,
+    summarise = summarise, reproduce = reproduce, reported = reported, disclosure = disclosure,
     conventions = conventions, formula_tests = formula_tests, example = example
   ), envir = .registry)
   invisible(name)

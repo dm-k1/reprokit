@@ -15,11 +15,11 @@
 
 | Direction | For | Functions |
 |---|---|---|
-| Share | authors who cannot share raw data | `triage()`, `kit()`, `reproduce()`, `appendix()` |
+| Share | authors who cannot share raw data | `triage()`, `sufficient_stats()`, `reproduce()`, `appendix()` |
 | Check | readers and reviewers | `check_*()` consistency checks |
 
-Only `triage()`, `new_kit()`, `handlers()`, `coverage_table()` and `verdicts()`
-exist so far; the rest is planned (see `docs/project-plan.md` in the workspace).
+Only `triage()`, `sufficient_stats()`, `reproduce()`, `handlers()`, `coverage_table()`
+and `verdicts()` exist so far; the rest is planned (see `docs/project-plan.md` in the workspace).
 
 ## What it covers
 

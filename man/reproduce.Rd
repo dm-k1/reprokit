@@ -2,22 +2,22 @@
 % Please edit documentation in R/core-verbs.R
 \name{reproduce}
 \alias{reproduce}
-\title{Recompute the reported results from a kit}
+\title{Recompute the reported results from the sufficient statistics}
 \usage{
-reproduce(kit)
+reproduce(s)
 }
 \arguments{
-\item{kit}{A kit from \code{\link[=kit]{kit()}}.}
+\item{s}{An object made by \code{\link[=sufficient_stats]{sufficient_stats()}}.}
 }
 \value{
 A named numeric vector of what a paper reports (test statistic,
-df, p, estimates, CI, ...), computed from the kit alone.
+df, p, estimates, CI, ...), computed from \code{s} alone.
 }
 \description{
-Recompute the reported results from a kit
+Recompute the reported results from the sufficient statistics
 }
 \examples{
-k <- kit(extra ~ group, data = sleep, test = "welch",
-         sharing_reason = "Consent did not cover public sharing.")
-reproduce(k)
+s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
+                      sharing_reason = "Consent did not cover public sharing.")
+reproduce(s)
 }

@@ -26,7 +26,7 @@ knitr::kable(coverage_table())
 
 For each handler:
 
-1. **Round-trip**: `reproduce(kit(model))` matches the original with a scaled
+1. **Round-trip**: `reproduce(sufficient_stats(model))` matches the original with a scaled
    difference `|original - reproduced| / max(1, |original|)` below `1e-8`.
 2. **Reference implementation**: agreement with `lavaan`, `metafor` or
    `statcheck` where one exists.
