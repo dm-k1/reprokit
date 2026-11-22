@@ -10,8 +10,8 @@ Description: Helps authors who cannot share raw data report the sufficient
     output requires a stated reason for not sharing and lists what readers
     lose, because sharing raw data remains the standard.
 License: MIT + file LICENSE
-URL: https://github.com/OWNER/reprokit
-BugReports: https://github.com/OWNER/reprokit/issues
+URL: https://github.com/dm-k1/reprokit
+BugReports: https://github.com/dm-k1/reprokit/issues
 Depends:
     R (>= 4.1.0)
 Imports:

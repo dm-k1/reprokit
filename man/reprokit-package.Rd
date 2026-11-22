@@ -20,8 +20,8 @@ Two directions use the same statistics:
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/OWNER/reprokit}
-  \item Report bugs at \url{https://github.com/OWNER/reprokit/issues}
+  \item \url{https://github.com/dm-k1/reprokit}
+  \item Report bugs at \url{https://github.com/dm-k1/reprokit/issues}
 }
 
 }

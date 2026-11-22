@@ -2,7 +2,7 @@
 
 <!-- badges: start -->
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![R-CMD-check](https://github.com/OWNER/reprokit/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/OWNER/reprokit/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/dm-k1/reprokit/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/dm-k1/reprokit/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 > Sharing raw data remains the standard. When sharing is genuinely impossible,
@@ -30,7 +30,7 @@ disagree with the code. No handlers are registered yet.
 
 ```r
 # install.packages("pak")
-pak::pak("OWNER/reprokit")
+pak::pak("dm-k1/reprokit")
 ```
 
 ## Prior art
