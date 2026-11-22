@@ -1,0 +1,35 @@
+---
+title: "Validation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Validation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This vignette documents, per handler, the evidence that the package does what
+the coverage table claims (plan section 6). It is filled in as handlers are
+added.
+
+## Coverage table (generated from the registry)
+
+```{r}
+library(reprokit)
+knitr::kable(coverage_table())
+```
+
+## Evidence per handler
+
+For each handler:
+
+1. **Round-trip**: `refit(kit(model))` matches the original within `1e-8`.
+2. **Reference implementation**: agreement with `lavaan`, `metafor` or
+   `statcheck` where one exists.
+3. **Refusal**: requests that need the raw data stop with class
+   `reprokit_impossible`.
+4. **Check rules**: each rule has a test that it fires on a known-bad input
+   and stays silent on a known-good input.
