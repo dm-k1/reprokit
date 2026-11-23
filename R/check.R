@@ -30,7 +30,8 @@
 #'   level, and the range implied for it), `$variants` (a list with one data
 #'   frame per kind of variant the handler has, each of the variants tried and
 #'   whether they fit: `tail`, `level`, `test` (Student or Welch) and
-#'   `convention` (how an effect size was computed)), `$relations`, `$implied`
+#'   `convention` (how an effect size was computed)), `$relations`, `$implied`,
+#'   `$implied_inputs` (numbers derived from reported ones, such as `n` from `df`)
 #'   and `$checked` (whether any relation that can falsify was compared with a
 #'   reported number; without one there is no verdict).
 #'
@@ -44,6 +45,11 @@
 #'   whole number. A relation whose result is not finite for the reported values
 #'   (`"1.00"` for `r` gives an infinite t) is skipped, as if an input were
 #'   missing; it never counts as a failure.
+#'
+#'   When `n` is not reported but `df` is, `n` is derived from `df` for the
+#'   handlers where that is exact (a correlation, a paired or one-sample t): it
+#'   is used by the other relations, shown as `$implied_inputs`, and counts for
+#'   the coverage level, but `df` is never checked against it.
 #' @export
 #' @examples
 #' check_reported("t_paired", n = "20", t = "2.85", df = "19", p = ".010")
@@ -70,19 +76,22 @@ check_reported <- function(handler, ..., variants = NULL, mu = 0) {
     as_count <- quantity %in% c("n", "df")
     restrict_to_domain(interval_bounds(reported_value(x, as_count = as_count)), quantity, x)
   }, reported, names(reported))
-  evaluations <- evaluate_relations(entry$relations, intervals, variants)
+  implied_inputs <- derive_implied_inputs(entry$relations, intervals)
+  evaluations <- evaluate_relations(entry$relations, intervals, variants, implied_inputs)
 
-  number_status <- number_statuses(reported, evaluations, entry$relations)
-  level <- coverage_level(entry, names(reported), unique(evaluations$relation))
+  number_status <- number_statuses(reported, evaluations, entry$relations, implied_inputs)
+  known <- c(names(reported), names(implied_inputs))
+  level <- coverage_level(entry, known, unique(evaluations$relation))
   implied <- implied_ranges(entry, intervals, evaluations)
   structure(list(
     handler = handler,
     numbers = number_status,
     level = level,
-    missing = missing_numbers(entry, names(reported), level, implied),
+    missing = missing_numbers(entry, known, level, implied),
     variants = variant_fits(evaluations),
     relations = evaluations,
     implied = implied,
+    implied_inputs = implied_inputs,
     checked = any(evaluations$checked & evaluations$falsifies),
     consistent = !any(number_status$status == "inconsistent")
   ), class = "reprokit_check")
@@ -118,10 +127,46 @@ handlers_with_relations <- function() {
   Filter(function(name) length(get_handler(name)$relations) > 0L, handlers())
 }
 
+# Inputs the paper did not report but a reported output determines exactly: for a
+# relation with an `inverse` and one input (df from n), the integer inputs whose
+# output lies in the reported output's interval. Returns a named list of
+# list(lower, upper, from = output quantity); empty when the snapped interval is empty.
+derive_implied_inputs <- function(relations, intervals) {
+  implied <- list()
+  for (rel in relations) {
+    input <- rel$inputs[1L]
+    if (is.null(rel$inverse) || input %in% names(intervals) || input %in% names(implied) ||
+          !rel$output %in% names(intervals)) {
+      next
+    }
+    target <- interval_bounds(intervals[[rel$output]])
+    if (length(target$lower) != 1L) next
+    lower <- rel$inverse(target$lower)
+    upper <- rel$inverse(target$upper)
+    if (!is.finite(lower) || !is.finite(upper)) next
+    # Floating-point slack only, as in intervals_overlap(): the input is an integer.
+    slack <- 1e-9 * max(1, abs(c(lower, upper)))
+    lower <- ceiling(lower - slack)
+    upper <- floor(upper + slack)
+    if (lower <= upper) {
+      implied[[input]] <- list(lower = lower, upper = upper, from = rel$output)
+    }
+  }
+  implied
+}
+
+# A relation that computes the very quantity an implied input was derived from
+# would check that quantity against itself; it never runs.
+uses_own_output <- function(rel, implied) {
+  any(vapply(rel$inputs, function(input) {
+    identical(implied[[input]]$from, rel$output)
+  }, logical(1)))
+}
+
 # One row per relation and variant whose inputs are all reported. `checked` says
 # the output is reported too, so `fits` is a comparison; otherwise only the
 # derived range is recorded.
-evaluate_relations <- function(relations, intervals, variants) {
+evaluate_relations <- function(relations, intervals, variants, implied = list()) {
   known_variants <- unique(unlist(lapply(relations, `[[`, "variants")))
   unknown <- setdiff(variants, known_variants)
   if (length(unknown) > 0L) {
@@ -132,13 +177,18 @@ evaluate_relations <- function(relations, intervals, variants) {
   # An unreported output becomes available as an input to later relations with
   # the range derived for it (so p can be checked from r and n through t). Such
   # a number counts as descriptive-based: it was derived from n, m, sd or r.
-  available <- intervals
+  # An implied input (n from df) is available too, but it is not in `intervals`,
+  # so nothing is checked against it, and not in `basis`: it is not a descriptive.
+  available <- c(intervals, lapply(implied, function(x) x[c("lower", "upper")]))
   basis <- intersect(names(intervals), descriptive_quantities())
   done <- character()
   repeat {
     progressed <- FALSE
     for (rel in relations) {
-      if (rel$name %in% done || !all(rel$inputs %in% names(available))) next
+      if (rel$name %in% done || !all(rel$inputs %in% names(available)) ||
+            uses_own_output(rel, implied)) {
+        next
+      }
       done <- c(done, rel$name)
       progressed <- TRUE
       to_run <- if (is.null(rel$variants)) NA_character_ else rel$variants
@@ -224,15 +274,16 @@ relation_outcomes <- function(evaluations) {
 #                   is reported and which could not be evaluated because another
 #                   input is missing; `checked_against` says which
 #   not checkable - no relation reaches it
-number_statuses <- function(reported, evaluations, relations) {
+number_statuses <- function(reported, evaluations, relations, implied = list()) {
   outcomes <- relation_outcomes(evaluations)
   detail <- unique(evaluations[evaluations$checked,
                                c("relation", "output", "inputs", "from_descriptives",
                                  "falsifies")])
   # What an unevaluated relation lacks: inputs neither reported nor derived.
-  have <- c(names(reported), evaluations$output)
+  have <- c(names(reported), names(implied), evaluations$output)
   stalled <- Filter(function(rel) {
-    !rel$name %in% evaluations$relation && rel$output %in% names(reported)
+    !rel$name %in% evaluations$relation && rel$output %in% names(reported) &&
+      !uses_own_output(rel, implied)
   }, relations)
   per_quantity <- lapply(names(reported), function(quantity) {
     involved <- detail[detail$output == quantity |
@@ -396,6 +447,10 @@ variant_fits <- function(evaluations) {
   })
 }
 
+format_implied_input <- function(found) {
+  if (found$lower == found$upper) format(found$lower) else paste(found$lower, "to", found$upper)
+}
+
 level_words <- function(level) {
   words <- c(
     "Level 0: nothing could be checked with the reported numbers.",
@@ -434,6 +489,13 @@ print.reprokit_check <- function(x, ...) {
     for (quantity in names(x$implied)) {
       cat("  ", quantity, ": ", format_implied(x$implied[[quantity]]), "\n", sep = "")
     }
+  }
+  if (length(x$implied_inputs) > 0L) {
+    values <- vapply(x$implied_inputs, format_implied_input, character(1))
+    sources <- vapply(x$implied_inputs, `[[`, character(1), "from")
+    cat("\nDerived from the reported numbers: ",
+        paste0(names(x$implied_inputs), " = ", values, " (from ", sources, ")",
+               collapse = ", "), ".\n", sep = "")
   }
   if (nrow(x$missing) > 0L) {
     cat("\nReporting these would raise the level: ",

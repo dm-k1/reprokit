@@ -8,7 +8,8 @@
 # Rounding as printed: 2 decimals for t, M and SD (0 decimals in the "coarse"
 # designs), 3 for p and r, "< .001" below .001, CI at the decimals of M.
 # Each design is checked on several reported subsets (all numbers, no CI,
-# descriptives + t + p, t/df/p only, n/r/df/t, no r, random subsets).
+# descriptives + t + p, t/df/p only, n/r/df/t, no r, random subsets; for Pearson also r/df/p
+# and r/df/p/CI, where n is not reported and is implied by df).
 # The draws deliberately include the cases that once broke it: |r| >= .995 with r
 # rounding to 1.000, small n (3 to 6) and SD reported to zero decimals.
 # PASS criterion: false positives == 0 AND errors == 0. A false positive is a
@@ -62,8 +63,14 @@ paired_subsets <- function(paper, with_no_r) {
 
 pearson_subsets <- function(paper) {
   keys <- names(paper)
-  list(keys, c("n", "r", "df", "t", "p"), c("r", "n"), c("n", "r", "p"), c("t", "df", "p"),
-       sample(keys, sample(2:length(keys), 1L)))
+  # r/df/p and r/df/p/ci: n is not reported and is implied by df (n = df + 2)
+  subsets <- list(keys, c("n", "r", "df", "t", "p"), c("r", "n"), c("n", "r", "p"),
+                  c("t", "df", "p"), c("r", "df", "p"),
+                  sample(keys, sample(2:length(keys), 1L)))
+  if (all(c("ci_lower", "ci_upper") %in% keys)) {
+    subsets <- c(subsets, list(c("r", "df", "p", "ci_lower", "ci_upper")))
+  }
+  subsets
 }
 
 tally <- function(handler, n_designs, make, subsets_of) {

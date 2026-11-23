@@ -6,12 +6,11 @@
 # Papers: the same 360-paper-per-group draw as check-planted-errors.R (same seed, same draw),
 # correct and with one planted error, restricted to the numbers an APA string carries:
 #   t(df) = t, p = p   for t_paired, t_independent (Student, Welch), t_one_sample, cor_pearson
-#   r(df) = r, p = p   for cor_pearson_r. check_reported(cor_pearson, r =, df =, p =) cannot
-#                      check this (df does not stand in for n: level 0, "not checkable"; the
-#                      script counts those strings), so the reader's translation n = df + 2
-#                      is passed: check_reported(cor_pearson, r =, n = df + 2, p =)
+#   r(df) = r, p = p   for cor_pearson_r, passed as check_reported(cor_pearson, r =, df =, p =):
+#                      n is not reported, so check_reported implies it from df (n = df + 2) and
+#                      the script counts any string left at level 0 (not checkable)
 # Planted papers are those whose planted number is in the string (t, df, p; for cor_pearson_r
-# only r and p, since df is absorbed into n).
+# r, df and p).
 # statcheck is called as statcheck::statcheck(text, messages = FALSE), one string per element,
 # and mapped back by its `source` index; a string it does not parse is "unparsed" and dropped.
 # statcheck's verdict is its `error` column (the reported p does not match the p computed from
@@ -65,10 +64,9 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
   add <- function(group, handler, truth, type, paper, form) {
     # statcheck cannot compute a p for |r| = 1 (it stops with an error): such a string is left out
     if (form == "r" && abs(as.numeric(paper$r)) >= 1) return(invisible())
-    if (form == "r") paper$n <- as.character(as.numeric(paper$df) + 2)
     row <- list(group = group, handler = handler, truth = truth, type = type, paper = paper,
                 form = form, text = if (form == "t") apa_t(paper) else apa_r(paper),
-                keys = if (form == "t") c("t", "df", "p") else c("r", "n", "p"))
+                keys = if (form == "t") c("t", "df", "p") else c("r", "df", "p"))
     rows[[length(rows) + 1L]] <<- row # nolint: assignment_linter
   }
   for (g in names(cases)) {
@@ -80,7 +78,7 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
       }
       if (g == "cor_pearson") {
         add("cor_pearson_r", handler, "correct", "none", case$paper, "r")
-        if (case$planted$quantity %in% c("r", "p")) {
+        if (case$planted$quantity %in% c("r", "df", "p")) {
           add("cor_pearson_r", handler, "planted", case$type, case$planted$paper, "r")
         }
       }
@@ -165,10 +163,10 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
   }
   raw_r <- Filter(function(row) row$form == "r", rows)
   raw_level <- unlist(parallel::mclapply(raw_r, function(row) {
-    res <- run_check(row$handler, row$paper, c("r", "df", "p"))
+    res <- run_check(row$handler, row$paper, row$keys)
     if (inherits(res, "error")) NA_integer_ else res$level
   }, mc.cores = 6L))
-  cat("\nr(df), p strings passed as r, df, p (no n): level 0 (not checkable) for",
+  cat("\nr(df), p strings passed as r, df, p (n implied from df): level 0 (not checkable) for",
       sum(raw_level == 0L, na.rm = TRUE), "of", length(raw_r), "\n")
   cat("\nCorrect papers only: check_reported inconsistent / statcheck error, of n\n")
   corr <- d[d$truth == "correct", ]

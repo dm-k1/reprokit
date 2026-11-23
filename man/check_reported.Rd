@@ -36,7 +36,8 @@ number), \verb{$level} (coverage, 0 to 3), \verb{$missing} (what would raise the
 level, and the range implied for it), \verb{$variants} (a list with one data
 frame per kind of variant the handler has, each of the variants tried and
 whether they fit: \code{tail}, \code{level}, \code{test} (Student or Welch) and
-\code{convention} (how an effect size was computed)), \verb{$relations}, \verb{$implied}
+\code{convention} (how an effect size was computed)), \verb{$relations}, \verb{$implied},
+\verb{$implied_inputs} (numbers derived from reported ones, such as \code{n} from \code{df})
 and \verb{$checked} (whether any relation that can falsify was compared with a
 reported number; without one there is no verdict).
 
@@ -50,6 +51,11 @@ in -1 to 1, \code{sd} and \code{df} are not negative, \code{p} is in 0 to 1, \co
 whole number. A relation whose result is not finite for the reported values
 (\code{"1.00"} for \code{r} gives an infinite t) is skipped, as if an input were
 missing; it never counts as a failure.
+
+When \code{n} is not reported but \code{df} is, \code{n} is derived from \code{df} for the
+handlers where that is exact (a correlation, a paired or one-sample t): it
+is used by the other relations, shown as \verb{$implied_inputs}, and counts for
+the coverage level, but \code{df} is never checked against it.
 }
 \description{
 Takes the numbers a paper reports for an analysis and tests whether they can

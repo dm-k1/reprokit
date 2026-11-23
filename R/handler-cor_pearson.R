@@ -41,7 +41,8 @@ cor_pearson_relations <- function() {
     }
   }
   list(
-    relation("df_from_n", "n", "df", function(vals, variant) vals$n - 2),
+    relation("df_from_n", "n", "df", function(vals, variant) vals$n - 2,
+             inverse = function(df) df + 2),
     relation("t_from_r", c("r", "n"), "t", function(vals, variant) {
       vals$r * sqrt(vals$n - 2) / sqrt(1 - vals$r^2)
     }),

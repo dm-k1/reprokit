@@ -16,11 +16,15 @@
 # for a relation whose formula authors choose freely and rarely declare (the
 # d convention): when none of its variants fits, the number is "not
 # reproducible", never "inconsistent".
+# `inverse(output_value)` is optional: for a relation with a single, integer-valued input
+# (df from n) it returns the input that gives that output, increasing in the output. When the
+# input is not reported but the output is, check_reported() derives the input from it (an
+# "implied" input, usable by other relations but never compared with a reported number).
 # `stationary(intervals)` is optional: it returns a list of extra points, each
 # a named list of input values inside the box, where `fn` can have an interior
 # extremum that the corners miss (see relation_range()).
 relation <- function(name, inputs, output, fn, variants = NULL, variant_kind = "tail",
-                     stationary = NULL, falsifies = TRUE) {
+                     stationary = NULL, falsifies = TRUE, inverse = NULL) {
   stopifnot(is.character(name), length(name) == 1L, nzchar(name),
             is.character(inputs), length(inputs) >= 1L,
             is.character(output), length(output) == 1L,
@@ -28,10 +32,13 @@ relation <- function(name, inputs, output, fn, variants = NULL, variant_kind = "
             is.null(variants) || (is.character(variants) && length(variants) >= 1L),
             variant_kind %in% relation_variant_kinds(),
             is.null(stationary) || is.function(stationary),
-            is.logical(falsifies), length(falsifies) == 1L, !is.na(falsifies))
+            is.logical(falsifies), length(falsifies) == 1L, !is.na(falsifies),
+            is.null(inverse) || (is.function(inverse) && length(formals(inverse)) == 1L &&
+                                   length(inputs) == 1L))
   check_quantity_names(c(inputs, output), "quantity name in relation")
   list(name = name, inputs = inputs, output = output, fn = fn, variants = variants,
-       variant_kind = variant_kind, stationary = stationary, falsifies = falsifies)
+       variant_kind = variant_kind, stationary = stationary, falsifies = falsifies,
+       inverse = inverse)
 }
 
 # The kinds of variant, in the order they are listed, with the words used for
@@ -45,7 +52,7 @@ variant_kind_labels <- function() {
 
 is_relation <- function(x) {
   is.list(x) && identical(names(x), c("name", "inputs", "output", "fn", "variants",
-                                      "variant_kind", "stationary", "falsifies"))
+                                      "variant_kind", "stationary", "falsifies", "inverse"))
 }
 
 # Slack for floating-point error only (1e-9 of the magnitude); the rounding

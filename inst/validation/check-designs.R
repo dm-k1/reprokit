@@ -211,7 +211,10 @@ draw_cases <- function(group, n_papers) {
 report_subsets <- function(handler, paper) {
   desc <- switch(handler, t_paired = c("n", "m", "sd", "r", "t", "p"),
                  cor_pearson = c("n", "r", "t", "p"), c("n", "m", "sd", "t", "p"))
-  list(all = names(paper), `t/df/p` = c("t", "df", "p"), `desc+t+p` = desc)
+  subsets <- list(all = names(paper), `t/df/p` = c("t", "df", "p"), `desc+t+p` = desc)
+  # The APA form r(df) = r, p = p: n is not reported, it is implied by df (n = df + 2).
+  if (handler == "cor_pearson") subsets[["r/df/p"]] <- c("r", "df", "p")
+  subsets
 }
 
 # check_reported() on the named numbers of a paper; an error is returned, not thrown.

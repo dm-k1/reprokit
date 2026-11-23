@@ -44,7 +44,8 @@ t_one_sample_relations <- function(mu = 0) {
   }
   from <- c("n", "m", "sd")
   list(
-    relation("df_from_n", "n", "df", function(vals, variant) vals$n - 1),
+    relation("df_from_n", "n", "df", function(vals, variant) vals$n - 1,
+             inverse = function(df) df + 1),
     relation("t_from_descriptives", from, "t", function(vals, variant) {
       (vals$m - mu) / se(vals)
     }),

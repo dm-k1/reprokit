@@ -20,13 +20,16 @@
 #   r_digit     one decimal digit of r replaced (small = last, large = earlier); Pearson only
 # An error is planted only in a number that is in the reported subset; d is never planted
 # (its relation cannot falsify). Subsets: all (every number the paper prints), t/df/p, and
-# desc+t+p (n, M, SD, for a paired t also r, for Pearson n and r; plus t and p; no df).
+# desc+t+p (n, M, SD, for a paired t also r, for Pearson n and r; plus t and p; no df), and for
+# Pearson r/df/p (the APA form r(df), p: n is not reported and is implied by df).
 # Outcome per case: flagged = inconsistent; unevaluable = not flagged and the planted number
 # has status not checkable / unconfirmed / not reproducible; missed = called consistent.
 # Oracles (base R, no check_reported code):
 #   t/df/p      detectable iff, for every p tail (two-sided, less, greater), the p implied by
 #               every t and df in their rounding intervals misses the rounding interval of p
 #               (a grid of 101 t values x 11 df values; "< .001" is (0, .001)).
+#   r/df/p      the same grid with t = r sqrt(df) / sqrt(1 - r^2) over r in its rounding interval
+#               (101 values) and df exact (n = df + 2 is implied, so df_t = df).
 #   desc+t+p    for t_digit, m_change and r_digit: per test variant (one for paired, one-sample
 #               and Pearson; Student and Welch for an independent t, since df is not reported)
 #               two paths, t from n, M, SD (r) over their rounding intervals, and p from t and
@@ -42,10 +45,11 @@
 #   1. errors == 0 (check_reported() never throws on a paper with a planted error);
 #   2. every cell the oracle covers: oracle-detectable and not flagged = 0, and
 #      oracle-undetectable and flagged = 0 (a flag there would be a false accusation);
-#   3. a case flagged on t/df/p or desc+t+p is also flagged on all (more numbers never hide an
-#      error), except Welch papers printing df with decimals: the printed df interval (+-0.05)
-#      is wider than the df derived from n and SD, so reporting df can loosen p_from_t. That
-#      one is a known design limitation, counted and printed, not a criterion;
+#   3. a case flagged on t/df/p, r/df/p or desc+t+p is also flagged on all (more numbers never
+#      hide an error), except Welch papers printing df with decimals: the printed df interval
+#      (+-0.05) is wider than the df derived from n and SD, so reporting df can loosen p_from_t.
+#      That one is a known design limitation, counted and printed, not a criterion; likewise a
+#      Pearson paper flagged on r/df/p only (the printed t is wider than the t derived from r);
 #   4. every handler x error type x subset cell flags more than 0 cases;
 #   5. large errors are found at a high rate where nothing hides them: decision errors on every
 #      subset, df_wrong_n on all, and M changed by 10 or more units on all: >= 90%.
@@ -93,6 +97,19 @@ oracle_tdfp <- function(paper) {
   grid <- expand.grid(t = tg, df = dg[dg > 0])
   tails <- list(two = 2 * pt(-abs(grid$t), grid$df), less = pt(grid$t, grid$df),
                 greater = pt(grid$t, grid$df, lower.tail = FALSE))
+  verdict(vapply(tails, function(p) overlap(range(p), pi), ""))
+}
+oracle_rdfp <- function(paper) {
+  ri <- pmin(pmax(interval(paper$r), -1), 1)
+  di <- interval(paper$df, exact = TRUE)
+  pi <- pmin(pmax(interval(paper$p), 0), 1)
+  rg <- seq(ri[1L], ri[2L], length.out = 101L)
+  dg <- if (di[1L] == di[2L]) di[1L] else seq(di[1L], di[2L], length.out = 11L)
+  grid <- expand.grid(r = rg, df = dg[dg > 0])
+  t <- grid$r * sqrt(grid$df) / sqrt(1 - grid$r^2)
+  if (!all(is.finite(t))) return("edge") # |r| = 1: not evaluable, left out
+  tails <- list(two = 2 * pt(-abs(t), grid$df), less = pt(t, grid$df),
+                greater = pt(t, grid$df, lower.tail = FALSE))
   verdict(vapply(tails, function(p) overlap(range(p), pi), ""))
 }
 oracle_desc <- function(handler, paper) {
@@ -194,6 +211,7 @@ run_job <- function(job) {
 }
 oracle_job <- function(job) {
   if (job$subset == "t/df/p") return(oracle_tdfp(job$paper))
+  if (job$subset == "r/df/p") return(oracle_rdfp(job$paper))
   if (job$subset == "desc+t+p" && job$type %in% c("t_digit", "m_change", "r_digit")) {
     return(oracle_desc(job$handler, job$paper))
   }
@@ -232,7 +250,7 @@ print(summarise_cells(results[results$type != "decision", ], c("group", "type", 
       row.names = FALSE)
 
 covered <- results[!is.na(results$oracle) & !results$oracle %in% c("edge", "joint-only"), ]
-cat("\nOracle check (t/df/p: every type; desc+t+p: t_digit, m_change, r_digit)\n")
+cat("\nOracle check (t/df/p and r/df/p: every type; desc+t+p: t_digit, m_change, r_digit)\n")
 oracle_table <- as.data.frame(table(oracle = covered$oracle, outcome = covered$outcome))
 print(oracle_table[oracle_table$Freq > 0, ], row.names = FALSE)
 cat("edge cases left out:", sum(!is.na(results$oracle) & results$oracle == "edge"), "\n")
@@ -249,6 +267,7 @@ flagged_cases <- function(s) {
   unique(results$case[results$subset == s & results$outcome == "flagged"])
 }
 all_flagged <- flagged_cases("all")
+rdfp_hidden <- setdiff(flagged_cases("r/df/p"), all_flagged)
 hidden_cases <- c(setdiff(flagged_cases("t/df/p"), all_flagged),
                   setdiff(flagged_cases("desc+t+p"), all_flagged))
 # A Welch paper that prints df with decimals (1 or 2) gives p_from_t a df interval of +-0.05 or
@@ -260,6 +279,12 @@ hidden_by_df_rounding <- sum(hidden_cases %in% df_rounded)
 cat("\nflagged on t/df/p or desc+t+p but not on all:", length(hidden_cases), "of which Welch df",
     "printed with decimals (wider df interval than the one derived from n, SD):",
     hidden_by_df_rounding, "\n")
+# Likewise a Pearson paper flagged on r/df/p only: the t derived from r and df (r over its
+# rounding interval) is narrower than the printed t (+-0.005), and p_from_t takes the printed t
+# when it is reported, so printing t can loosen a flag. The r/df/p oracle confirms each such
+# paper is detectable; a design limitation, counted and printed, not a criterion.
+cat("flagged on r/df/p but not on all (printed t is wider than the t derived from r):",
+    length(rdfp_hidden), "\n")
 hidden_by_more <- length(hidden_cases) - hidden_by_df_rounding
 cells <- summarise_cells(results, c("group", "type", "subset"))
 dead_cells <- sum(cells$`% flagged` == 0)
@@ -271,6 +296,7 @@ rate <- function(type, subset, size = NULL) {
 large_rates <- c(decision_all = rate("decision", "all"),
                  decision_tdfp = rate("decision", "t/df/p"),
                  decision_desc = rate("decision", "desc+t+p"),
+                 decision_rdfp = rate("decision", "r/df/p"),
                  df_wrong_n_all = rate("df_wrong_n", "all"),
                  m_large_all = rate("m_change", "all", "large"))
 by_group_min <- min(unlist(lapply(unique(results$group), function(g) {

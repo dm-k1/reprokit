@@ -72,7 +72,8 @@ t_paired_relations <- function(mu = 0) {
   }
   from <- c("n", "m", "sd", "r")
   list(
-    relation("df_from_n", "n", "df", function(vals, variant) vals$n - 1),
+    relation("df_from_n", "n", "df", function(vals, variant) vals$n - 1,
+             inverse = function(df) df + 1),
     relation("t_from_descriptives", from, "t", function(vals, variant) {
       d <- from_descriptives(vals)
       (d$mean_diff - mu) / d$se
