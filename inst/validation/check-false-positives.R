@@ -1,7 +1,10 @@
 # False-positive check for check_reported(): the headline number.
-# Claim: a paper that reports real, correct output of t.test(paired = TRUE) or
-# cor.test(), rounded the way a paper prints it, is never flagged inconsistent
-# (a false positive), and check_reported() never errors on it.
+# Claim: a paper that reports real, correct output of t.test(paired = TRUE),
+# t.test() for independent groups (Student with var.equal = TRUE, and Welch), t.test()
+# against mu (mu = 0 and mu != 0) or cor.test(), rounded the way a paper prints it,
+# is never flagged inconsistent (a false positive), and check_reported() never errors
+# on it. Independent-groups designs have unequal n and SDs, a Welch df printed with 1
+# or 2 decimals, and sometimes a pooled Cohen's d.
 # Rounding as printed: 2 decimals for t, M and SD (0 decimals in the "coarse"
 # designs), 3 for p and r, "< .001" below .001, CI at the decimals of M.
 # Each design is checked on several reported subsets (all numbers, no CI,
@@ -10,7 +13,8 @@
 # rounding to 1.000, small n (3 to 6) and SD reported to zero decimals.
 # PASS criterion: false positives == 0 AND errors == 0. A false positive is a
 # release blocker.
-# Size: 300 paired designs + 300 Pearson designs, about 4 subsets each (the
+# Size: 300 designs per handler (t_paired, cor_pearson, t_independent Student and Welch,
+# t_one_sample), about 4 to 6 subsets each (the
 # paired "no r" subset takes about 3 s, so it is run on every 15th design only).
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-false-positives.R")'
@@ -25,8 +29,10 @@ rhos <- c(0, 0.3, 0.7, 0.95, 0.99, 0.995, 0.999, 0.9999, -0.5, -0.9, -0.999)
 
 run_checks <- function(handler, paper, subsets) {
   out <- list(checks = 0L, fp = list(), err = list())
+  mu <- attr(paper, "mu")
   for (keys in subsets) {
-    res <- tryCatch(suppressWarnings(do.call(check_reported, c(list(handler), paper[keys]))),
+    args <- c(list(handler), paper[keys], if (!is.null(mu)) list(mu = mu))
+    res <- tryCatch(suppressWarnings(do.call(check_reported, args)),
                     error = function(e) e)
     out$checks <- out$checks + 1L
     if (inherits(res, "error")) {
@@ -83,6 +89,49 @@ pearson_paper <- function() {
   paper
 }
 
+independent_paper <- function(var_equal) {
+  n1 <- sample(sizes[sizes >= 3], 1L)
+  n2 <- sample(sizes[sizes >= 3], 1L)
+  scale <- 10^runif(1L, -1, 2)
+  x <- rnorm(n1) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
+  y <- rnorm(n2) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
+  tt <- t.test(x, y, var.equal = var_equal)
+  if (!is.finite(tt$statistic) || sd(x) == 0 || sd(y) == 0) return(NULL)
+  dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
+  df_dec <- if (var_equal) 0L else sample(1:2, 1L)
+  pooled <- sqrt(((n1 - 1) * var(x) + (n2 - 1) * var(y)) / (n1 + n2 - 2))
+  paper <- list(n = as.character(c(n1, n2)), m = c(fmt(mean(x), dec), fmt(mean(y), dec)),
+                sd = c(fmt(sd(x), dec), fmt(sd(y), dec)),
+                t = fmt(unname(tt$statistic), 2L), df = fmt(unname(tt$parameter), df_dec),
+                p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
+                ci_upper = fmt(tt$conf.int[2L], dec))
+  if (runif(1L) < 0.3) paper$d <- fmt((mean(x) - mean(y)) / pooled, 2L)
+  paper
+}
+
+one_sample_paper <- function() {
+  n <- sample(sizes, 1L)
+  scale <- 10^runif(1L, -1, 2)
+  x <- rnorm(n) * scale + runif(1L, -1, 1) * scale
+  mu <- if (runif(1L) < 0.4) 0 else round(runif(1L, -1, 1) * scale, sample(0:2, 1L))
+  tt <- t.test(x, mu = mu)
+  if (!is.finite(tt$statistic) || sd(x) == 0) return(NULL)
+  dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
+  paper <- list(n = as.character(n), m = fmt(mean(x), dec), sd = fmt(sd(x), dec),
+                t = fmt(unname(tt$statistic), 2L), df = as.character(n - 1L),
+                p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
+                ci_upper = fmt(tt$conf.int[2L], dec))
+  attr(paper, "mu") <- mu
+  paper
+}
+
+generic_subsets <- function(paper, i) {
+  keys <- names(paper)
+  list(keys, setdiff(keys, c("ci_lower", "ci_upper")), c("n", "m", "sd", "t", "p"),
+       c("t", "df", "p"), c("n", "df", "t"), c("n", "m", "sd", "df"),
+       sample(keys, sample(2:length(keys), 1L)))
+}
+
 paired_subsets <- function(paper, with_no_r) {
   keys <- names(paper)
   subsets <- list(keys,
@@ -108,8 +157,8 @@ tally <- function(handler, n_designs, make, subsets_of) {
     paper <- make()
     if (is.null(paper)) next
     total$designs <- total$designs + 1L
-    total$r_one <- total$r_one + (abs(as.numeric(paper$r)) >= 0.995)
-    total$small_n <- total$small_n + (as.numeric(paper$n) <= 6)
+    total$r_one <- total$r_one + isTRUE(abs(as.numeric(paper$r)) >= 0.995)
+    total$small_n <- total$small_n + any(as.numeric(paper$n) <= 6)
     coarse_sd <- length(paper$sd) > 0L && !grepl(".", paper$sd[1L], fixed = TRUE)
     total$zero_dec <- total$zero_dec + coarse_sd
     res <- run_checks(handler, paper, subsets_of(paper, i))
@@ -126,7 +175,14 @@ paired <- tally("t_paired", n_designs,
 pearson <- tally("cor_pearson", n_designs, pearson_paper,
                  function(paper, i) pearson_subsets(paper))
 
-results <- list(t_paired = paired, cor_pearson = pearson)
+student <- tally("t_independent", n_designs, function() independent_paper(TRUE),
+                 generic_subsets)
+welch <- tally("t_independent", n_designs, function() independent_paper(FALSE),
+               generic_subsets)
+one_sample <- tally("t_one_sample", n_designs, one_sample_paper, generic_subsets)
+
+results <- list(t_paired = paired, cor_pearson = pearson, t_independent_student = student,
+                t_independent_welch = welch, t_one_sample = one_sample)
 table_out <- do.call(rbind, lapply(names(results), function(h) {
   r <- results[[h]]
   data.frame(handler = h, designs = r$designs, checks = r$checks,

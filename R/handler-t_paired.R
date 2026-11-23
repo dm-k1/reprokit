@@ -29,7 +29,7 @@ register_t_paired <- function() {
     formula_tests = "paired",
     design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
     reproducible = c("n", "m", "sd", "r"),
-    relations = t_paired_relations(),
+    relations = t_paired_relations,
     example = function() {
       d <- base_data("sleep")
       wide <- data.frame(drug1 = d$extra[d$group == 1], drug2 = d$extra[d$group == 2])
@@ -39,8 +39,9 @@ register_t_paired <- function() {
 }
 
 # Relations between reported quantities (check_reported()). m and sd hold one
-# value per condition; the difference is first minus second, with mu = 0.
-t_paired_relations <- function() {
+# value per condition; the difference is first minus second. `mu` is the test
+# value the mean difference is compared with (t only; the CI does not use it).
+t_paired_relations <- function(mu = 0) {
   from_descriptives <- function(vals) {
     mean_diff <- vals$m[1] - vals$m[2]
     sd_diff <- sqrt(vals$sd[1]^2 + vals$sd[2]^2 - 2 * vals$r * vals$sd[1] * vals$sd[2])
@@ -74,7 +75,7 @@ t_paired_relations <- function() {
     relation("df_from_n", "n", "df", function(vals, variant) vals$n - 1),
     relation("t_from_descriptives", from, "t", function(vals, variant) {
       d <- from_descriptives(vals)
-      d$mean_diff / d$se
+      (d$mean_diff - mu) / d$se
     }, stationary = at_sd_minimum),
     relation_p_from_t(),
     relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L),

@@ -19,9 +19,42 @@ register_t_one_sample <- function() {
     reported = t_one_sample_reported,
     conventions = "test value mu (default 0)",
     formula_tests = "one_sample",
+    design = apa_design(statistic = "t", effect_size = "d", cells = 1L),
+    reproducible = c("n", "m", "sd"),
+    relations = t_one_sample_relations,
     example = function() {
       list(x = extra ~ 1, args = list(data = base_data("sleep"), test = "one_sample", mu = 0.5))
     }
+  )
+}
+
+# Relations between reported quantities (check_reported()) for the test value
+# `mu`. All of t, df, p and the CI of the mean are monotone in m and sd (n is an
+# exact count), so corners give the exact range. The CI of the mean does not
+# depend on mu. d = (M - mu) / SD, or Hedges' g with the small-sample factor; as
+# which of them a paper reports is rarely declared, d_from_descriptives has
+# falsifies = FALSE (a d that neither convention reproduces is "not
+# reproducible", never "inconsistent"). It is signed, like the t_independent d.
+t_one_sample_relations <- function(mu = 0) {
+  se <- function(vals) vals$sd / sqrt(vals$n)
+  ci_bound <- function(position) {
+    function(vals, variant) {
+      t_ci(vals$m, se(vals), vals$n - 1, "two.sided", 0.95)[position]
+    }
+  }
+  from <- c("n", "m", "sd")
+  list(
+    relation("df_from_n", "n", "df", function(vals, variant) vals$n - 1),
+    relation("t_from_descriptives", from, "t", function(vals, variant) {
+      (vals$m - mu) / se(vals)
+    }),
+    relation_p_from_t(),
+    relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L)),
+    relation("ci_upper_from_descriptives", from, "ci_upper", ci_bound(2L)),
+    relation("d_from_descriptives", from, "d", function(vals, variant) {
+      d <- (vals$m - mu) / vals$sd
+      if (variant == "hedges_g") d * (1 - 3 / (4 * (vals$n - 1) - 1)) else d
+    }, variants = c("cohen", "hedges_g"), variant_kind = "convention", falsifies = FALSE)
   )
 }
 

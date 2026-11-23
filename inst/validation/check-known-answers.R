@@ -22,9 +22,10 @@
 #   3. Cohen's d = 0.840 is outside the range implied by the descriptives. The
 #      convention for d is not declared (the manual requires none), so the value is
 #      unfalsifiable, not wrong.
-#   PASS: claims 1 to 3 hold (printed as TRUE) and the engine does not flag t/df/p.
-#   PENDING (not a failure): running this through check_reported("t_independent")
-#   needs t_independent relations; see the TODO at the end.
+#   4. The same numbers through check_reported("t_independent"): consistent overall,
+#      Student fits and Welch does not, no row is "inconsistent", and d gets the status
+#      "not reproducible" (no effect-size convention reproduces it).
+#   PASS: claims 1 to 4 hold (printed as TRUE).
 # Run: Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-known-answers.R")'
 
 n1 <- 24
@@ -81,33 +82,31 @@ cat("n = ", n1, " and ", n2, "; M and SD to the unit (box +/- 0.5);\n",
     "p range is from t's interval 2.8765 to 2.8775\n", sep = "")
 print(ranges, row.names = FALSE)
 
-cat("\n== What the engine does today ==\n")
-res_ind <- tryCatch(check_reported("t_independent", n = c("24", "18"), m = row2$m,
-                                   sd = row2$sd, t = row2$t, df = "40", p = row2$p),
-                    error = function(e) e)
-cat("t_independent: ", if (inherits(res_ind, "error")) conditionMessage(res_ind) else "checked",
-    "\n", sep = "")
-cat("\nt_paired on the same t, df, p (t/df/p only; its df is n - 1, so this is a\n",
-    "stand-in for the p relation at df = 40, not a check of the table):\n", sep = "")
-res_pair <- check_reported("t_paired", t = row2$t, df = "40", p = row2$p)
-print(res_pair)
+cat("\n== The engine: check_reported(\"t_independent\", ...) ==\n")
+res_ind <- check_reported("t_independent", n = c("24", "18"), m = row2$m, sd = row2$sd,
+                          t = row2$t, df = "40", p = row2$p, d = "0.840")
+print(res_ind)
+fits <- function(kind, variant) {
+  v <- res_ind$variants[[kind]]
+  v$fits[v$variant == variant]
+}
 
-# TODO(t_independent relations): register relations for t_independent
-# (df_from_n for Student = n1 + n2 - 2 and Welch df <= n1 + n2 - 2, t_from_descriptives
-# for both variants, p_from_t, d_from_t) and a reported-names entry for per-group n.
-# Then replace the stand-in with check_reported("t_independent", n = c("24", "18"), m,
-# sd, t, df = "40", p = ".006") and assert: no row is "inconsistent"; the variants that
-# fit are Student only; d is reported as not reproducible from the descriptives (and
-# not as inconsistent) while the d convention is undeclared.
-
-checks <- c(!any(res_pair$quantities$status == "inconsistent"),
+checks <- c(res_ind$consistent,
+            !any(res_ind$numbers$status == "inconsistent"),
+            fits("test", "student"),
+            !fits("test", "welch"),
+            res_ind$numbers$status[res_ind$numbers$quantity == "d"] == "not reproducible",
             inside(rep_t, t_student),
             rep_df == df_student,
             identical(p_rounds_to, "0.006"),
             !inside(rep_t, t_welch),
             !inside(rep_df, df_welch),
             !inside(rep_d, d_pooled))
-labels <- c("t, df, p not inconsistent in the engine stand-in",
+labels <- c("engine: overall consistent",
+            "engine: no number inconsistent",
+            "engine: Student fits",
+            "engine: Welch does not fit",
+            "engine: d is not reproducible (not inconsistent)",
             "reported t inside the Student range",
             "reported df equals Student df (n1 + n2 - 2)",
             "p from t at df 40 rounds to .006",
@@ -124,9 +123,8 @@ cat("\nCohen's d = 0.840 is outside the range the descriptives imply (",
     "an unfalsifiable value, not an inconsistency. The note's claim of unequal variance\n",
     "does not match the numbers, which fit Student.\n", sep = "")
 if (all(checks)) {
-  cat("\nPASS: Table 7.8 row 2 is not flagged inconsistent; Student fits, Welch does not.\n",
-      "PENDING (not a failure): the same assertions through t_independent,\n",
-      "which has no relations yet.\n", sep = "")
+  cat("\nPASS: Table 7.8 row 2 is not flagged inconsistent; Student fits, Welch does not;\n",
+      "d is not reproducible.\n", sep = "")
 } else {
   cat("\nFAIL: see the assertions that do not hold.\n")
 }

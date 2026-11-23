@@ -47,7 +47,13 @@
 #' @param reproducible Character vector of the quantities that suffice to
 #'   reproduce the analysis (names from `quantity_names()`), or `NULL`.
 #' @param relations List of `relation()`s between quantities, used by
-#'   `check_reported()`, or `NULL`.
+#'   `check_reported()`, or `NULL`. A handler whose relations depend on the test
+#'   value `mu` passes `function(mu)` instead, returning that list; the
+#'   registry keeps the list for `mu = 0` and the function (`relations_at`),
+#'   and `check_reported(mu = )` builds the relations at check time.
+#' @param per_cell Character vector of the quantities that have one value per
+#'   condition (`cells` of them), or `NULL` for the default, `m` and `sd`. A
+#'   handler whose n differs between conditions (independent groups) adds `n`.
 #' @return `name`, invisibly.
 #' @keywords internal
 #' @noRd
@@ -55,8 +61,13 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                              lost, matches, triage = NULL, summarise = NULL, reproduce = NULL,
                              reported = NULL, disclosure = NULL, conventions = NULL,
                              formula_tests = NULL, example = NULL, design = NULL,
-                             reproducible = NULL, relations = NULL) {
+                             reproducible = NULL, relations = NULL, per_cell = NULL) {
   check_verdict(verdict)
+  relations_at <- NULL
+  if (is.function(relations)) {
+    relations_at <- relations
+    relations <- relations_at(0)
+  }
   stopifnot(
     is.character(name), length(name) == 1L, nzchar(name),
     is.character(lost), length(lost) >= 1L,
@@ -71,12 +82,14 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(example) || is.function(example),
     is.null(design) || is_apa_design(design),
     is.null(reproducible) || is.character(reproducible),
-    is.null(relations) || (is.list(relations) && all(vapply(relations, is_relation, logical(1))))
+    is.null(relations) || (is.list(relations) && all(vapply(relations, is_relation, logical(1)))),
+    is.null(per_cell) || is.character(per_cell)
   )
   if (!is.null(design)) {
     check_quantity_names(c(design$statistic, design$effect_size), "quantity name in `design`")
   }
   if (!is.null(reproducible)) check_quantity_names(reproducible, "quantity name in `reproducible`")
+  if (!is.null(per_cell)) check_quantity_names(per_cell, "quantity name in `per_cell`")
   exact_parts <- list(summarise = summarise, reproduce = reproduce, reported = reported,
                       example = example)
   missing_parts <- names(exact_parts)[vapply(exact_parts, is.null, logical(1))]
@@ -90,7 +103,9 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     summarise = summarise, reproduce = reproduce, reported = reported, disclosure = disclosure,
     conventions = conventions, formula_tests = formula_tests, example = example,
     design = design, apa = if (is.null(design)) NULL else apa_quantities(design),
-    cells = design$cells, reproducible = reproducible, relations = relations
+    cells = design$cells, reproducible = reproducible, relations = relations,
+    relations_at = relations_at,
+    per_cell = if (is.null(per_cell)) per_cell_quantities() else per_cell
   ), envir = .registry)
   invisible(name)
 }

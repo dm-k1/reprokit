@@ -63,11 +63,12 @@ restrict_to_domain <- function(bounds, quantity, text) {
   list(lower = lower, upper = upper)
 }
 
-# A quantity is one number or, for m and sd, one value per condition; the
-# handler says how many conditions (`cells`).
-check_arity <- function(reported, cells) {
+# A quantity is one number or, for m and sd (and for n when the handler's
+# groups differ in size: its `per_cell`), one value per condition; the handler
+# says how many conditions (`cells`).
+check_arity <- function(reported, cells, per_cell_names = per_cell_quantities()) {
   for (quantity in names(reported)) {
-    per_cell <- quantity %in% per_cell_quantities() && !is.null(cells)
+    per_cell <- quantity %in% per_cell_names && !is.null(cells)
     expected <- if (per_cell) cells else 1L
     got <- length(reported[[quantity]])
     if (got != expected) {

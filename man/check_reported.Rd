@@ -6,9 +6,9 @@
 \alias{check_r}
 \title{Check reported statistics against each other}
 \usage{
-check_reported(handler, ..., variants = NULL)
+check_reported(handler, ..., variants = NULL, mu = 0)
 
-check_t(..., handler = "t_paired", variants = NULL)
+check_t(..., handler = "t_paired", variants = NULL, mu = 0)
 
 check_r(..., handler = "cor_pearson", variants = NULL)
 }
@@ -22,17 +22,28 @@ character vector (\code{m = c("5.1", "4.2")}). Integer-valued numbers are taken
 as exact.}
 
 \item{variants}{Character vector restricting which variants to try (such as
-\code{"two.sided"} or \code{"0.95"}), or \code{NULL} for all. A restriction applies to
+\code{"two.sided"}, \code{"0.95"} or \code{"welch"}), or \code{NULL} for all. A restriction applies to
 the relations that have one of the named variants; the others keep all of
 theirs.}
+
+\item{mu}{The test value the mean (or mean difference) is compared with, for
+handlers whose t depends on it (\code{t_one_sample}, \code{t_paired}). Default 0. A
+handler without a test value errors on \code{mu} other than 0.}
 }
 \value{
 A \code{reprokit_check} object: \verb{$numbers} (status of each reported
 number), \verb{$level} (coverage, 0 to 3), \verb{$missing} (what would raise the
-level, and the range implied for it), \verb{$variants} (a list with \code{tail} and
-\code{level}, each a data frame of the variants tried and whether they fit),
-\verb{$relations}, \verb{$implied} and \verb{$checked} (whether any relation could be
-compared with a reported number; without one there is no verdict).
+level, and the range implied for it), \verb{$variants} (a list with one data
+frame per kind of variant the handler has, each of the variants tried and
+whether they fit: \code{tail}, \code{level}, \code{test} (Student or Welch) and
+\code{convention} (how an effect size was computed)), \verb{$relations}, \verb{$implied}
+and \verb{$checked} (whether any relation that can falsify was compared with a
+reported number; without one there is no verdict).
+
+Some relations cannot falsify: how \code{d} was computed (pooled SD, average SD,
+Glass) is rarely declared, so a \code{d} that no convention reproduces gets the
+status \code{"not reproducible"}, never \code{"inconsistent"}, and \verb{$consistent} is
+not affected.
 
 A reported number is only ever compared within what it can be: \code{r} lies
 in -1 to 1, \code{sd} and \code{df} are not negative, \code{p} is in 0 to 1, \code{n} is a

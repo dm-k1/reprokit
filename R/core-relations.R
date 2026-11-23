@@ -8,27 +8,44 @@
 # exactly one scalar output; a CI pair is two relations, one per bound.
 # `variants` names the alternatives the author must have chosen between; `fn`
 # receives the current one. `variant_kind` says what they are: "tail" (the
-# sidedness of a p-value) or "level" (a confidence level).
+# sidedness of a p-value), "level" (a confidence level), "test" (Student or
+# Welch) or "convention" (which formula an effect size follows). A relation has
+# one kind; a relation that would need two is split in two, which chaining
+# (evaluate_relations() takes the widest range over variants) makes work.
+# `falsifies` says whether a failure may count as an inconsistency. It is FALSE
+# for a relation whose formula authors choose freely and rarely declare (the
+# d convention): when none of its variants fits, the number is "not
+# reproducible", never "inconsistent".
 # `stationary(intervals)` is optional: it returns a list of extra points, each
 # a named list of input values inside the box, where `fn` can have an interior
 # extremum that the corners miss (see relation_range()).
 relation <- function(name, inputs, output, fn, variants = NULL, variant_kind = "tail",
-                     stationary = NULL) {
+                     stationary = NULL, falsifies = TRUE) {
   stopifnot(is.character(name), length(name) == 1L, nzchar(name),
             is.character(inputs), length(inputs) >= 1L,
             is.character(output), length(output) == 1L,
             is.function(fn), identical(names(formals(fn)), c("vals", "variant")),
             is.null(variants) || (is.character(variants) && length(variants) >= 1L),
-            variant_kind %in% c("tail", "level"),
-            is.null(stationary) || is.function(stationary))
+            variant_kind %in% relation_variant_kinds(),
+            is.null(stationary) || is.function(stationary),
+            is.logical(falsifies), length(falsifies) == 1L, !is.na(falsifies))
   check_quantity_names(c(inputs, output), "quantity name in relation")
   list(name = name, inputs = inputs, output = output, fn = fn, variants = variants,
-       variant_kind = variant_kind, stationary = stationary)
+       variant_kind = variant_kind, stationary = stationary, falsifies = falsifies)
+}
+
+# The kinds of variant, in the order they are listed, with the words used for
+# the ones that fit.
+relation_variant_kinds <- function() c("tail", "level", "test", "convention")
+
+variant_kind_labels <- function() {
+  c(tail = "Variants that fit", level = "Confidence levels that fit",
+    test = "Tests that fit", convention = "Effect-size conventions that fit")
 }
 
 is_relation <- function(x) {
   is.list(x) && identical(names(x), c("name", "inputs", "output", "fn", "variants",
-                                      "variant_kind", "stationary"))
+                                      "variant_kind", "stationary", "falsifies"))
 }
 
 # Slack for floating-point error only (1e-9 of the magnitude); the rounding
@@ -81,6 +98,52 @@ relation_range <- function(rel, intervals, variant = NULL) {
   if (!is.null(rel$stationary)) points <- c(points, rel$stationary(intervals))
   outputs <- vapply(points, function(point) rel$fn(point, variant), numeric(1))
   c(lower = min(outputs), upper = max(outputs))
+}
+
+# Interior extremum candidates of a one-dimensional function on (lower, upper):
+# where optimize() puts its minimum and its maximum. A relation's `stationary`
+# uses these when the function is smooth but has no closed-form stationary
+# point. Over an interval as narrow as a rounding interval the function has at
+# most one extremum, so optimize() finds it; the candidates are only points of
+# the box, evaluated by the relation itself, so a poor candidate costs
+# exactness, never correctness.
+interior_extrema <- function(f, lower, upper) {
+  tol <- (upper - lower) * 1e-6
+  c(stats::optimize(f, c(lower, upper), tol = tol)$minimum,
+    stats::optimize(f, c(lower, upper), tol = tol, maximum = TRUE)$maximum)
+}
+
+# A `stationary` function for relations whose extremes can lie inside the box
+# of the SDs. `candidates(corner, i, lower, upper)` returns the values of sd[i]
+# (other inputs as in `corner`) that may be extrema. On every corner the
+# candidates for one SD are tried alone and then together with candidates for
+# the other SD.
+sd_stationary <- function(inputs, what, candidates) {
+  function(intervals) {
+    bounds <- interval_bounds(intervals$sd)
+    free <- which(bounds$lower < bounds$upper)
+    inside <- function(x, i) isTRUE(x > bounds$lower[i] && x < bounds$upper[i])
+    points <- list()
+    for (corner in corner_points(intervals, inputs, what)) {
+      for (i in free) {
+        for (x in candidates(corner, i, bounds$lower[i], bounds$upper[i])) {
+          if (!inside(x, i)) next
+          first <- corner
+          first$sd[i] <- x
+          points[[length(points) + 1L]] <- first
+          for (j in setdiff(free, i)) {
+            for (y in candidates(first, j, bounds$lower[j], bounds$upper[j])) {
+              if (!inside(y, j)) next
+              second <- first
+              second$sd[j] <- y
+              points[[length(points) + 1L]] <- second
+            }
+          }
+        }
+      }
+    }
+    points
+  }
 }
 
 # When exactly one input is missing but the output is reported: the range of the

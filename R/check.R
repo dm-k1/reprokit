@@ -19,15 +19,25 @@
 #'   character vector (`m = c("5.1", "4.2")`). Integer-valued numbers are taken
 #'   as exact.
 #' @param variants Character vector restricting which variants to try (such as
-#'   `"two.sided"` or `"0.95"`), or `NULL` for all. A restriction applies to
+#'   `"two.sided"`, `"0.95"` or `"welch"`), or `NULL` for all. A restriction applies to
 #'   the relations that have one of the named variants; the others keep all of
 #'   theirs.
+#' @param mu The test value the mean (or mean difference) is compared with, for
+#'   handlers whose t depends on it (`t_one_sample`, `t_paired`). Default 0. A
+#'   handler without a test value errors on `mu` other than 0.
 #' @return A `reprokit_check` object: `$numbers` (status of each reported
 #'   number), `$level` (coverage, 0 to 3), `$missing` (what would raise the
-#'   level, and the range implied for it), `$variants` (a list with `tail` and
-#'   `level`, each a data frame of the variants tried and whether they fit),
-#'   `$relations`, `$implied` and `$checked` (whether any relation could be
-#'   compared with a reported number; without one there is no verdict).
+#'   level, and the range implied for it), `$variants` (a list with one data
+#'   frame per kind of variant the handler has, each of the variants tried and
+#'   whether they fit: `tail`, `level`, `test` (Student or Welch) and
+#'   `convention` (how an effect size was computed)), `$relations`, `$implied`
+#'   and `$checked` (whether any relation that can falsify was compared with a
+#'   reported number; without one there is no verdict).
+#'
+#'   Some relations cannot falsify: how `d` was computed (pooled SD, average SD,
+#'   Glass) is rarely declared, so a `d` that no convention reproduces gets the
+#'   status `"not reproducible"`, never `"inconsistent"`, and `$consistent` is
+#'   not affected.
 #'
 #'   A reported number is only ever compared within what it can be: `r` lies
 #'   in -1 to 1, `sd` and `df` are not negative, `p` is in 0 to 1, `n` is a
@@ -37,12 +47,13 @@
 #' @export
 #' @examples
 #' check_reported("t_paired", n = "20", t = "2.85", df = "19", p = ".010")
-check_reported <- function(handler, ..., variants = NULL) {
+check_reported <- function(handler, ..., variants = NULL, mu = 0) {
   if (missing(handler)) {
     stop("Name the handler first: check_reported(\"t_paired\", t = ...). Handlers that can ",
          "check: ", paste(handlers_with_relations(), collapse = ", "), ".", call. = FALSE)
   }
   entry <- get_handler(handler)
+  entry$relations <- relations_at_mu(entry, mu)
   dots <- list(...)
   if (length(entry$relations) == 0L) {
     stop("Handler '", handler, "' has no relations to check against. Handlers that do: ",
@@ -54,7 +65,7 @@ check_reported <- function(handler, ..., variants = NULL) {
          call. = FALSE)
   }
   check_quantity_names(names(reported), "reported quantity")
-  check_arity(reported, entry$cells)
+  check_arity(reported, entry$cells, entry$per_cell)
   intervals <- Map(function(x, quantity) {
     as_count <- quantity %in% c("n", "df")
     restrict_to_domain(interval_bounds(reported_value(x, as_count = as_count)), quantity, x)
@@ -72,21 +83,35 @@ check_reported <- function(handler, ..., variants = NULL) {
     variants = variant_fits(evaluations),
     relations = evaluations,
     implied = implied,
-    checked = any(evaluations$checked),
+    checked = any(evaluations$checked & evaluations$falsifies),
     consistent = !any(number_status$status == "inconsistent")
   ), class = "reprokit_check")
 }
 
 #' @rdname check_reported
 #' @export
-check_t <- function(..., handler = "t_paired", variants = NULL) {
-  check_reported(handler = handler, ..., variants = variants)
+check_t <- function(..., handler = "t_paired", variants = NULL, mu = 0) {
+  check_reported(handler = handler, ..., variants = variants, mu = mu)
 }
 
 #' @rdname check_reported
 #' @export
 check_r <- function(..., handler = "cor_pearson", variants = NULL) {
   check_reported(handler = handler, ..., variants = variants)
+}
+
+# The handler's relations at the test value `mu`. A handler registered with
+# `relations = function(mu)` builds them here; one with a fixed list has no test
+# value, so any mu but 0 is an error rather than silently ignored.
+relations_at_mu <- function(entry, mu) {
+  if (!is.numeric(mu) || length(mu) != 1L || !is.finite(mu)) {
+    stop("`mu` must be one finite number.", call. = FALSE)
+  }
+  if (!is.null(entry$relations_at)) return(entry$relations_at(mu))
+  if (mu != 0) {
+    stop("Handler '", entry$name, "' has no test value, so `mu` must be 0.", call. = FALSE)
+  }
+  entry$relations
 }
 
 handlers_with_relations <- function() {
@@ -122,8 +147,14 @@ evaluate_relations <- function(relations, intervals, variants) {
       for (variant in to_run) {
         derived <- relation_range(rel, available, if (is.na(variant)) NULL else variant)
         # A range that is not finite (NaN or infinite) is "not evaluable", never
-        # "does not fit": skip it as if an input were missing.
-        if (!all(is.finite(derived))) next
+        # "does not fit": the whole relation is skipped as if an input were missing.
+        # Not just that variant: with the other variants alone, a fit of the
+        # variant that could not be evaluated would be missed, and a derived
+        # output (df from n and sd) would be narrower than the variants allow.
+        if (!all(is.finite(derived))) {
+          rows <- rows[seq_len(first_row - 1L)]
+          break
+        }
         checked <- rel$output %in% names(intervals)
         fits <- NA
         if (checked) {
@@ -148,7 +179,8 @@ evaluate_relations <- function(relations, intervals, variants) {
   if (length(rows) == 0L) {
     return(data.frame(relation = character(), variant = character(), kind = character(),
                       output = character(), inputs = character(), from_descriptives = logical(),
-                      checked = logical(), fits = logical(), derived_lower = numeric(),
+                      falsifies = logical(), checked = logical(), fits = logical(),
+                      derived_lower = numeric(),
                       derived_upper = numeric(), stringsAsFactors = FALSE))
   }
   do.call(rbind, rows)
@@ -158,7 +190,8 @@ evaluation_row <- function(rel, variant, checked, fits, derived, from_descriptiv
   data.frame(relation = rel$name, variant = variant, kind = rel$variant_kind,
              output = rel$output,
              inputs = paste(rel$inputs, collapse = ", "),
-             from_descriptives = from_descriptives, checked = checked, fits = fits,
+             from_descriptives = from_descriptives, falsifies = rel$falsifies,
+             checked = checked, fits = fits,
              derived_lower = derived[["lower"]], derived_upper = derived[["upper"]],
              stringsAsFactors = FALSE)
 }
@@ -178,7 +211,10 @@ relation_outcomes <- function(evaluations) {
 # Status of each reported number from the relations that involve it, as an
 # input or as the output:
 #   inconsistent  - involved in a relation that fails under every variant (we
-#                   cannot tell which of its numbers is the wrong one)
+#                   cannot tell which of its numbers is the wrong one). Relations
+#                   that cannot falsify (`falsifies = FALSE`) never count here.
+#   not reproducible - the output of such a relation, and none of its variants
+#                   (conventions) reproduces it; a remark, not an accusation
 #   verified      - the OUTPUT of a holding relation computed from descriptives
 #                   (n, m, sd, r), reported or derived from reported numbers,
 #                   i.e. recomputed from more basic numbers
@@ -191,7 +227,8 @@ relation_outcomes <- function(evaluations) {
 number_statuses <- function(reported, evaluations, relations) {
   outcomes <- relation_outcomes(evaluations)
   detail <- unique(evaluations[evaluations$checked,
-                               c("relation", "output", "inputs", "from_descriptives")])
+                               c("relation", "output", "inputs", "from_descriptives",
+                                 "falsifies")])
   # What an unevaluated relation lacks: inputs neither reported nor derived.
   have <- c(names(reported), evaluations$output)
   stalled <- Filter(function(rel) {
@@ -202,6 +239,13 @@ number_statuses <- function(reported, evaluations, relations) {
                          vapply(strsplit(detail$inputs, ", "), function(i) quantity %in% i,
                                 logical(1)), , drop = FALSE]
     holds <- outcomes$holds[match(involved$relation, outcomes$relation)]
+    # A failing relation that cannot falsify is set aside: it neither accuses
+    # nor confirms. `unreproduced` is what it says about its own output.
+    unreproduced <- involved[!holds & !involved$falsifies & involved$output == quantity, ,
+                             drop = FALSE]
+    keep <- holds | involved$falsifies
+    involved <- involved[keep, , drop = FALSE]
+    holds <- holds[keep]
     waiting <- Filter(function(rel) quantity %in% c(rel$inputs, rel$output), stalled)
     if (nrow(involved) > 0L) {
       status <- if (any(!holds)) {
@@ -212,6 +256,11 @@ number_statuses <- function(reported, evaluations, relations) {
         "coherent"
       }
       list(status = status, against = paste(involved$relation, collapse = "; "))
+    } else if (nrow(unreproduced) > 0L) {
+      list(status = "not reproducible",
+           against = paste0("no ", variant_kind_noun(unreproduced$relation, relations),
+                            " tried reproduces it (", paste(unreproduced$relation, collapse = "; "),
+                            ")"))
     } else if (length(waiting) > 0L) {
       against <- vapply(waiting, function(rel) {
         lacking <- setdiff(rel$inputs, have)
@@ -233,6 +282,13 @@ number_statuses <- function(reported, evaluations, relations) {
     checked_against = vapply(per_quantity, `[[`, character(1), "against"),
     stringsAsFactors = FALSE, row.names = NULL
   )
+}
+
+# The kind of variant of the named relations, in words ("convention", "test").
+variant_kind_noun <- function(relation_names, relations) {
+  kinds <- unique(vapply(Filter(function(rel) rel$name %in% relation_names, relations),
+                         function(rel) rel$variant_kind, character(1)))
+  if (length(kinds) == 1L && !is.na(kinds)) kinds else "variant"
 }
 
 statistic_quantities <- function() c("t", "f", "chisq")
@@ -326,7 +382,10 @@ missing_numbers <- function(handler, reported_names, level, implied) {
 # Grouped by kind, since a confidence level and a tail are different choices.
 variant_fits <- function(evaluations) {
   checked <- evaluations[evaluations$checked & !is.na(evaluations$variant), , drop = FALSE]
-  lapply(stats::setNames(nm = c("tail", "level")), function(kind) {
+  # tail and level are always present (possibly empty); test and convention
+  # only for handlers that have them.
+  kinds <- intersect(relation_variant_kinds(), c("tail", "level", unique(checked$kind)))
+  lapply(stats::setNames(nm = kinds), function(kind) {
     of_kind <- checked[checked$kind == kind, , drop = FALSE]
     variants <- unique(of_kind$variant)
     data.frame(
@@ -359,13 +418,12 @@ print.reprokit_check <- function(x, ...) {
     cat("The analysis is inconsistent with the reported statistics.\n")
   }
   cat(level_words(x$level), "\n", sep = "")
-  for (kind in c("tail", "level")) {
+  for (kind in names(x$variants)) {
     tried <- x$variants[[kind]]
     if (nrow(tried) == 0L) next
     fitting <- tried$variant[tried$fits]
     fitting_text <- if (length(fitting) > 0L) paste(fitting, collapse = ", ") else "none"
-    label <- if (kind == "tail") "Variants that fit" else "Confidence levels that fit"
-    cat(label, ": ", fitting_text, "\n", sep = "")
+    cat(variant_kind_labels()[[kind]], ": ", fitting_text, "\n", sep = "")
   }
   if (nrow(x$numbers) > 0L) {
     cat("\n")

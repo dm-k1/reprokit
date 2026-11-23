@@ -2,12 +2,15 @@
 # box of rounding intervals of its inputs.
 # Claim: no value of the relation, sampled inside a (domain-clamped) box, falls
 # outside the range relation_range() computed for that box. Samples are uniform
-# draws in the box plus draws on the slices sd[i] = r * sd[3-i], where
+# draws in the box plus draws on the slices sd[i] = r * sd[3-i] (t_paired), where
 # t_from_descriptives and the CI relations have interior extremes that the box
-# corners miss. Two known non-monotone boxes are run as named cases and print
-# the corner-only range next to the true range.
+# corners miss, and on the slice where the Welch df peaks (t_independent). Handlers:
+# t_paired, cor_pearson, t_independent (Student and Welch variants, per-group n),
+# t_one_sample. Three known non-monotone boxes are run as named cases and print
+# the corner-only range next to the true range (the third is the Welch df, whose
+# peak in the SD ratio lies between the corners).
 # PASS criterion: no sampled value escapes any range (1e-9 relative slack for
-# floating point), and in both named cases the corner-only range is strictly
+# floating point), and in all named cases the corner-only range is strictly
 # narrower than the true range (so the check is capable of failing).
 # Size: 300 random boxes per handler x every relation x every variant, 400 uniform
 # + 400 slice draws each. Boxes where the range is not finite are skipped and counted
@@ -23,7 +26,17 @@ set.seed(20261123)
 fmt <- function(x, d) formatC(x, format = "f", digits = d)
 
 random_paper <- function(handler) {
-  n <- sample(c(3, 4, 5, 8, 12, 20, 40, 100), 1L)
+  n_pool <- c(3, 4, 5, 8, 12, 20, 40, 100)
+  if (handler == "t_independent") {
+    ns <- sample(n_pool, 2L, replace = TRUE)
+    dec <- sample(0:3, 1L)
+    scale <- 10^runif(1L, -0.5, 1.5)
+    return(list(n = as.character(ns), t = fmt(rnorm(1L) * 4, sample(0:2, 1L)),
+                df = as.character(sum(ns) - 2),
+                m = fmt(rnorm(2L) * scale, dec),
+                sd = fmt(abs(rnorm(2L)) * scale + 0.02, dec)))
+  }
+  n <- sample(n_pool, 1L)
   dec <- sample(0:3, 1L)
   scale <- 10^runif(1L, -0.5, 1.5)
   rho_dec <- sample(1:3, 1L)
@@ -31,10 +44,13 @@ random_paper <- function(handler) {
   r <- fmt(max(-1, min(1, as.numeric(r))), rho_dec)
   t_dec <- sample(0:2, 1L)
   paper <- list(n = as.character(n), r = r, t = fmt(rnorm(1L) * 4, t_dec),
-                df = as.character(n - if (handler == "t_paired") 1 else 2),
+                df = as.character(n - if (handler %in% c("t_paired", "t_one_sample")) 1 else 2),
                 m = c(fmt(rnorm(1L) * scale, dec), fmt(rnorm(1L) * scale, dec)),
                 sd = fmt(abs(rnorm(2L)) * scale + 0.02, dec))
-  paper$sd <- c(paper$sd[1L], paper$sd[2L])
+  if (handler == "t_one_sample") {
+    paper$m <- paper$m[1L]
+    paper$sd <- paper$sd[1L]
+  }
   paper
 }
 
@@ -57,12 +73,22 @@ draw_slice <- function(box, inputs) {
       point$sd[i] <- target
     }
   }
+  # Welch df peaks where sd1^2/n1 = (sd2^2/n2) * (n1 - 1)/(n2 - 1).
+  if (all(c("sd", "n") %in% inputs) && length(point$n) == 2L) {
+    i <- sample(1:2, 1L)
+    n <- point$n
+    ratio <- (n[i] - 1) / (n[3L - i] - 1)
+    target <- sqrt(point$sd[3L - i]^2 / n[3L - i] * ratio * n[i])
+    if (is.finite(target) && target > box$sd$lower[i] && target < box$sd$upper[i]) {
+      point$sd[i] <- target
+    }
+  }
   point
 }
 
 rows <- list()
 escaped <- 0L
-for (handler in c("t_paired", "cor_pearson")) {
+for (handler in c("t_paired", "cor_pearson", "t_independent", "t_one_sample")) {
   rels <- get_handler(handler)$relations
   for (b in seq_len(n_boxes)) {
     box <- box_of(random_paper(handler))
@@ -114,14 +140,31 @@ box_p <- list(t = interval_bounds(reported_value("0.00")), df = list(lower = 19,
 corners_p <- rel_p
 corners_p$stationary <- NULL
 
+# Named case 3: Welch df, n = (5, 6), sd = (2.0-2.4, 1.0-1.4): df peaks in sd1 at
+# sd1 = sqrt(sd2^2 / n2 * (n1 - 1)/(n2 - 1) * n1) between the corners (sd2 = 1.2: 1.0).
+rel_df <- get_handler("t_independent")$relations[[1L]]
+stopifnot(identical(rel_df$name, "df_from_n"))
+box_df <- list(n = list(lower = c(5, 6), upper = c(5, 6)),
+               sd = list(lower = c(0.9, 1.0), upper = c(1.1, 1.4)))
+corners_df <- rel_df
+corners_df$stationary <- NULL
+scan_df <- max(vapply(seq(0.9, 1.1, length.out = 2001L), function(s1) {
+  vapply(seq(1.0, 1.4, length.out = 201L), function(s2) {
+    rel_df$fn(list(n = c(5, 6), sd = c(s1, s2)), "welch")
+  }, numeric(1))
+}, numeric(201L)))
+
 case_names <- c("t_from_descriptives (sd1 1.95-2.05, r .99)",
-                "p_from_t two.sided (t = 0.00, df 19)")
+                "p_from_t two.sided (t = 0.00, df 19)",
+                "df_from_n welch (n 5/6, sd 0.9-1.1 / 1.0-1.4)")
 corner_upper <- c(relation_range(corners_t, box_t)[["upper"]],
-                  relation_range(corners_p, box_p, "two.sided")[["upper"]])
+                  relation_range(corners_p, box_p, "two.sided")[["upper"]],
+                  relation_range(corners_df, box_df, "welch")[["upper"]])
 true_upper <- c(relation_range(rel_t, box_t)[["upper"]],
-                relation_range(rel_p, box_p, "two.sided")[["upper"]])
+                relation_range(rel_p, box_p, "two.sided")[["upper"]],
+                relation_range(rel_df, box_df, "welch")[["upper"]])
 named <- data.frame(case = case_names, corner_only_upper = corner_upper,
-                    true_upper = true_upper, scan_upper = c(max(scan_t), 1))
+                    true_upper = true_upper, scan_upper = c(max(scan_t), 1, scan_df))
 named[, -1L] <- round(named[, -1L], 3L)
 cat("\n")
 print(named, row.names = FALSE)

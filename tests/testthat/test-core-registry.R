@@ -34,3 +34,17 @@ test_that("every handler that claims exact reproduction round-trips (scaled diff
     expect_reproduces(do.call(h$reported, c(list(ex$x), ex$args)), reproduce(k))
   }
 })
+
+test_that("what a handler says is reproducible is a subset of what its summarise stores", {
+  # `m` is stored as `mean`; every other quantity is stored under its own name.
+  stored_name <- function(quantity) if (quantity == "m") "mean" else quantity
+  with_reproducible <- Filter(function(n) !is.null(get_handler(n)$reproducible), handlers())
+  expect_gt(length(with_reproducible), 0L)
+  for (name in with_reproducible) {
+    h <- get_handler(name)
+    ex <- h$example()
+    stored <- names(do.call(h$summarise, c(list(ex$x), ex$args))$stats)
+    expect_true(all(vapply(h$reproducible, stored_name, character(1)) %in% stored),
+                info = name)
+  }
+})
