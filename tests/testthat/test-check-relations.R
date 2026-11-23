@@ -85,8 +85,8 @@ sampled_outputs <- function(rel, box, variant, draws) {
 
 expect_range_contains <- function(range, sampled, info) {
   slack <- 1e-9 * max(1, abs(range))
-  expect_gte(min(sampled), range[["lower"]] - slack, label = paste(info, "sampled min"))
-  expect_lte(max(sampled), range[["upper"]] + slack, label = paste(info, "sampled max"))
+  testthat::expect_gte(min(sampled), range[["lower"]] - slack, label = paste(info, "sampled min"))
+  testthat::expect_lte(max(sampled), range[["upper"]] + slack, label = paste(info, "sampled max"))
 }
 
 test_that("relation_range contains a dense random sample for every registered relation", {

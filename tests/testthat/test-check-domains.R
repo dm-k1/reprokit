@@ -5,8 +5,8 @@ status_of_domain <- function(checked, quantity) {
 
 no_false_alarm <- function(handler, ...) {
   checked <- check_reported(handler, ...)
-  expect_false("inconsistent" %in% checked$numbers$status)
-  expect_true(checked$consistent)
+  testthat::expect_false("inconsistent" %in% checked$numbers$status)
+  testthat::expect_true(checked$consistent)
   checked
 }
 

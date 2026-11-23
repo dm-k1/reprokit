@@ -10,9 +10,12 @@ test_that("Imports stay within base R packages", {
 })
 
 test_that("the R code uses only base R packages through ::", {
+  # Under covr or R CMD check the tests can run next to the installed package, whose R/ holds
+  # only the lazy-load database. No .R files there means no sources to scan, not a pass.
   r_dir <- testthat::test_path("..", "..", "R")
-  skip_if_not(dir.exists(r_dir), "package sources not available")
-  used <- unlist(lapply(list.files(r_dir, pattern = "\\.[Rr]$", full.names = TRUE), function(path) {
+  sources <- list.files(r_dir, pattern = "\\.[Rr]$", full.names = TRUE)
+  skip_if(length(sources) == 0L, "package sources not available")
+  used <- unlist(lapply(sources, function(path) {
     parsed <- utils::getParseData(parse(path, keep.source = TRUE))
     parsed$text[parsed$token == "SYMBOL_PACKAGE"]
   }))
