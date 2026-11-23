@@ -22,10 +22,7 @@
 n_designs <- 300L
 set.seed(20261123)
 
-fmt <- function(x, d) formatC(x, format = "f", digits = d)
-fmt_p <- function(p) if (p < 0.001) "< .001" else fmt(p, 3L)
-sizes <- c(3, 3, 4, 4, 5, 6, 8, 10, 15, 20, 30, 60, 150)
-rhos <- c(0, 0.3, 0.7, 0.95, 0.99, 0.995, 0.999, 0.9999, -0.5, -0.9, -0.999)
+source("inst/validation/check-designs.R")
 
 run_checks <- function(handler, paper, subsets) {
   out <- list(checks = 0L, fp = list(), err = list())
@@ -42,87 +39,6 @@ run_checks <- function(handler, paper, subsets) {
     }
   }
   out
-}
-
-paired_design <- function() {
-  n <- sample(sizes, 1L)
-  scale <- 10^runif(1L, -1, 2)
-  rho <- if (runif(1L) < 0.5) sample(rhos, 1L) else runif(1L, -0.99, 0.99)
-  x <- rnorm(n) * scale * runif(1L, 0.5, 2) + runif(1L, -1, 1) * scale
-  z <- (x - mean(x)) / sd(x)
-  e <- rnorm(n)
-  e <- resid(lm(e ~ z))
-  y <- rho * z * sd(x) + sqrt(1 - rho^2) * e / sd(e) * sd(x) * runif(1L, 0.5, 1.5) +
-    runif(1L, -1, 1) * scale * 0.2
-  list(x = x, y = y, dec = sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3)))
-}
-
-paired_paper <- function(d) {
-  tt <- t.test(d$x, d$y, paired = TRUE)
-  r <- cor(d$x, d$y)
-  if (!is.finite(r) || !is.finite(tt$statistic)) return(NULL)
-  dec <- d$dec
-  n <- length(d$x)
-  list(n = as.character(n), m = c(fmt(mean(d$x), dec), fmt(mean(d$y), dec)),
-       sd = c(fmt(sd(d$x), dec), fmt(sd(d$y), dec)), r = fmt(r, 3L),
-       t = fmt(unname(tt$statistic), 2L), df = as.character(n - 1L),
-       p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
-       ci_upper = fmt(tt$conf.int[2L], dec))
-}
-
-pearson_paper <- function() {
-  n <- sample(sizes, 1L)
-  rho <- if (runif(1L) < 0.5) sample(rhos, 1L) else runif(1L, -0.99, 0.99)
-  x <- rnorm(n)
-  y <- rho * x + sqrt(1 - rho^2) * rnorm(n)
-  r <- suppressWarnings(cor(x, y))
-  if (!is.finite(r)) return(NULL)
-  ct <- cor.test(x, y)
-  dec <- sample(2:3, 1L)
-  paper <- list(n = as.character(n), r = fmt(unname(ct$estimate), dec),
-                df = as.character(n - 2L), t = fmt(unname(ct$statistic), 2L),
-                p = fmt_p(ct$p.value))
-  if (n > 3L) {
-    paper <- c(paper, list(ci_lower = fmt(ct$conf.int[1L], dec),
-                           ci_upper = fmt(ct$conf.int[2L], dec)))
-  }
-  paper
-}
-
-independent_paper <- function(var_equal) {
-  n1 <- sample(sizes[sizes >= 3], 1L)
-  n2 <- sample(sizes[sizes >= 3], 1L)
-  scale <- 10^runif(1L, -1, 2)
-  x <- rnorm(n1) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
-  y <- rnorm(n2) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
-  tt <- t.test(x, y, var.equal = var_equal)
-  if (!is.finite(tt$statistic) || sd(x) == 0 || sd(y) == 0) return(NULL)
-  dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
-  df_dec <- if (var_equal) 0L else sample(1:2, 1L)
-  pooled <- sqrt(((n1 - 1) * var(x) + (n2 - 1) * var(y)) / (n1 + n2 - 2))
-  paper <- list(n = as.character(c(n1, n2)), m = c(fmt(mean(x), dec), fmt(mean(y), dec)),
-                sd = c(fmt(sd(x), dec), fmt(sd(y), dec)),
-                t = fmt(unname(tt$statistic), 2L), df = fmt(unname(tt$parameter), df_dec),
-                p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
-                ci_upper = fmt(tt$conf.int[2L], dec))
-  if (runif(1L) < 0.3) paper$d <- fmt((mean(x) - mean(y)) / pooled, 2L)
-  paper
-}
-
-one_sample_paper <- function() {
-  n <- sample(sizes, 1L)
-  scale <- 10^runif(1L, -1, 2)
-  x <- rnorm(n) * scale + runif(1L, -1, 1) * scale
-  mu <- if (runif(1L) < 0.4) 0 else round(runif(1L, -1, 1) * scale, sample(0:2, 1L))
-  tt <- t.test(x, mu = mu)
-  if (!is.finite(tt$statistic) || sd(x) == 0) return(NULL)
-  dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
-  paper <- list(n = as.character(n), m = fmt(mean(x), dec), sd = fmt(sd(x), dec),
-                t = fmt(unname(tt$statistic), 2L), df = as.character(n - 1L),
-                p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
-                ci_upper = fmt(tt$conf.int[2L], dec))
-  attr(paper, "mu") <- mu
-  paper
 }
 
 generic_subsets <- function(paper, i) {

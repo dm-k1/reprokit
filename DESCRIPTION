@@ -22,6 +22,7 @@ Suggests:
     knitr,
     rmarkdown,
     rlang,
+    statcheck,
     testthat (>= 3.0.0),
     withr
 VignetteBuilder: knitr
