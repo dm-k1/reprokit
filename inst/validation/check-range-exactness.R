@@ -6,9 +6,9 @@
 # t_from_descriptives and the CI relations have interior extremes that the box
 # corners miss, and on the slice where the Welch df peaks (t_independent). Handlers:
 # t_paired, cor_pearson, t_independent (Student and Welch variants, per-group n),
-# t_one_sample. Three known non-monotone boxes are run as named cases and print
+# t_one_sample. Four known non-monotone boxes are run as named cases and print
 # the corner-only range next to the true range (the third is the Welch df, whose
-# peak in the SD ratio lies between the corners).
+# peak in the SD ratio lies between the corners; the fourth is the paired d_rm).
 # PASS criterion: no sampled value escapes any range (1e-9 relative slack for
 # floating point), and in all named cases the corner-only range is strictly
 # narrower than the true range (so the check is capable of failing).
@@ -93,10 +93,10 @@ for (handler in c("t_paired", "cor_pearson", "t_independent", "t_one_sample")) {
   for (b in seq_len(n_boxes)) {
     box <- box_of(random_paper(handler))
     for (rel in rels) {
-      for (variant in if (is.null(rel$variants)) list(NULL) else rel$variants) {
+      for (variant in variant_combinations(rel$variants)) {
         range <- tryCatch(relation_range(rel, box, variant),
                           error = function(e) c(NA_real_, NA_real_))
-        key <- paste(handler, rel$name, variant)
+        key <- paste(handler, rel$name, paste(variant, collapse = "+"))
         if (!all(is.finite(range))) {
           rows[[key]] <- rbind(rows[[key]], c(0, 0, 1))
           next
@@ -154,17 +154,34 @@ scan_df <- max(vapply(seq(0.9, 1.1, length.out = 2001L), function(s1) {
   }, numeric(1))
 }, numeric(201L)))
 
+# Named case 4: paired d_rm (and d_z), same box as case 1: d = diff / SD of the differences,
+# peaks where sd[1] = r * sd[2]; the relation lists that point as stationary. A scan of the
+# convention over sd[1] is the independent truth (this is the exactness check for d_rm).
+rel_d <- get_handler("t_paired")$relations[[6L]]
+stopifnot(identical(rel_d$name, "d_from_descriptives"))
+box_d <- list(m = list(lower = c(5, 4), upper = c(5, 4)),
+              sd = list(lower = c(1.95, 2), upper = c(2.05, 2)),
+              r = list(lower = 0.99, upper = 0.99))
+corners_d <- rel_d
+corners_d$stationary <- NULL
+scan_d <- max(vapply(seq(1.95, 2.05, length.out = 100001L), function(s1) {
+  rel_d$fn(list(m = c(5, 4), sd = c(s1, 2), r = 0.99), "d_rm")
+}, numeric(1)))
+
 case_names <- c("t_from_descriptives (sd1 1.95-2.05, r .99)",
                 "p_from_t two.sided (t = 0.00, df 19)",
-                "df_from_n welch (n 5/6, sd 0.9-1.1 / 1.0-1.4)")
+                "df_from_n welch (n 5/6, sd 0.9-1.1 / 1.0-1.4)",
+                "d_from_descriptives d_rm (sd1 1.95-2.05, r .99)")
 corner_upper <- c(relation_range(corners_t, box_t)[["upper"]],
                   relation_range(corners_p, box_p, "two.sided")[["upper"]],
-                  relation_range(corners_df, box_df, "welch")[["upper"]])
+                  relation_range(corners_df, box_df, "welch")[["upper"]],
+                  relation_range(corners_d, box_d, "d_rm")[["upper"]])
 true_upper <- c(relation_range(rel_t, box_t)[["upper"]],
                 relation_range(rel_p, box_p, "two.sided")[["upper"]],
-                relation_range(rel_df, box_df, "welch")[["upper"]])
+                relation_range(rel_df, box_df, "welch")[["upper"]],
+                relation_range(rel_d, box_d, "d_rm")[["upper"]])
 named <- data.frame(case = case_names, corner_only_upper = corner_upper,
-                    true_upper = true_upper, scan_upper = c(max(scan_t), 1, scan_df))
+                    true_upper = true_upper, scan_upper = c(max(scan_t), 1, scan_df, scan_d))
 named[, -1L] <- round(named[, -1L], 3L)
 cat("\n")
 print(named, row.names = FALSE)

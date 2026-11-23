@@ -19,9 +19,10 @@
 #'   character vector (`m = c("5.1", "4.2")`). Integer-valued numbers are taken
 #'   as exact.
 #' @param variants Character vector restricting which variants to try (such as
-#'   `"two.sided"`, `"0.95"` or `"welch"`), or `NULL` for all. A restriction applies to
-#'   the relations that have one of the named variants; the others keep all of
-#'   theirs.
+#'   `"two.sided"`, `"0.95"` or `"welch"`), or `NULL` for all. Each value
+#'   restricts only its own kind of variant (tail, confidence level, test,
+#'   convention): `c("welch", "0.95")` fixes the test and the level. A kind
+#'   that no value names keeps all its variants.
 #' @param mu The test value the mean (or mean difference) is compared with, for
 #'   handlers whose t depends on it (`t_one_sample`, `t_paired`). Default 0. A
 #'   handler without a test value errors on `mu` other than 0.
@@ -30,10 +31,20 @@
 #'   level, and the range implied for it), `$variants` (a list with one data
 #'   frame per kind of variant the handler has, each of the variants tried and
 #'   whether they fit: `tail`, `level`, `test` (Student or Welch) and
-#'   `convention` (how an effect size was computed)), `$relations`, `$implied`,
+#'   `convention` (how an effect size was computed)), `$relations` (one row per
+#'   relation and variant; `$variant` and `$kind` join the values and kinds of a
+#'   relation that varies over several with "+", and there is one column per
+#'   kind, `tail`, `level`, `test`, `convention`, holding the row's value or
+#'   `NA`), `$implied`,
 #'   `$implied_inputs` (numbers derived from reported ones, such as `n` from `df`)
 #'   and `$checked` (whether any relation that can falsify was compared with a
 #'   reported number; without one there is no verdict).
+#'
+#'   The reported numbers come from one analysis, so they share one test and one
+#'   confidence level: a variant fits only if one choice per kind explains every
+#'   relation that can falsify. A CI whose bounds fit different levels, or a t that
+#'   fits only Student next to a CI that fits only Welch, is inconsistent even
+#'   though each relation holds on its own.
 #'
 #'   Some relations cannot falsify: how `d` was computed (pooled SD, average SD,
 #'   Glass) is rarely declared, so a `d` that no convention reproduces gets the
@@ -174,6 +185,8 @@ evaluate_relations <- function(relations, intervals, variants, implied = list())
          ". This handler has: ", paste(known_variants, collapse = ", "), ".", call. = FALSE)
   }
   rows <- list()
+  # Shared by the variants of one call (never across calls): see sd_stationary().
+  memo <- new.env(parent = emptyenv())
   # An unreported output becomes available as an input to later relations with
   # the range derived for it (so p can be checked from r and n through t). Such
   # a number counts as descriptive-based: it was derived from n, m, sd or r.
@@ -182,6 +195,7 @@ evaluate_relations <- function(relations, intervals, variants, implied = list())
   available <- c(intervals, lapply(implied, function(x) x[c("lower", "upper")]))
   basis <- intersect(names(intervals), descriptive_quantities())
   done <- character()
+  derived_outputs <- character()
   repeat {
     progressed <- FALSE
     for (rel in relations) {
@@ -191,16 +205,14 @@ evaluate_relations <- function(relations, intervals, variants, implied = list())
       }
       done <- c(done, rel$name)
       progressed <- TRUE
-      to_run <- if (is.null(rel$variants)) NA_character_ else rel$variants
-      if (length(intersect(to_run, variants)) > 0L) to_run <- intersect(to_run, variants)
       first_row <- length(rows) + 1L
-      for (variant in to_run) {
-        derived <- relation_range(rel, available, if (is.na(variant)) NULL else variant)
+      for (variant in variant_combinations(restrict_variants(rel$variants, variants))) {
+        derived <- relation_range(rel, available, variant, memo)
         # A range that is not finite (NaN or infinite) is "not evaluable", never
         # "does not fit": the whole relation is skipped as if an input were missing.
-        # Not just that variant: with the other variants alone, a fit of the
-        # variant that could not be evaluated would be missed, and a derived
-        # output (df from n and sd) would be narrower than the variants allow.
+        # Not just that combination: with the others alone, a fit of the one that
+        # could not be evaluated would be missed, and a derived output (df from n
+        # and sd) would be narrower than the variants allow.
         if (!all(is.finite(derived))) {
           rows <- rows[seq_len(first_row - 1L)]
           break
@@ -216,37 +228,78 @@ evaluate_relations <- function(relations, intervals, variants, implied = list())
                               from_descriptives = any(rel$inputs %in% basis))
         rows[[length(rows) + 1L]] <- row
       }
-      if (!rel$output %in% names(available) && length(rows) >= first_row) {
-        # Widest range over variants, so no variant is ruled out here.
+      if ((!rel$output %in% names(available) || rel$output %in% derived_outputs) &&
+            length(rows) >= first_row) {
+        # Hull over all combinations, so no variant is ruled out here. Relations
+        # that share an output (the conventions of d, from different inputs) widen
+        # it across all of them: the output fits if any of them fits.
         mine <- do.call(rbind, rows[first_row:length(rows)])
-        available[[rel$output]] <- list(lower = min(mine$derived_lower),
-                                        upper = max(mine$derived_upper))
-        if (any(rel$inputs %in% basis)) basis <- c(basis, rel$output)
+        lower <- min(mine$derived_lower)
+        upper <- max(mine$derived_upper)
+        if (rel$output %in% derived_outputs) {
+          lower <- min(lower, available[[rel$output]]$lower)
+          upper <- max(upper, available[[rel$output]]$upper)
+        }
+        available[[rel$output]] <- list(lower = lower, upper = upper)
+        derived_outputs <- union(derived_outputs, rel$output)
+        if (any(rel$inputs %in% basis)) basis <- union(basis, rel$output)
       }
     }
     if (!progressed) break
   }
   if (length(rows) == 0L) {
-    return(data.frame(relation = character(), variant = character(), kind = character(),
-                      output = character(), inputs = character(), from_descriptives = logical(),
-                      falsifies = logical(), checked = logical(), fits = logical(),
-                      derived_lower = numeric(),
-                      derived_upper = numeric(), stringsAsFactors = FALSE))
+    kind_columns <- lapply(stats::setNames(nm = relation_variant_kinds()),
+                           function(kind) character())
+    head_columns <- list(relation = character(), variant = character(), kind = character())
+    tail_columns <- list(output = character(), inputs = character(),
+                         from_descriptives = logical(), falsifies = logical(),
+                         checked = logical(), fits = logical(),
+                         derived_lower = numeric(), derived_upper = numeric(),
+                         stringsAsFactors = FALSE)
+    return(do.call(data.frame, c(head_columns, kind_columns, tail_columns)))
   }
   do.call(rbind, rows)
 }
 
-evaluation_row <- function(rel, variant, checked, fits, derived, from_descriptives) {
-  data.frame(relation = rel$name, variant = variant, kind = rel$variant_kind,
-             output = rel$output,
-             inputs = paste(rel$inputs, collapse = ", "),
-             from_descriptives = from_descriptives, falsifies = rel$falsifies,
-             checked = checked, fits = fits,
-             derived_lower = derived[["lower"]], derived_upper = derived[["upper"]],
-             stringsAsFactors = FALSE)
+# `variants` of a relation restricted to the values the user named: each value
+# restricts only its own kind, and a kind with none of the named values keeps all.
+restrict_variants <- function(variants, wanted) {
+  if (length(variants) == 0L) return(NULL)
+  lapply(variants, function(values) {
+    keep <- intersect(values, wanted)
+    if (length(keep) > 0L) keep else values
+  })
 }
 
-# A relation holds when at least one of its variants fits.
+# The value of each kind for one combination, as a named character vector (empty
+# for a relation without variants). `combo` is what `fn` receives.
+variant_values <- function(rel, combo) {
+  if (is.null(combo)) return(character())
+  if (is.null(names(combo))) stats::setNames(combo, names(rel$variants)) else combo
+}
+
+# One row per relation and combination of variants. `variant` and `kind` join the
+# values and kinds with "+", in the same order; one column per kind holds the
+# row's value or NA.
+evaluation_row <- function(rel, combo, checked, fits, derived, from_descriptives) {
+  values <- variant_values(rel, combo)
+  per_kind <- lapply(stats::setNames(nm = relation_variant_kinds()), function(kind) {
+    if (kind %in% names(values)) values[[kind]] else NA_character_
+  })
+  variant_label <- if (length(values) > 0L) paste(values, collapse = "+") else NA_character_
+  kind_label <- if (length(values) > 0L) paste(names(values), collapse = "+") else NA_character_
+  head_columns <- list(relation = rel$name, variant = variant_label, kind = kind_label)
+  tail_columns <- list(output = rel$output, inputs = paste(rel$inputs, collapse = ", "),
+                       from_descriptives = from_descriptives, falsifies = rel$falsifies,
+                       checked = checked, fits = fits,
+                       derived_lower = derived[["lower"]], derived_upper = derived[["upper"]],
+                       stringsAsFactors = FALSE)
+  do.call(data.frame, c(head_columns, per_kind, tail_columns))
+}
+
+# A relation holds when at least one of its variants fits. That is the relation
+# alone; shared_choice() adds the requirement that the relations agree on one
+# choice per kind.
 relation_outcomes <- function(evaluations) {
   checked <- evaluations[evaluations$checked, , drop = FALSE]
   names_checked <- unique(checked$relation)
@@ -260,9 +313,11 @@ relation_outcomes <- function(evaluations) {
 
 # Status of each reported number from the relations that involve it, as an
 # input or as the output:
-#   inconsistent  - involved in a relation that fails under every variant (we
-#                   cannot tell which of its numbers is the wrong one). Relations
-#                   that cannot falsify (`falsifies = FALSE`) never count here.
+#   inconsistent  - involved in a relation that fails under every variant, or in a
+#                   set of relations that no single choice of test, level and
+#                   tail satisfies at once (we cannot tell which of its numbers
+#                   is the wrong one). Relations that cannot falsify
+#                   (`falsifies = FALSE`) never count here.
 #   not reproducible - the output of such a relation, and none of its variants
 #                   (conventions) reproduces it; a remark, not an accusation
 #   verified      - the OUTPUT of a holding relation computed from descriptives
@@ -276,6 +331,11 @@ relation_outcomes <- function(evaluations) {
 #   not checkable - no relation reaches it
 number_statuses <- function(reported, evaluations, relations, implied = list()) {
   outcomes <- relation_outcomes(evaluations)
+  # Relations of a component with no fitting joint choice: each holds alone, but
+  # no single analysis produces them all, so none counts as holding.
+  jointly_failing <- unlist(lapply(shared_choice(evaluations), function(component) {
+    if (any(component$fits)) NULL else component$relations
+  }))
   detail <- unique(evaluations[evaluations$checked,
                                c("relation", "output", "inputs", "from_descriptives",
                                  "falsifies")])
@@ -289,7 +349,8 @@ number_statuses <- function(reported, evaluations, relations, implied = list()) 
     involved <- detail[detail$output == quantity |
                          vapply(strsplit(detail$inputs, ", "), function(i) quantity %in% i,
                                 logical(1)), , drop = FALSE]
-    holds <- outcomes$holds[match(involved$relation, outcomes$relation)]
+    holds <- outcomes$holds[match(involved$relation, outcomes$relation)] &
+      !involved$relation %in% jointly_failing
     # A failing relation that cannot falsify is set aside: it neither accuses
     # nor confirms. `unreproduced` is what it says about its own output.
     unreproduced <- involved[!holds & !involved$falsifies & involved$output == quantity, ,
@@ -337,9 +398,9 @@ number_statuses <- function(reported, evaluations, relations, implied = list()) 
 
 # The kind of variant of the named relations, in words ("convention", "test").
 variant_kind_noun <- function(relation_names, relations) {
-  kinds <- unique(vapply(Filter(function(rel) rel$name %in% relation_names, relations),
-                         function(rel) rel$variant_kind, character(1)))
-  if (length(kinds) == 1L && !is.na(kinds)) kinds else "variant"
+  kinds <- unique(unlist(lapply(Filter(function(rel) rel$name %in% relation_names, relations),
+                                function(rel) names(rel$variants))))
+  if (length(kinds) == 1L) kinds else "variant"
 }
 
 statistic_quantities <- function() c("t", "f", "chisq")
@@ -381,14 +442,41 @@ implied_ranges <- function(handler, intervals, evaluations) {
           is.null(solvable_bounds()[[quantity]])) {
       next
     }
-    for (variant in if (is.null(rel$variants)) NA_character_ else rel$variants) {
-      found <- solve_for(rel, intervals, quantity, intervals[[rel$output]],
-                         solvable_bounds()[[quantity]], if (is.na(variant)) NULL else variant)
-      previous <- implied[[quantity]]
-      implied[[quantity]] <- if (is.null(previous)) found else intersect_implied(previous, found)
+    # A relation that cannot falsify (the d convention) says nothing about a
+    # missing input: which convention was used is unknown, so ambiguity resolves
+    # towards silence.
+    if (!rel$falsifies) next
+    # The variants are alternatives (one of them was used), so the missing input
+    # may lie in the union of their ranges; relations are all true, so they intersect.
+    # This does not apply the shared-choice rule of shared_choice() (one test and
+    # one level across relations): it only ever widens the implied range, which
+    # can keep a number consistent but never flag one, so ambiguity resolves
+    # towards silence. Only the correlation CIs reach it, and they vary over level
+    # alone.
+    found <- NULL
+    for (variant in variant_combinations(rel$variants)) {
+      one <- solve_for(rel, intervals, quantity, intervals[[rel$output]],
+                       solvable_bounds()[[quantity]], variant)
+      found <- if (is.null(found)) one else union_implied(found, one)
     }
+    previous <- implied[[quantity]]
+    implied[[quantity]] <- if (is.null(previous)) found else intersect_implied(previous, found)
   }
   implied
+}
+
+# The union of two feasible sets, as their hull (the grid scan gives intervals; a
+# hull is wider, never narrower, so it can only keep a number consistent).
+union_implied <- function(first, second) {
+  if (!first$feasible) return(second)
+  if (!second$feasible) return(first)
+  list(lower = min(first$lower, second$lower), upper = max(first$upper, second$upper),
+       feasible = TRUE,
+       reaches_lower = (first$lower <= second$lower && first$reaches_lower) ||
+         (second$lower <= first$lower && second$reaches_lower),
+       reaches_upper = (first$upper >= second$upper && first$reaches_upper) ||
+         (second$upper >= first$upper && second$reaches_upper),
+       resolution = first$resolution)
 }
 
 intersect_implied <- function(first, second) {
@@ -429,21 +517,91 @@ missing_numbers <- function(handler, reported_names, level, implied) {
   )
 }
 
-# Which variants fit: a variant fits when no relation evaluated under it fails.
-# Grouped by kind, since a confidence level and a tail are different choices.
+# The relations that can falsify, joined by the kinds of variant they share.
+# Reported numbers come from one analysis, so they share one test and one level:
+# letting each relation choose its variant separately accepts results that no
+# single analysis produces (the lower CI bound at 90% and the upper at 99%; a t
+# that only Student reproduces next to a CI that only Welch does).
+# Two kinds share a component when some falsifying, checked relation varies over
+# both (for the independent t: test and level, through the CI; the tail stands
+# alone through p_from_t). Per component, an assignment (one value per kind) fits
+# when every relation of the component fits under some row that agrees with the
+# assignment on the kinds that relation varies over. Only relations that fit
+# on their own take part: one that fails under every choice is already
+# inconsistent, and letting it veto the joint choice would mark the numbers of
+# the relations that hold (a correct lower bound, t) inconsistent with it.
+# Relations that cannot falsify (the d conventions) never take part. Returns a
+# list of components, each list(kinds, relations (the holding ones),
+# assignments (a data frame), fits (logical)).
+shared_choice <- function(evaluations) {
+  rows <- evaluations[evaluations$checked & evaluations$falsifies, , drop = FALSE]
+  if (nrow(rows) == 0L) return(list())
+  kinds_of <- lapply(split(rows, rows$relation), function(r) {
+    Filter(function(kind) any(!is.na(r[[kind]])), relation_variant_kinds())
+  })
+  kinds_of <- Filter(function(kinds) length(kinds) > 0L, kinds_of)
+  groups <- list()
+  for (kinds in kinds_of) {
+    linked <- vapply(groups, function(g) any(g %in% kinds), logical(1))
+    groups <- c(groups[!linked], list(union(unlist(groups[linked]), kinds)))
+  }
+  lapply(groups, function(group) {
+    group <- intersect(relation_variant_kinds(), group)
+    relations <- names(kinds_of)[vapply(kinds_of, function(k) all(k %in% group), logical(1))]
+    mine <- rows[rows$relation %in% relations, , drop = FALSE]
+    values <- lapply(stats::setNames(nm = group), function(kind) {
+      v <- mine[[kind]]
+      unique(v[!is.na(v)])
+    })
+    assignments <- expand.grid(values, stringsAsFactors = FALSE, KEEP.OUT.ATTRS = FALSE)
+    holding <- relations[vapply(relations, function(relation) {
+      any(mine$fits[mine$relation == relation])
+    }, logical(1))]
+    agrees <- function(i, relation) {
+      fitting <- mine[mine$relation == relation & mine$fits, , drop = FALSE]
+      any(vapply(seq_len(nrow(fitting)), function(j) {
+        all(vapply(kinds_of[[relation]], function(kind) {
+          identical(fitting[[kind]][j], assignments[[kind]][i])
+        }, logical(1)))
+      }, logical(1)))
+    }
+    fits <- vapply(seq_len(nrow(assignments)), function(i) {
+      length(holding) > 0L && all(vapply(holding, agrees, logical(1), i = i))
+    }, logical(1))
+    list(kinds = group, relations = holding, assignments = assignments, fits = fits)
+  })
+}
+
+# Which variants fit, by kind (a confidence level, a tail, a test and a
+# convention are different choices). For a kind that takes part in a falsifying
+# relation a value fits when some fitting assignment of its component uses it
+# (shared_choice()); when the component has no fitting assignment no value fits.
+# A kind only the d conventions have is judged value by value: a convention fits
+# when every relation evaluated under it fits.
 variant_fits <- function(evaluations) {
   checked <- evaluations[evaluations$checked & !is.na(evaluations$variant), , drop = FALSE]
   # tail and level are always present (possibly empty); test and convention
   # only for handlers that have them.
-  kinds <- intersect(relation_variant_kinds(), c("tail", "level", unique(checked$kind)))
+  present <- Filter(function(kind) any(!is.na(checked[[kind]])), relation_variant_kinds())
+  kinds <- intersect(relation_variant_kinds(), c("tail", "level", present))
+  components <- shared_choice(evaluations)
   lapply(stats::setNames(nm = kinds), function(kind) {
-    of_kind <- checked[checked$kind == kind, , drop = FALSE]
-    variants <- unique(of_kind$variant)
-    data.frame(
-      variant = variants,
-      fits = vapply(variants, function(v) all(of_kind$fits[of_kind$variant == v]), logical(1)),
-      stringsAsFactors = FALSE, row.names = NULL
-    )
+    component <- Filter(function(c) kind %in% c$kinds, components)
+    if (length(component) > 0L) {
+      component <- component[[1L]]
+      variants <- unique(component$assignments[[kind]])
+      fits <- vapply(variants, function(v) {
+        any(component$fits & component$assignments[[kind]] == v)
+      }, logical(1))
+    } else {
+      values <- checked[[kind]]
+      variants <- unique(values[!is.na(values)])
+      fits <- vapply(variants, function(v) {
+        all(checked$fits[!is.na(values) & values == v])
+      }, logical(1))
+    }
+    data.frame(variant = variants, fits = unname(fits), stringsAsFactors = FALSE,
+               row.names = NULL)
   })
 }
 
@@ -477,7 +635,11 @@ print.reprokit_check <- function(x, ...) {
     tried <- x$variants[[kind]]
     if (nrow(tried) == 0L) next
     fitting <- tried$variant[tried$fits]
-    fitting_text <- if (length(fitting) > 0L) paste(fitting, collapse = ", ") else "none"
+    fitting_text <- if (length(fitting) > 0L) {
+      paste(variant_label(fitting), collapse = ", ")
+    } else {
+      "none"
+    }
     cat(variant_kind_labels()[[kind]], ": ", fitting_text, "\n", sep = "")
   }
   if (nrow(x$numbers) > 0L) {

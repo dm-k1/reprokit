@@ -210,11 +210,10 @@ handler_choices <- function(h) {
               convention = "effect-size convention")
   kinds <- relation_variant_kinds()
   from_relations <- unlist(lapply(kinds, function(kind) {
-    of_kind <- Filter(function(rel) rel$variant_kind == kind && !is.null(rel$variants),
-                      h$relations)
+    of_kind <- Filter(function(rel) kind %in% names(rel$variants), h$relations)
     if (length(of_kind) == 0L) return(NULL)
-    paste0(labels[[kind]], " (", paste(unique(unlist(lapply(of_kind, `[[`, "variants"))),
-                                       collapse = ", "), ")")
+    codes <- unique(unlist(lapply(of_kind, function(rel) rel$variants[[kind]])))
+    paste0(labels[[kind]], " (", paste(variant_label(codes), collapse = ", "), ")")
   }))
   c(from_relations, h$choices)
 }

@@ -22,9 +22,10 @@ character vector (\code{m = c("5.1", "4.2")}). Integer-valued numbers are taken
 as exact.}
 
 \item{variants}{Character vector restricting which variants to try (such as
-\code{"two.sided"}, \code{"0.95"} or \code{"welch"}), or \code{NULL} for all. A restriction applies to
-the relations that have one of the named variants; the others keep all of
-theirs.}
+\code{"two.sided"}, \code{"0.95"} or \code{"welch"}), or \code{NULL} for all. Each value
+restricts only its own kind of variant (tail, confidence level, test,
+convention): \code{c("welch", "0.95")} fixes the test and the level. A kind
+that no value names keeps all its variants.}
 
 \item{mu}{The test value the mean (or mean difference) is compared with, for
 handlers whose t depends on it (\code{t_one_sample}, \code{t_paired}). Default 0. A
@@ -36,10 +37,20 @@ number), \verb{$level} (coverage, 0 to 3), \verb{$missing} (what would raise the
 level, and the range implied for it), \verb{$variants} (a list with one data
 frame per kind of variant the handler has, each of the variants tried and
 whether they fit: \code{tail}, \code{level}, \code{test} (Student or Welch) and
-\code{convention} (how an effect size was computed)), \verb{$relations}, \verb{$implied},
+\code{convention} (how an effect size was computed)), \verb{$relations} (one row per
+relation and variant; \verb{$variant} and \verb{$kind} join the values and kinds of a
+relation that varies over several with "+", and there is one column per
+kind, \code{tail}, \code{level}, \code{test}, \code{convention}, holding the row's value or
+\code{NA}), \verb{$implied},
 \verb{$implied_inputs} (numbers derived from reported ones, such as \code{n} from \code{df})
 and \verb{$checked} (whether any relation that can falsify was compared with a
 reported number; without one there is no verdict).
+
+The reported numbers come from one analysis, so they share one test and one
+confidence level: a variant fits only if one choice per kind explains every
+relation that can falsify. A CI whose bounds fit different levels, or a t that
+fits only Student next to a CI that fits only Welch, is inconsistent even
+though each relation holds on its own.
 
 Some relations cannot falsify: how \code{d} was computed (pooled SD, average SD,
 Glass) is rarely declared, so a \code{d} that no convention reproduces gets the

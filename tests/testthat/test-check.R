@@ -114,16 +114,17 @@ test_that("input errors are clear", {
 test_that("a confidence level is reported apart from the tails", {
   checked <- run_check("cor_pearson", paper_pearson())
   expect_named(checked$variants, c("tail", "level"))
-  expect_equal(checked$variants$level$variant, "0.95")
-  expect_true(all(checked$variants$level$fits))
+  fitting_levels <- checked$variants$level
+  expect_equal(fitting_levels$variant, c("0.90", "0.95", "0.99"))
+  expect_equal(fitting_levels$variant[fitting_levels$fits], "0.95")
   out <- paste(utils::capture.output(print(checked)), collapse = "\n")
-  expect_match(out, "Variants that fit: two.sided, less\n")
-  expect_match(out, "Confidence levels that fit: 0.95")
+  expect_match(out, "Variants that fit: two-sided, one-sided (less)\n", fixed = TRUE)
+  expect_match(out, "Confidence levels that fit: 95%\n", fixed = TRUE)
   tails_only <- do.call(check_reported, c(list(handler = "cor_pearson", variants = "less"),
                                           paper_pearson()[c("n", "r", "df", "p",
                                                             "ci_lower", "ci_upper")]))
   expect_equal(tails_only$variants$tail$variant, "less")
-  expect_equal(tails_only$variants$level$variant, "0.95")
+  expect_equal(tails_only$variants$level$variant[tails_only$variants$level$fits], "0.95")
   expect_true(tails_only$consistent)
 })
 

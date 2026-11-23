@@ -31,13 +31,13 @@ register_cor_pearson <- function() {
 }
 
 # Relations between reported quantities (check_reported()). The CI is the
-# Fisher-z interval at 95%, the only confidence level offered.
+# Fisher-z interval; the confidence level is the variant (90, 95 or 99%).
 cor_pearson_relations <- function() {
   fisher_bound <- function(sign) {
     function(vals, variant) {
       # The Fisher interval needs n > 3; below that it does not apply.
       if (vals$n <= 3) return(NaN)
-      z_crit <- stats::qnorm(1 - (1 - 0.95) / 2)
+      z_crit <- stats::qnorm(1 - (1 - as.numeric(variant)) / 2)
       tanh(atanh(vals$r) + sign * z_crit / sqrt(vals$n - 3))
     }
   }
@@ -49,9 +49,9 @@ cor_pearson_relations <- function() {
     }),
     relation_p_from_t(),
     relation("ci_lower_from_r", c("r", "n"), "ci_lower", fisher_bound(-1),
-             variants = "0.95", variant_kind = "level"),
+             variants = confidence_levels(), variant_kind = "level"),
     relation("ci_upper_from_r", c("r", "n"), "ci_upper", fisher_bound(1),
-             variants = "0.95", variant_kind = "level")
+             variants = confidence_levels(), variant_kind = "level")
   )
 }
 

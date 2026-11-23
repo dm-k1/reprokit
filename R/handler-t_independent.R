@@ -55,10 +55,16 @@ register_t_independent <- function() {
 # signed (first minus second), so a paper that reports |d| for a negative
 # difference is "not reproducible" too, again without an accusation.
 #
+# The CI depends on both the test (its SE and df) and the confidence level, so
+# each bound is one relation crossed over both (ADR 0014): the reported numbers
+# come from one analysis, so check_reported() requires one test and one level
+# across t, df and both bounds, not a choice per relation.
+#
 # Monotonicity (checked numerically, see inst/validation/check-range-exactness.R
 # for the machinery): t and the Student CI are monotone in each m and sd, d too;
 # Welch df and the Welch CI are not monotone in the SDs (df peaks where
-# sd1^2 / n1 : sd2^2 / n2 = (n1 - 1) : (n2 - 1)), so they list stationary points.
+# sd1^2 / n1 : sd2^2 / n2 = (n1 - 1) : (n2 - 1); the CI extremum has no closed
+# form and depends on the level), so they list stationary points.
 t_independent_relations <- function() {
   parts <- function(vals, test) {
     n <- vals$n
@@ -74,10 +80,11 @@ t_independent_relations <- function() {
     }
     list(diff = diff, se = se, df = df)
   }
+  # `variant` is c(test = , level = ) for the CI relations (crossed).
   ci_bound <- function(position) {
     function(vals, variant) {
-      d <- parts(vals, variant)
-      t_ci(d$diff, d$se, d$df, "two.sided", 0.95)[position]
+      d <- parts(vals, variant[["test"]])
+      t_ci(d$diff, d$se, d$df, "two.sided", as.numeric(variant[["level"]]))[position]
     }
   }
   # Welch df in sd[i], others fixed, is stationary where
@@ -88,18 +95,26 @@ t_independent_relations <- function() {
     corner$sd[j] * sqrt(n[i] * (n[i] - 1) / (n[j] * (n[j] - 1)))
   })
   # Welch CI bounds in sd[i]: the product of a falling qt(df) and a rising SE
-  # has no closed-form stationary point, so find it numerically, for either test.
+  # has no closed-form stationary point, so find it numerically. The extremum
+  # depends on the level, so `find` gets the variant; Welch is searched for either
+  # test (a poor candidate costs exactness, never correctness).
+  # The candidates do not depend on the test, only on the level (`variant_key`),
+  # and not on the means (`ignores`): the difference of means shifts the bound.
   welch_extrema <- function(bound) {
-    function(corner, i, lower, upper) {
+    find <- function(corner, i, lower, upper, variant) {
       f <- function(x) {
         corner$sd[i] <- x
-        bound(corner, "welch")
+        bound(corner, c(test = "welch", level = variant[["level"]]))
       }
       interior_extrema(f, lower, upper)
     }
+    attr(find, "variant_key") <- "level"
+    attr(find, "ignores") <- "m"
+    find
   }
   from <- c("n", "m", "sd")
   tests <- c("student", "welch")
+  crossed <- list(test = tests, level = confidence_levels())
   list(
     relation("df_from_n", c("n", "sd"), "df", function(vals, variant) parts(vals, variant)$df,
              variants = tests, variant_kind = "test", stationary = at_welch_df_peak),
@@ -108,12 +123,10 @@ t_independent_relations <- function() {
       d$diff / d$se
     }, variants = tests, variant_kind = "test"),
     relation_p_from_t(),
-    relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L), variants = tests,
-             variant_kind = "test",
+    relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L), variants = crossed,
              stationary = sd_stationary(from, "ci_lower_from_descriptives",
                                         welch_extrema(ci_bound(1L)))),
-    relation("ci_upper_from_descriptives", from, "ci_upper", ci_bound(2L), variants = tests,
-             variant_kind = "test",
+    relation("ci_upper_from_descriptives", from, "ci_upper", ci_bound(2L), variants = crossed,
              stationary = sd_stationary(from, "ci_upper_from_descriptives",
                                         welch_extrema(ci_bound(2L)))),
     relation("d_from_descriptives", from, "d", function(vals, variant) {

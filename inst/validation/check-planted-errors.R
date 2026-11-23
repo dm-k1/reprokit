@@ -18,9 +18,13 @@
 #               (small = 5-9, large = 10-20); t-tests only
 #   decision    p replaced by one across .05, t and df unchanged
 #   r_digit     one decimal digit of r replaced (small = last, large = earlier); Pearson only
+#   ci_change   one CI bound off by 5 to 20 units of its last printed digit (small = 5-9, large
+#               = 10-20); the papers print the CI at 90%, 95% or 99% (a quarter, a half, a
+#               quarter), so a CI relation that assumed 95% would flag the correct papers
 # An error is planted only in a number that is in the reported subset; d is never planted
 # (its relation cannot falsify). Subsets: all (every number the paper prints), t/df/p, and
-# desc+t+p (n, M, SD, for a paired t also r, for Pearson n and r; plus t and p; no df), and for
+# desc+t+p (n, M, SD, for a paired t also r, for Pearson n and r; plus t and p; no df),
+# desc+ci (the same without t and p, plus both CI bounds), and for
 # Pearson r/df/p (the APA form r(df), p: n is not reported and is implied by df).
 # Outcome per case: flagged = inconsistent; unevaluable = not flagged and the planted number
 # has status not checkable / unconfirmed / not reproducible; missed = called consistent.
@@ -50,19 +54,21 @@
 #      (+-0.05) is wider than the df derived from n and SD, so reporting df can loosen p_from_t.
 #      That one is a known design limitation, counted and printed, not a criterion; likewise a
 #      Pearson paper flagged on r/df/p only (the printed t is wider than the t derived from r);
-#   4. every handler x error type x subset cell flags more than 0 cases;
-#   5. large errors are found at a high rate where nothing hides them: decision errors on every
-#      subset, df_wrong_n on all, and M changed by 10 or more units on all: >= 90%.
-#      The 90% was set after looking at the data: the lowest of those cells was 93.6% and
-#      the misses there are oracle-undetectable or ambiguity resolved towards silence (see
-#      the notes printed below); it is a floor that catches a regression, not a target.
-# Seed 20261124. Size: 360 papers per handler group, 5 groups. Runtime about 3 minutes
+#   4. every handler x error type x subset cell flags more than 0 cases.
+# Not a criterion, printed for information: the rate at which large errors are found where
+# nothing hides them (decision errors on every subset, df_wrong_n on all, M changed by 10 or more
+# units on all), lowest per handler. It was a >= 90% criterion until the papers printed 90/95/99%
+# CIs (ADR 0014): with r unknown and three levels to choose from, a shifted M can still fit, so
+# some large paired m_change errors became undetectable and the rate fell below 90%. The oracle
+# agrees those cases are undetectable, so criterion 2 (oracle-detectable not flagged = 0) is the
+# hard test; a raw rate cannot tell a regression from a genuinely undetectable error.
+# Seed 20261124. Size: 1000 papers per handler group, 5 groups. Runtime about 4 minutes
 # (6 cores via parallel::mclapply).
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-planted-errors.R")'
 
 options(width = 200)
-n_papers <- 360L
+n_papers <- 1000L
 set.seed(20261124)
 t_start <- Sys.time()
 
@@ -225,6 +231,7 @@ results <- data.frame(
   type = vapply(jobs, `[[`, "", "type"), size = vapply(jobs, `[[`, "", "size"),
   subset = vapply(jobs, `[[`, "", "subset"), outcome = outcome, oracle = oracle,
   df_decimals = vapply(jobs, function(j) n_decimals(j$paper$df), 0L),
+  level = vapply(jobs, function(j) attr(j$paper, "level"), 0),
   stringsAsFactors = FALSE)
 # nolint end
 
@@ -248,6 +255,21 @@ print(summarise_cells(results, c("group", "type", "subset")), row.names = FALSE)
 cat("\nDetection by size of the error (digit changes, M, df; decision errors are all large)\n")
 print(summarise_cells(results[results$type != "decision", ], c("group", "type", "size", "subset")),
       row.names = FALSE)
+
+cat("\nCI bound changed by 5 to 20 units (ci_change), by confidence level of the paper\n")
+print(summarise_cells(results[results$type == "ci_change", ],
+                      c("group", "subset", "level")), row.names = FALSE)
+ci_rows <- results[results$type == "ci_change" & results$subset == "desc+ci", ]
+ci_rate <- function(group, level = NULL) {
+  d <- ci_rows[ci_rows$group == group, ]
+  if (!is.null(level)) d <- d[d$level == level, ]
+  100 * mean(d$outcome == "flagged")
+}
+cat("CI-only detection (desc+ci subset), independent t, % flagged: Student all levels",
+    round(ci_rate("t_independent_student"), 1), ", Student 95%",
+    round(ci_rate("t_independent_student", 0.95), 1), ", Welch all levels",
+    round(ci_rate("t_independent_welch"), 1), ", Welch 95%",
+    round(ci_rate("t_independent_welch", 0.95), 1), "\n")
 
 covered <- results[!is.na(results$oracle) & !results$oracle %in% c("edge", "joint-only"), ]
 cat("\nOracle check (t/df/p and r/df/p: every type; desc+t+p: t_digit, m_change, r_digit)\n")
@@ -309,13 +331,14 @@ by_group_min <- min(unlist(lapply(unique(results$group), function(g) {
 })) * 100)
 pooled <- paste(names(large_rates), round(large_rates, 1), sep = " = ", collapse = ", ")
 cat("\npooled large-error rates (%):", pooled, "\n")
-cat("lowest single handler rate among decision/df_wrong_n/m_change-large on all (%):",
+cat("informational: lowest handler rate, decision/df_wrong_n/m_change-large on all (%):",
     round(by_group_min, 1), "\n")
 cat("planted papers:", sum(lengths(cases)), " checks:", nrow(results), " runtime (min):",
     round(as.numeric(difftime(Sys.time(), t_start, units = "mins")), 1), "\n")
 ok <- errors == 0 && detectable_not_flagged == 0 && false_flags == 0 && hidden_by_more == 0 &&
-  dead_cells == 0 && by_group_min >= 90
+  dead_cells == 0
 cat(if (ok) "PASS" else "FAIL", ": errors = ", errors, ", oracle-detectable not flagged = ",
     detectable_not_flagged, ", oracle-undetectable flagged = ", false_flags,
     ", flagged on a subset but not on all = ", hidden_by_more, ", cells never flagged = ",
-    dead_cells, ", lowest large-error rate = ", round(by_group_min, 1), "%\n", sep = "")
+    dead_cells, " (lowest large-error rate, informational = ", round(by_group_min, 1), "%)\n",
+    sep = "")

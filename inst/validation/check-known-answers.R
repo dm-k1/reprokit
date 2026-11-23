@@ -26,6 +26,16 @@
 #      Student fits and Welch does not, no row is "inconsistent", and d gets the status
 #      "not reproducible" (no effect-size convention reproduces it).
 #   PASS: claims 1 to 4 hold (printed as TRUE).
+#
+# Case 2 (POSITIVE FIXTURE): the sleep data (Student 1908, as shipped in R's datasets and
+#   printed in ?t.test): Welch t(17.776) = -1.8608, p = .07939, 95% CI [-3.365, 0.205]; the
+#   paired test t(9) = -4.0621, p = .002833, 95% CI [-2.460, -0.700], d_z = -1.28 (mean
+#   difference -1.58 over SD of the differences 1.2299). Claims, with CIs computed by stats
+#   (not by reprokit) at 90, 95 and 99%:
+#   5. each CI at its level fits that level and is not inconsistent (independent and paired);
+#   6. the paired d_z = -1.28 verifies, and d = +1.28 (wrong sign) is "not reproducible",
+#      never inconsistent.
+#   PASS: claims 5 and 6 hold.
 # Run: Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-known-answers.R")'
 
 n1 <- 24
@@ -128,3 +138,39 @@ if (all(checks)) {
 } else {
   cat("\nFAIL: see the assertions that do not hold.\n")
 }
+
+# Case 2: sleep data, CIs at three levels and the paired d --------------------------------
+g1 <- datasets::sleep$extra[datasets::sleep$group == 1]
+g2 <- datasets::sleep$extra[datasets::sleep$group == 2]
+two <- function(x) formatC(x, format = "f", digits = 2L)
+level_rows <- do.call(rbind, lapply(c(0.90, 0.95, 0.99), function(level) {
+  w <- t.test(g1, g2, conf.level = level)
+  pr <- t.test(g1, g2, paired = TRUE, conf.level = level)
+  ind <- check_reported("t_independent", n = c("10", "10"), m = two(c(mean(g1), mean(g2))),
+                        sd = two(c(sd(g1), sd(g2))), ci_lower = two(w$conf.int[1L]),
+                        ci_upper = two(w$conf.int[2L]))
+  pair <- check_reported("t_paired", n = "10", m = two(c(mean(g1), mean(g2))),
+                         sd = two(c(sd(g1), sd(g2))), r = two(cor(g1, g2)),
+                         ci_lower = two(pr$conf.int[1L]), ci_upper = two(pr$conf.int[2L]))
+  want <- sprintf("%.2f", level)
+  fit <- function(x) x$variants$level$variant[x$variants$level$fits]
+  data.frame(level = want,
+             independent_fits = want %in% fit(ind), independent_consistent = ind$consistent,
+             paired_fits = want %in% fit(pair), paired_consistent = pair$consistent)
+}))
+cat("\n== Case 2: sleep data, CI at its own level ==\n")
+print(level_rows, row.names = FALSE)
+d_args <- list("t_paired", n = "10", m = two(c(mean(g1), mean(g2))),
+               sd = two(c(sd(g1), sd(g2))), r = two(cor(g1, g2)))
+d_z <- mean(g1 - g2) / sd(g1 - g2)
+d_good <- do.call(check_reported, c(d_args, list(d = two(d_z))))
+d_bad <- do.call(check_reported, c(d_args, list(d = two(-d_z))))
+status <- function(x) x$numbers$status[x$numbers$quantity == "d"]
+cat("paired d_z =", two(d_z), "-> status", status(d_good), "; wrong sign ->", status(d_bad), "\n")
+checks2 <- c(all(level_rows$independent_fits), all(level_rows$independent_consistent),
+             all(level_rows$paired_fits), all(level_rows$paired_consistent),
+             identical(two(d_z), "-1.28"), status(d_good) == "verified",
+             status(d_bad) == "not reproducible", d_bad$consistent)
+cat(if (all(checks2)) "\nPASS" else "\nFAIL",
+    ": sleep CIs fit their levels (", sum(checks2[1:4]), "/4 groups of claims), paired d ",
+    "verified and sign-flipped d not reproducible (", sum(checks2[5:8]), "/4)\n", sep = "")

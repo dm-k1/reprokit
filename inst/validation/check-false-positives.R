@@ -5,6 +5,10 @@
 # is never flagged inconsistent (a false positive), and check_reported() never errors
 # on it. Independent-groups designs have unequal n and SDs, a Welch df printed with 1
 # or 2 decimals, and sometimes a pooled Cohen's d.
+# CIs are printed at 90, 95 or 99% (a quarter of the papers each at 90 and 99, ADR 0014) and
+# must fit one of the three levels; a paired paper also prints d in 30% of the papers, in
+# one of the conventions d_z, d_rm or d_av (Lakens 2013), and a separate paired-d run forces d
+# into every paper: those must be 100% not inconsistent, in every subset that includes d.
 # Rounding as printed: 2 decimals for t, M and SD (0 decimals in the "coarse"
 # designs), 3 for p and r, "< .001" below .001, CI at the decimals of M.
 # Each design is checked on several reported subsets (all numbers, no CI,
@@ -14,9 +18,9 @@
 # rounding to 1.000, small n (3 to 6) and SD reported to zero decimals.
 # PASS criterion: false positives == 0 AND errors == 0. A false positive is a
 # release blocker.
-# Size: 300 designs per handler (t_paired, cor_pearson, t_independent Student and Welch,
-# t_one_sample), about 4 to 6 subsets each (the
-# paired "no r" subset takes about 3 s, so it is run on every 15th design only).
+# Size: 300 designs per handler (t_paired, t_paired with d, cor_pearson, t_independent Student
+# and Welch, t_one_sample), about 4 to 6 subsets each (the paired "no r" subset takes about
+# 3 s, so it is run on every 15th design only).
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-false-positives.R")'
 
@@ -46,6 +50,8 @@ generic_subsets <- function(paper, i) {
   keys <- names(paper)
   list(keys, setdiff(keys, c("ci_lower", "ci_upper")), c("n", "m", "sd", "t", "p"),
        c("t", "df", "p"), c("n", "df", "t"), c("n", "m", "sd", "df"),
+       intersect(keys, c("n", "m", "sd", "ci_lower", "ci_upper")),
+       intersect(keys, c("n", "m", "sd", "df", "ci_lower", "ci_upper")),
        sample(keys, sample(2:length(keys), 1L)))
 }
 
@@ -56,6 +62,10 @@ paired_subsets <- function(paper, with_no_r) {
                   c("n", "m", "sd", "r", "t", "p"),
                   c("t", "df", "p"),
                   c("n", "r", "df", "t"),
+                  intersect(keys, c("n", "m", "sd", "r", "ci_lower", "ci_upper")),
+                  intersect(keys, c("n", "m", "sd", "r", "d")),
+                  intersect(keys, c("n", "m", "sd", "d")),
+                  intersect(keys, c("m", "sd", "r", "d")),
                   sample(keys, sample(2:length(keys), 1L)))
   if (with_no_r) subsets <- c(subsets, list(setdiff(keys, "r")))
   subsets
@@ -95,6 +105,17 @@ tally <- function(handler, n_designs, make, subsets_of) {
 paired <- tally("t_paired", n_designs,
                 function() paired_paper(paired_design()),
                 function(paper, i) paired_subsets(paper, i %% 15L == 0L))
+# d forced into every paper; every subset below contains d, so each check tests a convention.
+paired_d <- tally("t_paired", n_designs, function() {
+  repeat {
+    paper <- paired_paper(paired_design())
+    if (!is.null(paper) && !is.null(paper$d)) return(paper)
+  }
+}, function(paper, i) {
+  keep <- function(keys) intersect(keys, names(paper))
+  list(keep(c("n", "m", "sd", "r", "d")), keep(c("n", "m", "sd", "d")),
+       keep(c("m", "sd", "r", "d")), names(paper), keep(c("n", "m", "sd", "r", "t", "d")))
+})
 pearson <- tally("cor_pearson", n_designs, pearson_paper,
                  function(paper, i) pearson_subsets(paper))
 
@@ -104,8 +125,9 @@ welch <- tally("t_independent", n_designs, function() independent_paper(FALSE),
                generic_subsets)
 one_sample <- tally("t_one_sample", n_designs, one_sample_paper, generic_subsets)
 
-results <- list(t_paired = paired, cor_pearson = pearson, t_independent_student = student,
-                t_independent_welch = welch, t_one_sample = one_sample)
+results <- list(t_paired = paired, t_paired_d = paired_d, cor_pearson = pearson,
+                t_independent_student = student, t_independent_welch = welch,
+                t_one_sample = one_sample)
 table_out <- do.call(rbind, lapply(names(results), function(h) {
   r <- results[[h]]
   data.frame(handler = h, designs = r$designs, checks = r$checks,

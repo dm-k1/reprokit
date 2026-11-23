@@ -28,7 +28,6 @@ register_t_paired <- function() {
     formula_tests = "paired",
     design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
     sufficient = c("n", "m", "sd", "r"),
-    not_checkable = c(d = "no relation for d is implemented yet"),
     choices = "direction of the difference: first minus second in Pair(first, second)",
     relations = t_paired_relations,
     example = function() {
@@ -51,26 +50,29 @@ t_paired_relations <- function(mu = 0) {
   ci_bound <- function(position) {
     function(vals, variant) {
       d <- from_descriptives(vals)
-      t_ci(d$mean_diff, d$se, d$df, "two.sided", 0.95)[position]
+      t_ci(d$mean_diff, d$se, d$df, "two.sided", as.numeric(variant))[position]
     }
   }
   # SD_diff^2 is quadratic in sd[1] with its minimum at sd[1] = r * sd[2] (and
   # symmetrically for sd[2]), so t and the CI bounds can have an extremum inside
   # the box of the SDs. On each face of the box, evaluate there.
-  at_sd_minimum <- function(intervals) {
-    sd_bounds <- interval_bounds(intervals$sd)
-    points <- list()
-    for (corner in corner_points(intervals, c("n", "m", "sd", "r"), "t_paired")) {
-      for (i in 1:2) {
-        target <- corner$r * corner$sd[3L - i]
-        if (isTRUE(target > sd_bounds$lower[i] && target < sd_bounds$upper[i])) {
-          corner$sd[i] <- target
-          points[[length(points) + 1L]] <- corner
+  at_sd_minimum_of <- function(inputs) {
+    function(intervals) {
+      sd_bounds <- interval_bounds(intervals$sd)
+      points <- list()
+      for (corner in corner_points(intervals, inputs, "t_paired")) {
+        for (i in 1:2) {
+          target <- corner$r * corner$sd[3L - i]
+          if (isTRUE(target > sd_bounds$lower[i] && target < sd_bounds$upper[i])) {
+            corner$sd[i] <- target
+            points[[length(points) + 1L]] <- corner
+          }
         }
       }
+      points
     }
-    points
   }
+  at_sd_minimum <- at_sd_minimum_of(c("n", "m", "sd", "r"))
   from <- c("n", "m", "sd", "r")
   list(
     relation("df_from_n", "n", "df", function(vals, variant) vals$n - 1,
@@ -81,9 +83,27 @@ t_paired_relations <- function(mu = 0) {
     }, stationary = at_sd_minimum),
     relation_p_from_t(),
     relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L),
+             variants = confidence_levels(), variant_kind = "level",
              stationary = at_sd_minimum),
     relation("ci_upper_from_descriptives", from, "ci_upper", ci_bound(2L),
-             stationary = at_sd_minimum)
+             variants = confidence_levels(), variant_kind = "level",
+             stationary = at_sd_minimum),
+    # d of a paired design (Lakens, 2013), signed first minus second. How it was
+    # computed is rarely declared, so none of these falsifies: a d that no
+    # convention reproduces is "not reproducible". d_z and d_rm need r; d_av does
+    # not, so d is checkable from M and SD alone. d_z = mean diff / SD of the
+    # differences, d_rm = d_z * sqrt(2 (1 - r)) (monotone in r; in the SDs both
+    # share the minimum of SD_diff, so at_sd_minimum makes them exact).
+    relation("d_from_descriptives", c("m", "sd", "r"), "d", function(vals, variant) {
+      sd_diff <- sqrt(vals$sd[1]^2 + vals$sd[2]^2 - 2 * vals$r * vals$sd[1] * vals$sd[2])
+      d_z <- (vals$m[1] - vals$m[2]) / sd_diff
+      if (variant == "d_rm") d_z * sqrt(2 * (1 - vals$r)) else d_z
+    }, variants = c("d_z", "d_rm"), variant_kind = "convention", falsifies = FALSE,
+    stationary = at_sd_minimum_of(c("m", "sd", "r"))),
+    relation("d_av_from_descriptives", c("n", "m", "sd"), "d", function(vals, variant) {
+      d_av <- (vals$m[1] - vals$m[2]) / mean(vals$sd)
+      if (variant == "g_av") d_av * (1 - 3 / (4 * (vals$n - 1) - 1)) else d_av
+    }, variants = c("d_av", "g_av"), variant_kind = "convention", falsifies = FALSE)
   )
 }
 

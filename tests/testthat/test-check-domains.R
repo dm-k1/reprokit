@@ -128,7 +128,7 @@ test_that("level 2 is unreachable for t_paired and cor_pearson", {
   names <- quantity_names()
   bits <- 2^(seq_along(names) - 1)
   subsets <- lapply(0:(2^length(names) - 1), function(i) names[bitwAnd(i, bits) > 0])
-  expect_length(subsets, 4096L)
+  expect_length(subsets, 2^length(names))
   for (handler in c("t_paired", "cor_pearson")) {
     entry <- get_handler(handler)
     levels <- vapply(subsets, function(s) coverage_level(entry, s), integer(1))

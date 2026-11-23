@@ -39,7 +39,7 @@ t_one_sample_relations <- function(mu = 0) {
   se <- function(vals) vals$sd / sqrt(vals$n)
   ci_bound <- function(position) {
     function(vals, variant) {
-      t_ci(vals$m, se(vals), vals$n - 1, "two.sided", 0.95)[position]
+      t_ci(vals$m, se(vals), vals$n - 1, "two.sided", as.numeric(variant))[position]
     }
   }
   from <- c("n", "m", "sd")
@@ -50,8 +50,10 @@ t_one_sample_relations <- function(mu = 0) {
       (vals$m - mu) / se(vals)
     }),
     relation_p_from_t(),
-    relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L)),
-    relation("ci_upper_from_descriptives", from, "ci_upper", ci_bound(2L)),
+    relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L),
+             variants = confidence_levels(), variant_kind = "level"),
+    relation("ci_upper_from_descriptives", from, "ci_upper", ci_bound(2L),
+             variants = confidence_levels(), variant_kind = "level"),
     relation("d_from_descriptives", from, "d", function(vals, variant) {
       d <- (vals$m - mu) / vals$sd
       if (variant == "hedges_g") d * (1 - 3 / (4 * (vals$n - 1) - 1)) else d

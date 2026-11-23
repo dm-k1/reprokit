@@ -94,14 +94,14 @@ test_that("relation_range contains a dense random sample for every registered re
   for (spec in sample_boxes) {
     box <- box_of(spec$paper)
     for (rel in get_handler(spec$handler)$relations) {
-      for (variant in if (is.null(rel$variants)) list(NULL) else rel$variants) {
+      for (variant in variant_combinations(rel$variants)) {
         range <- relation_range(rel, box, variant)
         sampled <- sampled_outputs(rel, box, variant, 20000L)
         # Where the relation is not finite the range is not evaluable and
         # check_reported() skips it; the containment claim is for finite ranges.
         if (!all(is.finite(range))) next
         expect_range_contains(range, sampled[is.finite(sampled)],
-                              paste(spec$handler, rel$name, variant))
+                              paste(spec$handler, rel$name, paste(variant, collapse = "+")))
       }
     }
   }

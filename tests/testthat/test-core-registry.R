@@ -79,14 +79,15 @@ test_that("every missing quantity has a shared reason", {
 test_that("the derived sets follow from apa, sufficient and relations", {
   paired <- get_handler("t_paired")
   expect_identical(missing_quantities(paired), "r")
-  expect_setequal(checkable_quantities(paired), c("df", "t", "p", "ci_lower", "ci_upper"))
-  expect_identical(unreached_quantities(paired), "d")
+  expect_setequal(checkable_quantities(paired), c("df", "t", "p", "d", "ci_lower", "ci_upper"))
+  expect_identical(unreached_quantities(paired), character())
   pearson <- get_handler("cor_pearson")
   expect_identical(missing_quantities(pearson), character())
   expect_setequal(checkable_quantities(pearson), c("df", "p", "ci_lower", "ci_upper"))
   expect_setequal(unreached_quantities(pearson), c("m", "sd"))
-  expect_true("tails (two.sided, less, greater)" %in% handler_choices(pearson))
-  expect_true("test (student, welch)" %in% handler_choices(get_handler("t_independent")))
+  expect_true("tails (two-sided, one-sided (less), one-sided (greater))" %in%
+                handler_choices(pearson))
+  expect_true("test (Student's t, Welch's t)" %in% handler_choices(get_handler("t_independent")))
 })
 
 test_that("not_checkable names must be known quantities", {

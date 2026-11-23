@@ -6,6 +6,9 @@
 
 fmt <- function(x, d) formatC(x, format = "f", digits = d)
 fmt_p <- function(p) if (p < 0.001) "< .001" else fmt(p, 3L)
+# Confidence level of the CI a paper prints: 95% mostly, 90% and 99% in a quarter of the papers
+# each (ADR 0014). The generators draw it with the global RNG.
+draw_level <- function() sample(c(0.90, 0.95, 0.99), 1L, prob = c(0.25, 0.5, 0.25))
 sizes <- c(3, 3, 4, 4, 5, 6, 8, 10, 15, 20, 30, 60, 150)
 rhos <- c(0, 0.3, 0.7, 0.95, 0.99, 0.995, 0.999, 0.9999, -0.5, -0.9, -0.999)
 
@@ -23,16 +26,28 @@ paired_design <- function() {
 }
 
 paired_paper <- function(d) {
-  tt <- t.test(d$x, d$y, paired = TRUE)
+  level <- draw_level()
+  tt <- t.test(d$x, d$y, paired = TRUE, conf.level = level)
   r <- cor(d$x, d$y)
   if (!is.finite(r) || !is.finite(tt$statistic)) return(NULL)
   dec <- d$dec
   n <- length(d$x)
-  list(n = as.character(n), m = c(fmt(mean(d$x), dec), fmt(mean(d$y), dec)),
-       sd = c(fmt(sd(d$x), dec), fmt(sd(d$y), dec)), r = fmt(r, 3L),
-       t = fmt(unname(tt$statistic), 2L), df = as.character(n - 1L),
-       p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
-       ci_upper = fmt(tt$conf.int[2L], dec))
+  paper <- list(n = as.character(n), m = c(fmt(mean(d$x), dec), fmt(mean(d$y), dec)),
+                sd = c(fmt(sd(d$x), dec), fmt(sd(d$y), dec)), r = fmt(r, 3L),
+                t = fmt(unname(tt$statistic), 2L), df = as.character(n - 1L),
+                p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
+                ci_upper = fmt(tt$conf.int[2L], dec))
+  # In 30% of the papers also a d, in one of the conventions of Lakens (2013), 2 decimals.
+  if (runif(1L) < 0.3) {
+    diff <- d$x - d$y
+    d_z <- mean(diff) / sd(diff)
+    convention <- sample(c("d_z", "d_rm", "d_av"), 1L)
+    value <- switch(convention, d_z = d_z, d_rm = d_z * sqrt(2 * (1 - r)),
+                    d_av = mean(diff) / ((sd(d$x) + sd(d$y)) / 2))
+    if (is.finite(value)) paper$d <- fmt(value, 2L)
+  }
+  attr(paper, "level") <- level
+  paper
 }
 
 pearson_paper <- function() {
@@ -42,7 +57,8 @@ pearson_paper <- function() {
   y <- rho * x + sqrt(1 - rho^2) * rnorm(n)
   r <- suppressWarnings(cor(x, y))
   if (!is.finite(r)) return(NULL)
-  ct <- cor.test(x, y)
+  level <- draw_level()
+  ct <- cor.test(x, y, conf.level = level)
   dec <- sample(2:3, 1L)
   paper <- list(n = as.character(n), r = fmt(unname(ct$estimate), dec),
                 df = as.character(n - 2L), t = fmt(unname(ct$statistic), 2L),
@@ -51,6 +67,7 @@ pearson_paper <- function() {
     paper <- c(paper, list(ci_lower = fmt(ct$conf.int[1L], dec),
                            ci_upper = fmt(ct$conf.int[2L], dec)))
   }
+  attr(paper, "level") <- level
   paper
 }
 
@@ -60,7 +77,8 @@ independent_paper <- function(var_equal) {
   scale <- 10^runif(1L, -1, 2)
   x <- rnorm(n1) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
   y <- rnorm(n2) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
-  tt <- t.test(x, y, var.equal = var_equal)
+  level <- draw_level()
+  tt <- t.test(x, y, var.equal = var_equal, conf.level = level)
   if (!is.finite(tt$statistic) || sd(x) == 0 || sd(y) == 0) return(NULL)
   dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
   df_dec <- if (var_equal) 0L else sample(1:2, 1L)
@@ -71,6 +89,7 @@ independent_paper <- function(var_equal) {
                 p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
                 ci_upper = fmt(tt$conf.int[2L], dec))
   if (runif(1L) < 0.3) paper$d <- fmt((mean(x) - mean(y)) / pooled, 2L)
+  attr(paper, "level") <- level
   paper
 }
 
@@ -79,7 +98,8 @@ one_sample_paper <- function() {
   scale <- 10^runif(1L, -1, 2)
   x <- rnorm(n) * scale + runif(1L, -1, 1) * scale
   mu <- if (runif(1L) < 0.4) 0 else round(runif(1L, -1, 1) * scale, sample(0:2, 1L))
-  tt <- t.test(x, mu = mu)
+  level <- draw_level()
+  tt <- t.test(x, mu = mu, conf.level = level)
   if (!is.finite(tt$statistic) || sd(x) == 0) return(NULL)
   dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
   paper <- list(n = as.character(n), m = fmt(mean(x), dec), sd = fmt(sd(x), dec),
@@ -87,6 +107,7 @@ one_sample_paper <- function() {
                 p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
                 ci_upper = fmt(tt$conf.int[2L], dec))
   attr(paper, "mu") <- mu
+  attr(paper, "level") <- level
   paper
 }
 
@@ -159,6 +180,16 @@ plant_m_change <- function(paper) {
   list(paper = paper, quantity = "m", size = if (abs(units) < 10) "small" else "large")
 }
 
+# One CI bound off by 5 to 20 units of its last printed digit.
+plant_ci_change <- function(paper) {
+  if (is.null(paper$ci_lower)) return(NULL)
+  which <- sample(c("ci_lower", "ci_upper"), 1L)
+  units <- sample(5:20, 1L) * sample(c(-1, 1), 1L)
+  digits <- n_decimals(paper[[which]])
+  paper[[which]] <- fmt(as.numeric(paper[[which]]) + units * 10^-digits, digits)
+  list(paper = paper, quantity = which, size = if (abs(units) < 10) "small" else "large")
+}
+
 # p moved across .05 with t and df unchanged.
 plant_decision <- function(paper) {
   p0 <- p_value(paper$p)
@@ -169,13 +200,14 @@ plant_decision <- function(paper) {
 
 planted_types <- function(handler) {
   c("t_digit", "p_digit", "df_wrong_n", "decision",
-    if (handler == "cor_pearson") "r_digit" else "m_change")
+    if (handler == "cor_pearson") "r_digit" else "m_change", "ci_change")
 }
 
 plant_error <- function(paper, handler, type) {
   switch(type, t_digit = plant_t_digit(paper), p_digit = plant_p_digit(paper),
          df_wrong_n = plant_df_wrong_n(paper, handler), decision = plant_decision(paper),
-         r_digit = plant_r_digit(paper), m_change = plant_m_change(paper))
+         r_digit = plant_r_digit(paper), m_change = plant_m_change(paper),
+         ci_change = plant_ci_change(paper))
 }
 
 # Groups of correct papers, one per handler (independent t split by test), and a driver
@@ -212,6 +244,9 @@ report_subsets <- function(handler, paper) {
   desc <- switch(handler, t_paired = c("n", "m", "sd", "r", "t", "p"),
                  cor_pearson = c("n", "r", "t", "p"), c("n", "m", "sd", "t", "p"))
   subsets <- list(all = names(paper), `t/df/p` = c("t", "df", "p"), `desc+t+p` = desc)
+  if (!is.null(paper$ci_lower)) {
+    subsets[["desc+ci"]] <- c(setdiff(desc, c("t", "p")), "ci_lower", "ci_upper")
+  }
   # The APA form r(df) = r, p = p: n is not reported, it is implied by df (n = df + 2).
   if (handler == "cor_pearson") subsets[["r/df/p"]] <- c("r", "df", "p")
   subsets

@@ -6,12 +6,19 @@
 # `fn(vals, variant)` takes a named list of plain numbers (a quantity with one
 # value per condition is a vector) and returns one number. A relation has
 # exactly one scalar output; a CI pair is two relations, one per bound.
-# `variants` names the alternatives the author must have chosen between; `fn`
-# receives the current one. `variant_kind` says what they are: "tail" (the
-# sidedness of a p-value), "level" (a confidence level), "test" (Student or
-# Welch) or "convention" (which formula an effect size follows). A relation has
-# one kind; a relation that would need two is split in two, which chaining
-# (evaluate_relations() takes the widest range over variants) makes work.
+# `variants` names the alternatives the author must have chosen between, as a
+# named list with one entry per KIND of variant: "tail" (the sidedness of a
+# p-value), "level" (a confidence level), "test" (Student or Welch) or
+# "convention" (which formula an effect size follows). A relation may vary over
+# several kinds at once (the independent CI: `list(test = ..., level = ...)`),
+# and every combination of one value per kind is a variant of it. For a relation
+# of a single kind the old form is accepted too: a character vector plus
+# `variant_kind`. Either way it is stored as the named list.
+# `fn` receives the current variant: the plain string for a relation of one kind,
+# a named character vector (`variant[["test"]]`, `variant[["level"]]`) for a
+# crossed one. check_reported() additionally requires that the numbers it reports
+# are explained by ONE choice per kind across all relations that can falsify
+# (see shared_choice() in check.R).
 # `falsifies` says whether a failure may count as an inconsistency. It is FALSE
 # for a relation whose formula authors choose freely and rarely declare (the
 # d convention): when none of its variants fits, the number is "not
@@ -20,25 +27,58 @@
 # (df from n) it returns the input that gives that output, increasing in the output. When the
 # input is not reported but the output is, check_reported() derives the input from it (an
 # "implied" input, usable by other relations but never compared with a reported number).
-# `stationary(intervals)` is optional: it returns a list of extra points, each
-# a named list of input values inside the box, where `fn` can have an interior
-# extremum that the corners miss (see relation_range()).
+# `stationary(intervals)` or `stationary(intervals, variant)` is optional: it
+# returns a list of extra points, each a named list of input values inside the
+# box, where `fn` can have an interior extremum that the corners miss (see
+# relation_range()). With two formals it receives the current variant, for
+# extrema that move with it (the CI's, with the level). A third formal, `memo`,
+# receives an environment that check_reported() creates for one call, so a
+# stationary search that several variants share is done once (see sd_stationary()).
 relation <- function(name, inputs, output, fn, variants = NULL, variant_kind = "tail",
                      stationary = NULL, falsifies = TRUE, inverse = NULL) {
   stopifnot(is.character(name), length(name) == 1L, nzchar(name),
             is.character(inputs), length(inputs) >= 1L,
             is.character(output), length(output) == 1L,
             is.function(fn), identical(names(formals(fn)), c("vals", "variant")),
-            is.null(variants) || (is.character(variants) && length(variants) >= 1L),
-            variant_kind %in% relation_variant_kinds(),
-            is.null(stationary) || is.function(stationary),
+            is.null(stationary) ||
+              (is.function(stationary) && length(formals(stationary)) %in% 1:3),
             is.logical(falsifies), length(falsifies) == 1L, !is.na(falsifies),
             is.null(inverse) || (is.function(inverse) && length(formals(inverse)) == 1L &&
                                    length(inputs) == 1L))
+  variants <- normalise_variants(variants, variant_kind)
   check_quantity_names(c(inputs, output), "quantity name in relation")
   list(name = name, inputs = inputs, output = output, fn = fn, variants = variants,
-       variant_kind = variant_kind, stationary = stationary, falsifies = falsifies,
-       inverse = inverse)
+       stationary = stationary, falsifies = falsifies, inverse = inverse)
+}
+
+# `variants` as a named list, one character vector per kind (or NULL).
+normalise_variants <- function(variants, variant_kind = "tail") {
+  if (is.null(variants)) return(NULL)
+  if (!is.list(variants)) {
+    stopifnot(is.character(variants), length(variants) >= 1L,
+              is.character(variant_kind), length(variant_kind) == 1L)
+    variants <- stats::setNames(list(variants), variant_kind)
+  }
+  valid_values <- function(v) {
+    is.character(v) && length(v) >= 1L && !anyNA(v) && !anyDuplicated(v)
+  }
+  stopifnot(length(variants) >= 1L, !is.null(names(variants)), !anyNA(names(variants)),
+            !anyDuplicated(names(variants)),
+            all(names(variants) %in% relation_variant_kinds()),
+            all(vapply(variants, valid_values, logical(1))))
+  variants[intersect(relation_variant_kinds(), names(variants))]
+}
+
+# Every combination of one value per kind, as a list of named character vectors
+# (a plain string for a relation of one kind, as `fn` receives it); list(NULL)
+# for a relation without variants.
+variant_combinations <- function(variants) {
+  if (is.null(variants)) return(list(NULL))
+  grid <- expand.grid(variants, stringsAsFactors = FALSE, KEEP.OUT.ATTRS = FALSE)
+  lapply(seq_len(nrow(grid)), function(i) {
+    combo <- vapply(grid, function(column) column[i], character(1))
+    if (length(combo) == 1L) unname(combo) else combo
+  })
 }
 
 # The kinds of variant, in the order they are listed, with the words used for
@@ -50,9 +90,39 @@ variant_kind_labels <- function() {
     test = "Tests that fit", convention = "Effect-size conventions that fit")
 }
 
+# The confidence levels a CI relation offers, as variant codes.
+confidence_levels <- function() c("0.90", "0.95", "0.99")
+
+# One readable label per variant code, shared by handler_choices() (what a paper
+# should declare) and the print of a check (which variants fit). Codes are unique
+# across kinds. A code without a label is a programming error, caught by
+# variant_label() and by a test over every registered relation.
+variant_labels <- function() {
+  c(two.sided = "two-sided", less = "one-sided (less)", greater = "one-sided (greater)",
+    "0.90" = "90%", "0.95" = "95%", "0.99" = "99%",
+    student = "Student's t", welch = "Welch's t",
+    pooled = "Cohen's d (pooled SD)", hedges_g = "Hedges' g",
+    average = "Cohen's d (root mean square of the SDs)",
+    glass_sd1 = "Glass's \u0394 (SD of the first group)",
+    glass_sd2 = "Glass's \u0394 (SD of the second group)",
+    cohen = "Cohen's d",
+    d_z = "d_z (SD of the differences)", d_rm = "d_rm (repeated measures)",
+    d_av = "d_av (average SD)", g_av = "g_av (average SD, Hedges' correction)")
+}
+
+variant_label <- function(codes) {
+  labels <- variant_labels()
+  unknown <- setdiff(codes, names(labels))
+  if (length(unknown) > 0L) {
+    stop("No label for variant: ", paste0("'", unknown, "'", collapse = ", "),
+         ". Add it to variant_labels().", call. = FALSE)
+  }
+  unname(labels[codes])
+}
+
 is_relation <- function(x) {
   is.list(x) && identical(names(x), c("name", "inputs", "output", "fn", "variants",
-                                      "variant_kind", "stationary", "falsifies", "inverse"))
+                                      "stationary", "falsifies", "inverse"))
 }
 
 # Slack for floating-point error only (1e-9 of the magnitude); the rounding
@@ -69,24 +139,34 @@ max_free_dimensions <- 14L
 # every other value of a vector quantity adds one, and above 2^14 corners we stop.
 corner_points <- function(intervals, inputs, what = "relation") {
   bounds <- lapply(intervals[inputs], interval_bounds)
-  lower <- unlist(lapply(bounds, `[[`, "lower"), use.names = FALSE)
+  lows <- lapply(bounds, `[[`, "lower")
+  lower <- unlist(lows, use.names = FALSE)
   upper <- unlist(lapply(bounds, `[[`, "upper"), use.names = FALSE)
-  group <- factor(rep(inputs, lengths(lapply(bounds, `[[`, "lower"))), levels = inputs)
   free <- which(lower != upper)
-  if (length(free) > max_free_dimensions) {
-    stop("Relation '", what, "' has ", length(free), " non-exact input values, which means ",
-         2^length(free), " corners; the limit is 2^", max_free_dimensions, ".", call. = FALSE)
+  nfree <- length(free)
+  if (nfree > max_free_dimensions) {
+    stop("Relation '", what, "' has ", nfree, " non-exact input values, which means ",
+         2^nfree, " corners; the limit is 2^", max_free_dimensions, ".", call. = FALSE)
   }
-  corners <- if (length(free) == 0L) {
+  # Corner k takes the upper bound of free value d when bit d of k - 1 is set, the
+  # order expand.grid() gives (the first free value varies fastest).
+  corners <- if (nfree == 0L) {
     matrix(numeric(), nrow = 1L, ncol = 0L)
   } else {
-    as.matrix(expand.grid(lapply(free, function(i) c(lower[i], upper[i])),
-                          KEEP.OUT.ATTRS = FALSE))
+    k <- seq_len(2^nfree) - 1L
+    upper_side <- vapply(seq_len(nfree), function(d) bitwAnd(k, bitwShiftL(1L, d - 1L)) > 0L,
+                         logical(length(k)))
+    out <- matrix(lower[free], nrow = length(k), ncol = nfree, byrow = TRUE)
+    out[upper_side] <- matrix(upper[free], nrow = length(k), ncol = nfree, byrow = TRUE)[upper_side]
+    out
   }
+  ends <- cumsum(lengths(lows))
+  at <- Map(function(from, to) seq_len(to - from + 1L) + from - 1L, ends - lengths(lows) + 1L, ends)
+  names(at) <- inputs
   lapply(seq_len(nrow(corners)), function(i) {
     point <- lower
     point[free] <- corners[i, ]
-    split(point, group)
+    lapply(at, function(ix) point[ix])
   })
 }
 
@@ -96,13 +176,19 @@ corner_points <- function(intervals, inputs, what = "relation") {
 # stationary points of `fn` restricted to a face of the box, so the range is
 # exact once `stationary` lists those points. Without `stationary` the corners
 # alone are exact only if `fn` is monotone in each input over the box.
-relation_range <- function(rel, intervals, variant = NULL) {
+relation_range <- function(rel, intervals, variant = NULL, memo = NULL) {
   absent <- setdiff(rel$inputs, names(intervals))
   if (length(absent) > 0L) {
     stop("Relation '", rel$name, "' needs ", paste(absent, collapse = ", "), ".", call. = FALSE)
   }
   points <- corner_points(intervals, rel$inputs, rel$name)
-  if (!is.null(rel$stationary)) points <- c(points, rel$stationary(intervals))
+  if (!is.null(rel$stationary)) {
+    extra <- switch(length(formals(rel$stationary)),
+                    rel$stationary(intervals),
+                    rel$stationary(intervals, variant),
+                    rel$stationary(intervals, variant, memo))
+    points <- c(points, extra)
+  }
   outputs <- vapply(points, function(point) rel$fn(point, variant), numeric(1))
   c(lower = min(outputs), upper = max(outputs))
 }
@@ -121,12 +207,39 @@ interior_extrema <- function(f, lower, upper) {
 }
 
 # A `stationary` function for relations whose extremes can lie inside the box
-# of the SDs. `candidates(corner, i, lower, upper)` returns the values of sd[i]
-# (other inputs as in `corner`) that may be extrema. On every corner the
+# of the SDs. `find(corner, i, lower, upper)` returns the values of sd[i]
+# (other inputs as in `corner`) that may be extrema; a `find` with a fifth
+# formal, `variant`, also receives the current variant. On every corner the
 # candidates for one SD are tried alone and then together with candidates for
-# the other SD.
-sd_stationary <- function(inputs, what, candidates) {
-  function(intervals) {
+# the other SD. A `find` may carry an attribute `variant_key`, the names of the
+# variant entries its candidates depend on; given a `memo` environment, the
+# candidates are then computed once per distinct (corner, SD, box, key) and
+# reused by the other variants (the Welch search for the CI does not depend on
+# the test, so the Student combinations reuse it). An attribute `ignores` names
+# the inputs its candidates do not depend on (the CI's extremum in an SD does not
+# depend on the means: they only shift the bound), so corners that differ in
+# those alone share one search.
+sd_stationary <- function(inputs, what, find) {
+  with_variant <- length(formals(find)) >= 5L
+  key_names <- attr(find, "variant_key")
+  key_ignores <- attr(find, "ignores")
+  function(intervals, variant = NULL, memo = NULL) {
+    candidates <- if (with_variant) {
+      function(corner, i, lower, upper) find(corner, i, lower, upper, variant)
+    } else {
+      find
+    }
+    if (!is.null(memo) && !is.null(key_names)) {
+      uncached <- candidates
+      candidates <- function(corner, i, lower, upper) {
+        keyed <- unlist(corner[setdiff(names(corner), key_ignores)])
+        key <- paste(c(what, i, sprintf("%.17g", keyed),
+                       sprintf("%.17g", c(lower, upper)), variant[key_names]),
+                     collapse = "|")
+        if (is.null(memo[[key]])) memo[[key]] <- uncached(corner, i, lower, upper)
+        memo[[key]]
+      }
+    }
     bounds <- interval_bounds(intervals$sd)
     free <- which(bounds$lower < bounds$upper)
     inside <- function(x, i) isTRUE(x > bounds$lower[i] && x < bounds$upper[i])
