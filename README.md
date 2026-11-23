@@ -18,8 +18,10 @@
 | Share | authors who cannot share raw data | `triage()`, `sufficient_stats()`, `reproduce()`, `appendix()` |
 | Check | readers and reviewers | `check_*()` consistency checks |
 
-Only `triage()`, `sufficient_stats()`, `reproduce()`, `handlers()`, `coverage_table()`
-and `verdicts()` exist so far; the rest is planned (see `docs/project-plan.md` in the workspace).
+So far `triage()`, `sufficient_stats()`, `reproduce()`, `appendix()`, `check_reported()`,
+`check_t()`, `check_r()`, `handlers()`, `coverage_table()` and `verdicts()` exist, for one-sample,
+independent and paired t and Pearson r; the rest is planned (see `docs/project-plan.md` in the
+workspace).
 
 ## What it covers
 
