@@ -20,9 +20,36 @@ register_cor_pearson <- function() {
     reproduce = cor_pearson_reproduce,
     reported = cor_pearson_reported,
     formula_tests = "pearson",
+    design = apa_design(statistic = "r", effect_size = "r", cells = 2L),
+    reproducible = c("n", "r"),
+    relations = cor_pearson_relations(),
     example = function() {
       list(x = ~ mpg + wt, args = list(data = base_data("mtcars"), test = "pearson"))
     }
+  )
+}
+
+# Relations between reported quantities (check_reported()). The CI is the
+# Fisher-z interval at 95%, the only confidence level offered.
+cor_pearson_relations <- function() {
+  fisher_bound <- function(sign) {
+    function(vals, variant) {
+      # The Fisher interval needs n > 3; below that it does not apply.
+      if (vals$n <= 3) return(NaN)
+      z_crit <- stats::qnorm(1 - (1 - 0.95) / 2)
+      tanh(atanh(vals$r) + sign * z_crit / sqrt(vals$n - 3))
+    }
+  }
+  list(
+    relation("df_from_n", "n", "df", function(vals, variant) vals$n - 2),
+    relation("t_from_r", c("r", "n"), "t", function(vals, variant) {
+      vals$r * sqrt(vals$n - 2) / sqrt(1 - vals$r^2)
+    }),
+    relation_p_from_t(),
+    relation("ci_lower_from_r", c("r", "n"), "ci_lower", fisher_bound(-1),
+             variants = "0.95", variant_kind = "level"),
+    relation("ci_upper_from_r", c("r", "n"), "ci_upper", fisher_bound(1),
+             variants = "0.95", variant_kind = "level")
   )
 }
 

@@ -39,13 +39,23 @@
 #'   tell users which tests exist when no handler matches.
 #' @param example `function()` returning `list(x = , args = list(...))`, an
 #'   input this handler supports. Required for `summaries_suffice` handlers.
+#' @param design An `apa_design()`: which quantity is the test statistic, which
+#'   the effect size, and how many conditions have their own n, M and SD. The
+#'   quantities APA style asks a paper to report (`apa`) are built from it by
+#'   one rule, `apa_quantities()`; a handler cannot list them by hand. `NULL`
+#'   for handlers that do not check.
+#' @param reproducible Character vector of the quantities that suffice to
+#'   reproduce the analysis (names from `quantity_names()`), or `NULL`.
+#' @param relations List of `relation()`s between quantities, used by
+#'   `check_reported()`, or `NULL`.
 #' @return `name`, invisibly.
 #' @keywords internal
 #' @noRd
 register_handler <- function(name, family, analysis, verdict, needs, catch = NA_character_,
                              lost, matches, triage = NULL, summarise = NULL, reproduce = NULL,
                              reported = NULL, disclosure = NULL, conventions = NULL,
-                             formula_tests = NULL, example = NULL) {
+                             formula_tests = NULL, example = NULL, design = NULL,
+                             reproducible = NULL, relations = NULL) {
   check_verdict(verdict)
   stopifnot(
     is.character(name), length(name) == 1L, nzchar(name),
@@ -58,8 +68,15 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(disclosure) || is.function(disclosure),
     is.null(conventions) || is.character(conventions),
     is.null(formula_tests) || is.character(formula_tests),
-    is.null(example) || is.function(example)
+    is.null(example) || is.function(example),
+    is.null(design) || is_apa_design(design),
+    is.null(reproducible) || is.character(reproducible),
+    is.null(relations) || (is.list(relations) && all(vapply(relations, is_relation, logical(1))))
   )
+  if (!is.null(design)) {
+    check_quantity_names(c(design$statistic, design$effect_size), "quantity name in `design`")
+  }
+  if (!is.null(reproducible)) check_quantity_names(reproducible, "quantity name in `reproducible`")
   exact_parts <- list(summarise = summarise, reproduce = reproduce, reported = reported,
                       example = example)
   missing_parts <- names(exact_parts)[vapply(exact_parts, is.null, logical(1))]
@@ -71,9 +88,36 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     name = name, family = family, analysis = analysis, verdict = verdict,
     needs = needs, catch = catch, lost = lost, matches = matches, triage = triage,
     summarise = summarise, reproduce = reproduce, reported = reported, disclosure = disclosure,
-    conventions = conventions, formula_tests = formula_tests, example = example
+    conventions = conventions, formula_tests = formula_tests, example = example,
+    design = design, apa = if (is.null(design)) NULL else apa_quantities(design),
+    cells = design$cells, reproducible = reproducible, relations = relations
   ), envir = .registry)
   invisible(name)
+}
+
+# What a handler declares about its design: the test statistic, the effect size
+# (the same quantity when the statistic is the effect size, as r is for a
+# correlation), and `cells`, how many conditions or variables have their own n,
+# M and SD (NULL for none). The arity of m and sd follows from `cells`.
+apa_design <- function(statistic, effect_size, cells = NULL) {
+  stopifnot(is.character(statistic), length(statistic) == 1L,
+            is.character(effect_size), length(effect_size) == 1L,
+            is.null(cells) || (is.numeric(cells) && length(cells) == 1L && cells >= 1))
+  list(statistic = statistic, effect_size = effect_size,
+       cells = if (is.null(cells)) NULL else as.integer(cells))
+}
+
+is_apa_design <- function(x) {
+  is.list(x) && identical(names(x), c("statistic", "effect_size", "cells"))
+}
+
+# The one rule for what APA style asks a paper to report: the test statistic, its
+# degrees of freedom and p, the effect size with its confidence interval, and n,
+# M and SD for each condition when the design has them (APA Publication Manual,
+# 7th ed.; ADR 0010 decision 1).
+apa_quantities <- function(design) {
+  unique(c(if (!is.null(design$cells)) c("n", "m", "sd"),
+           design$statistic, "df", "p", design$effect_size, "ci_lower", "ci_upper"))
 }
 
 unregister_handler <- function(name) {

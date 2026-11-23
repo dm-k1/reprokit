@@ -27,11 +27,60 @@ register_t_paired <- function() {
     reported = t_paired_reported,
     conventions = "direction of the difference: first minus second in Pair(first, second)",
     formula_tests = "paired",
+    design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
+    reproducible = c("n", "m", "sd", "r"),
+    relations = t_paired_relations(),
     example = function() {
       d <- base_data("sleep")
       wide <- data.frame(drug1 = d$extra[d$group == 1], drug2 = d$extra[d$group == 2])
       list(x = Pair(drug1, drug2) ~ 1, args = list(data = wide, test = "paired"))
     }
+  )
+}
+
+# Relations between reported quantities (check_reported()). m and sd hold one
+# value per condition; the difference is first minus second, with mu = 0.
+t_paired_relations <- function() {
+  from_descriptives <- function(vals) {
+    mean_diff <- vals$m[1] - vals$m[2]
+    sd_diff <- sqrt(vals$sd[1]^2 + vals$sd[2]^2 - 2 * vals$r * vals$sd[1] * vals$sd[2])
+    list(mean_diff = mean_diff, se = sd_diff / sqrt(vals$n), df = vals$n - 1)
+  }
+  ci_bound <- function(position) {
+    function(vals, variant) {
+      d <- from_descriptives(vals)
+      t_ci(d$mean_diff, d$se, d$df, "two.sided", 0.95)[position]
+    }
+  }
+  # SD_diff^2 is quadratic in sd[1] with its minimum at sd[1] = r * sd[2] (and
+  # symmetrically for sd[2]), so t and the CI bounds can have an extremum inside
+  # the box of the SDs. On each face of the box, evaluate there.
+  at_sd_minimum <- function(intervals) {
+    sd_bounds <- interval_bounds(intervals$sd)
+    points <- list()
+    for (corner in corner_points(intervals, c("n", "m", "sd", "r"), "t_paired")) {
+      for (i in 1:2) {
+        target <- corner$r * corner$sd[3L - i]
+        if (isTRUE(target > sd_bounds$lower[i] && target < sd_bounds$upper[i])) {
+          corner$sd[i] <- target
+          points[[length(points) + 1L]] <- corner
+        }
+      }
+    }
+    points
+  }
+  from <- c("n", "m", "sd", "r")
+  list(
+    relation("df_from_n", "n", "df", function(vals, variant) vals$n - 1),
+    relation("t_from_descriptives", from, "t", function(vals, variant) {
+      d <- from_descriptives(vals)
+      d$mean_diff / d$se
+    }, stationary = at_sd_minimum),
+    relation_p_from_t(),
+    relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L),
+             stationary = at_sd_minimum),
+    relation("ci_upper_from_descriptives", from, "ci_upper", ci_bound(2L),
+             stationary = at_sd_minimum)
   )
 }
 
