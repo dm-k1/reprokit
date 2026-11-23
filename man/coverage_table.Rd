@@ -7,11 +7,24 @@
 coverage_table()
 }
 \value{
-A data frame with one row per handler.
+A data frame of character columns, one row per test:
+\itemize{
+\item \code{test}: the analysis;
+\item \code{apa}: what APA style asks a paper to report;
+\item \code{sufficient}: the quantities that determine every reported result;
+\item \code{missing}: sufficient but not in APA, each with its reason;
+\item \code{checkable}: APA numbers the relations derive from \code{sufficient};
+\item \code{not_checkable}: APA numbers they do not reach, each with its reason;
+\item \code{choices}: what the author must declare.
+}
+
+An empty cell shows an em dash. Handlers without a design are left out.
 }
 \description{
-This is the table shown in the README and the class guideline. Because it
-is generated, it always matches what the package actually does.
+One row per registered test that has an APA design, generated from the
+registry so it always matches what the package does (ADR 0013). Missing,
+checkable and the choices from relations are computed; only the reasons and
+extra choices are declared by each handler.
 }
 \examples{
 coverage_table()

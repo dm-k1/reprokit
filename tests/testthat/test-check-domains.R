@@ -101,7 +101,7 @@ test_that("the headline follows whether anything was evaluated, not the level", 
   expect_false(checked$checked)
   out <- paste(utils::capture.output(print(checked)), collapse = "\n")
   expect_match(out, "No check was possible with the reported statistics")
-  expect_match(out, "reproducible from what is reported")
+  expect_match(out, "the sufficient set is reported")
 })
 
 test_that("verified is only for the output of a holding relation from descriptives", {

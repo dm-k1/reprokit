@@ -17,10 +17,10 @@ register_t_one_sample <- function() {
     summarise = t_one_sample_summarise,
     reproduce = t_one_sample_reproduce,
     reported = t_one_sample_reported,
-    conventions = "test value mu (default 0)",
     formula_tests = "one_sample",
     design = apa_design(statistic = "t", effect_size = "d", cells = 1L),
-    reproducible = c("n", "m", "sd"),
+    sufficient = c("n", "m", "sd"),
+    choices = "test value mu (default 0)",
     relations = t_one_sample_relations,
     example = function() {
       list(x = extra ~ 1, args = list(data = base_data("sleep"), test = "one_sample", mu = 0.5))

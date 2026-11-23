@@ -23,8 +23,11 @@ and `verdicts()` exist so far; the rest is planned (see `docs/project-plan.md` i
 
 ## What it covers
 
-`coverage_table()` generates this table from the handler registry, so it cannot
-disagree with the code. No handlers are registered yet.
+`coverage_table()` generates the coverage table from the handler registry, so it cannot
+disagree with the code: per test, what APA reports, what suffices, what is missing from
+APA's list, which reported numbers can be checked, and which choices to declare. Run
+`coverage_table()`, or see the Validation vignette (`vignette("validation")`) for the
+rendered table.
 
 ## Installation
 

@@ -346,7 +346,7 @@ statistic_quantities <- function() c("t", "f", "chisq")
 
 # Level from which quantities are reported (ADR 0010 decision 2), by the highest
 # one reached:
-#   3  the reported set contains the handler's `reproducible` set
+#   3  the reported set contains the handler's `sufficient` set
 #   2  some statistic (t, F, chi-square) can be recomputed from descriptives
 #   1  some relation has all its numbers, output included, reported (and could
 #      be evaluated)
@@ -354,7 +354,7 @@ statistic_quantities <- function() c("t", "f", "chisq")
 # The level describes coverage, not agreement; consistency is reported apart.
 # `evaluable` names the relations that could be evaluated, or NULL for all.
 coverage_level <- function(handler, reported_names, evaluable = NULL) {
-  if (!is.null(handler$reproducible) && all(handler$reproducible %in% reported_names)) {
+  if (!is.null(handler$sufficient) && all(handler$sufficient %in% reported_names)) {
     return(3L)
   }
   usable <- Filter(function(rel) {
@@ -414,7 +414,7 @@ format_implied <- function(found) {
 
 # Unreported quantities of the handler that would raise the level if reported.
 missing_numbers <- function(handler, reported_names, level, implied) {
-  candidates <- setdiff(union(handler$apa, handler$reproducible), reported_names)
+  candidates <- setdiff(union(handler$apa, handler$sufficient), reported_names)
   reach <- vapply(candidates, function(quantity) {
     coverage_level(handler, c(reported_names, quantity))
   }, integer(1))
@@ -457,7 +457,7 @@ level_words <- function(level) {
     paste("Level 1: internal coherence only (statistic, df, p and CI are checked",
           "against each other, not against the descriptives)."),
     "Level 2: the test statistic was recomputed from the descriptives.",
-    paste("Level 3: reproducible from what is reported (the numbers contain",
+    paste("Level 3: the sufficient set is reported (the numbers contain",
           "everything needed to reproduce the analysis; that is not itself a check).")
   )
   words[level + 1L]

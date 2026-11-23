@@ -18,6 +18,14 @@ quantity_names <- function() {
   c("n", "m", "sd", "r", "t", "f", "chisq", "df", "p", "ci_lower", "ci_upper", "d")
 }
 
+# Why a quantity that determines the analysis may be missing from what APA asks a
+# paper to report: one plain-English reason per quantity, shared by every test
+# (ADR 0013 decision 2).
+missing_reasons <- function() {
+  c(r = paste("the SD of the differences depends on the correlation between conditions;",
+              "per-condition M and SD do not determine it"))
+}
+
 # Quantities that are descriptives: they come from the data, not from another
 # reported statistic. A number recomputed from one of these is "verified".
 descriptive_quantities <- function() c("n", "m", "sd", "r")

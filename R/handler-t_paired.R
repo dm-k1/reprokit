@@ -25,10 +25,11 @@ register_t_paired <- function() {
     summarise = t_paired_summarise,
     reproduce = t_paired_reproduce,
     reported = t_paired_reported,
-    conventions = "direction of the difference: first minus second in Pair(first, second)",
     formula_tests = "paired",
     design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
-    reproducible = c("n", "m", "sd", "r"),
+    sufficient = c("n", "m", "sd", "r"),
+    not_checkable = c(d = "no relation for d is implemented yet"),
+    choices = "direction of the difference: first minus second in Pair(first, second)",
     relations = t_paired_relations,
     example = function() {
       d <- base_data("sleep")

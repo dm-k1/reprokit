@@ -30,10 +30,9 @@ register_t_independent <- function() {
         }
       )
     },
-    conventions = "test: Student (equal variances) or Welch",
     formula_tests = c("student", "welch"),
     design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
-    reproducible = c("n", "m", "sd"),
+    sufficient = c("n", "m", "sd"),
     per_cell = c("n", "m", "sd"),
     relations = t_independent_relations(),
     example = function() {

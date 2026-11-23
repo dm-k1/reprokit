@@ -21,7 +21,8 @@ register_cor_pearson <- function() {
     reported = cor_pearson_reported,
     formula_tests = "pearson",
     design = apa_design(statistic = "r", effect_size = "r", cells = 2L),
-    reproducible = c("n", "r"),
+    sufficient = c("n", "r"),
+    not_checkable = c(m = "r does not depend on them", sd = "r does not depend on them"),
     relations = cor_pearson_relations(),
     example = function() {
       list(x = ~ mpg + wt, args = list(data = base_data("mtcars"), test = "pearson"))

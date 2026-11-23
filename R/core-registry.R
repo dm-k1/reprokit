@@ -32,8 +32,13 @@
 #'   (`list(stats = , meta = , check = )`), returning
 #'   `list(passed = , checked = , problems = )`. A risk reduction, never a
 #'   guarantee.
-#' @param conventions Character vector of choices the author must declare
-#'   (test variant, SS type, effect-size formula), or `NULL`.
+#' @param choices Character vector of the choices the author must declare that
+#'   no relation varies over (SS type, centering, contrasts), or `NULL`. The
+#'   variant kinds of the relations (test, tail, level, convention) are added
+#'   by `handler_choices()`.
+#' @param not_checkable Named character vector, quantity name to reason, for
+#'   each APA quantity the relations cannot reach from `sufficient`, or `NULL`.
+#'   A test fails when an unreached quantity has no reason.
 #' @param formula_tests Character vector of `test =` values this handler
 #'   accepts with a formula (e.g. `c("student", "welch")`), or `NULL`. Used to
 #'   tell users which tests exist when no handler matches.
@@ -44,7 +49,7 @@
 #'   quantities APA style asks a paper to report (`apa`) are built from it by
 #'   one rule, `apa_quantities()`; a handler cannot list them by hand. `NULL`
 #'   for handlers that do not check.
-#' @param reproducible Character vector of the quantities that suffice to
+#' @param sufficient Character vector of the quantities that suffice to
 #'   reproduce the analysis (names from `quantity_names()`), or `NULL`.
 #' @param relations List of `relation()`s between quantities, used by
 #'   `check_reported()`, or `NULL`. A handler whose relations depend on the test
@@ -59,9 +64,10 @@
 #' @noRd
 register_handler <- function(name, family, analysis, verdict, needs, catch = NA_character_,
                              lost, matches, triage = NULL, summarise = NULL, reproduce = NULL,
-                             reported = NULL, disclosure = NULL, conventions = NULL,
+                             reported = NULL, disclosure = NULL, choices = NULL,
                              formula_tests = NULL, example = NULL, design = NULL,
-                             reproducible = NULL, relations = NULL, per_cell = NULL) {
+                             sufficient = NULL, relations = NULL, per_cell = NULL,
+                             not_checkable = NULL) {
   check_verdict(verdict)
   relations_at <- NULL
   if (is.function(relations)) {
@@ -77,18 +83,23 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(reproduce) || is.function(reproduce),
     is.null(reported) || is.function(reported),
     is.null(disclosure) || is.function(disclosure),
-    is.null(conventions) || is.character(conventions),
+    is.null(choices) || is.character(choices),
+    is.null(not_checkable) || (is.character(not_checkable) && !is.null(names(not_checkable)) &&
+                                 all(nzchar(names(not_checkable)))),
     is.null(formula_tests) || is.character(formula_tests),
     is.null(example) || is.function(example),
     is.null(design) || is_apa_design(design),
-    is.null(reproducible) || is.character(reproducible),
+    is.null(sufficient) || is.character(sufficient),
     is.null(relations) || (is.list(relations) && all(vapply(relations, is_relation, logical(1)))),
     is.null(per_cell) || is.character(per_cell)
   )
   if (!is.null(design)) {
     check_quantity_names(c(design$statistic, design$effect_size), "quantity name in `design`")
   }
-  if (!is.null(reproducible)) check_quantity_names(reproducible, "quantity name in `reproducible`")
+  if (!is.null(sufficient)) check_quantity_names(sufficient, "quantity name in `sufficient`")
+  if (!is.null(not_checkable)) {
+    check_quantity_names(names(not_checkable), "quantity name in `not_checkable`")
+  }
   if (!is.null(per_cell)) check_quantity_names(per_cell, "quantity name in `per_cell`")
   exact_parts <- list(summarise = summarise, reproduce = reproduce, reported = reported,
                       example = example)
@@ -101,9 +112,10 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     name = name, family = family, analysis = analysis, verdict = verdict,
     needs = needs, catch = catch, lost = lost, matches = matches, triage = triage,
     summarise = summarise, reproduce = reproduce, reported = reported, disclosure = disclosure,
-    conventions = conventions, formula_tests = formula_tests, example = example,
+    choices = choices, not_checkable = not_checkable,
+    formula_tests = formula_tests, example = example,
     design = design, apa = if (is.null(design)) NULL else apa_quantities(design),
-    cells = design$cells, reproducible = reproducible, relations = relations,
+    cells = design$cells, sufficient = sufficient, relations = relations,
     relations_at = relations_at,
     per_cell = if (is.null(per_cell)) per_cell_quantities() else per_cell
   ), envir = .registry)
@@ -155,30 +167,138 @@ get_handler <- function(name) {
 #' handlers()
 handlers <- function() sort(ls(.registry))
 
+# Derived sets (ADR 0013) -------------------------------------------------------
+# Each takes a handler, as get_handler() returns it. Only the reasons and the
+# extra choices are declared; everything else is computed from `apa`,
+# `sufficient` and `relations`.
+
+# What the sufficient set needs that an APA-style paper does not report.
+missing_quantities <- function(h) setdiff(h$sufficient, h$apa)
+
+# Everything the relations reach from `sufficient`, itself included: add the
+# output of every relation whose inputs are all known until nothing changes.
+# Meta that is not a quantity (the test value mu) is not an input, and the
+# relations are the ones at their defaults (mu = 0); per-cell quantities count
+# as one name, as in `relation()`.
+reached_quantities <- function(h) {
+  reached <- h$sufficient
+  repeat {
+    outputs <- unlist(lapply(h$relations, function(rel) {
+      if (all(rel$inputs %in% reached)) rel$output
+    }))
+    grown <- union(reached, outputs)
+    if (length(grown) == length(reached)) return(reached)
+    reached <- grown
+  }
+}
+
+# The APA quantities that are derived from the sufficient set, in APA order. The
+# ones in `sufficient` itself are the data, not a check, so they are left out.
+checkable_quantities <- function(h) {
+  setdiff(intersect(h$apa, reached_quantities(h)), h$sufficient)
+}
+
+# The APA quantities that are neither in `sufficient` nor reached.
+unreached_quantities <- function(h) {
+  setdiff(h$apa, c(h$sufficient, reached_quantities(h)))
+}
+
+# The choices to declare: each kind of variant the relations vary over, with
+# its variants, then the handler's declared extras.
+handler_choices <- function(h) {
+  labels <- c(tail = "tails", level = "confidence level", test = "test",
+              convention = "effect-size convention")
+  kinds <- relation_variant_kinds()
+  from_relations <- unlist(lapply(kinds, function(kind) {
+    of_kind <- Filter(function(rel) rel$variant_kind == kind && !is.null(rel$variants),
+                      h$relations)
+    if (length(of_kind) == 0L) return(NULL)
+    paste0(labels[[kind]], " (", paste(unique(unlist(lapply(of_kind, `[[`, "variants"))),
+                                       collapse = ", "), ")")
+  }))
+  c(from_relations, h$choices)
+}
+
+# Display ---------------------------------------------------------------------
+
+# Quantities as a reader writes them: "M, SD per condition" for the ones with
+# one value per condition (when there is more than one), "CI" for both bounds.
+display_quantities <- function(h, quantities) {
+  if (length(quantities) == 0L) return(character())
+  unit <- if (identical(h$design$effect_size, "r")) "variable" else "condition"
+  labels <- c(m = "M", sd = "SD", f = "F", chisq = "chisq")
+  label <- function(q) if (q %in% names(labels)) labels[[q]] else q
+  grouped <- if (is.null(h$cells) || h$cells < 2L) character() else
+    intersect(quantities, h$per_cell)
+  items <- character()
+  for (q in quantities) {
+    if (q %in% grouped) {
+      if (q == grouped[1L]) {
+        items <- c(items, paste0(paste(vapply(grouped, label, character(1)), collapse = ", "),
+                                 " per ", unit))
+      }
+    } else if (q == "ci_upper" && "ci_lower" %in% quantities) {
+      next
+    } else {
+      items <- c(items, if (q == "ci_lower" && "ci_upper" %in% quantities) "CI" else label(q))
+    }
+  }
+  items
+}
+
+# "r (reason)" items, one per distinct reason, joined with "; ".
+with_reasons <- function(h, quantities, reasons) {
+  if (length(quantities) == 0L) return("\u2014")
+  reason <- unname(reasons[quantities])
+  paste(vapply(unique(reason), function(why) {
+    paste0(paste(display_quantities(h, quantities[reason == why]), collapse = ", "),
+           " (", why, ")")
+  }, character(1)), collapse = "; ")
+}
+
+list_or_dash <- function(x, sep = ", ") if (length(x) == 0L) "\u2014" else paste(x, collapse = sep)
+
 #' Coverage table generated from the handler registry
 #'
-#' This is the table shown in the README and the class guideline. Because it
-#' is generated, it always matches what the package actually does.
+#' One row per registered test that has an APA design, generated from the
+#' registry so it always matches what the package does (ADR 0013). Missing,
+#' checkable and the choices from relations are computed; only the reasons and
+#' extra choices are declared by each handler.
 #'
-#' @return A data frame with one row per handler.
+#' @return A data frame of character columns, one row per test:
+#'   * `test`: the analysis;
+#'   * `apa`: what APA style asks a paper to report;
+#'   * `sufficient`: the quantities that determine every reported result;
+#'   * `missing`: sufficient but not in APA, each with its reason;
+#'   * `checkable`: APA numbers the relations derive from `sufficient`;
+#'   * `not_checkable`: APA numbers they do not reach, each with its reason;
+#'   * `choices`: what the author must declare.
+#'
+#'   An empty cell shows an em dash. Handlers without a design are left out.
 #' @export
 #' @examples
 #' coverage_table()
 coverage_table <- function() {
-  cols <- c("family", "analysis", "verdict", "needs", "catch", "handler")
-  rows <- lapply(handlers(), function(name) {
-    h <- get_handler(name)
+  cols <- c("test", "apa", "sufficient", "missing", "checkable", "not_checkable", "choices")
+  hs <- Filter(function(h) !is.null(h$design), lapply(handlers(), get_handler))
+  if (length(hs) == 0L) {
+    return(as.data.frame(stats::setNames(replicate(length(cols), character(), FALSE), cols)))
+  }
+  hs <- hs[order(vapply(hs, `[[`, character(1), "family"),
+                 vapply(hs, `[[`, character(1), "analysis"))]
+  rows <- lapply(hs, function(h) {
     data.frame(
-      family = h$family, analysis = h$analysis, verdict = h$verdict,
-      needs = h$needs, catch = h$catch, handler = h$name
+      test = h$analysis,
+      apa = list_or_dash(display_quantities(h, h$apa)),
+      sufficient = list_or_dash(display_quantities(h, h$sufficient)),
+      missing = with_reasons(h, missing_quantities(h), missing_reasons()),
+      checkable = list_or_dash(display_quantities(h, checkable_quantities(h))),
+      not_checkable = with_reasons(h, unreached_quantities(h), h$not_checkable),
+      choices = list_or_dash(handler_choices(h), "; "),
+      stringsAsFactors = FALSE
     )
   })
-  if (length(rows) == 0L) {
-    out <- as.data.frame(stats::setNames(replicate(length(cols), character(), FALSE), cols))
-  } else {
-    out <- do.call(rbind, rows)
-    out <- out[order(out$family, out$analysis), cols]
-  }
+  out <- do.call(rbind, rows)
   rownames(out) <- NULL
   out
 }

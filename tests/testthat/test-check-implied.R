@@ -9,7 +9,7 @@ test_that("r, df and p from a real cor.test() is checkable and coherent, with n 
   checked <- run_check("cor_pearson", pearson_apa()[c("r", "df", "p")])
   expect_true(checked$consistent)
   expect_true(checked$checked)
-  # n = df + 2 is determined by df, so the reproducible set (n, r) is covered.
+  # n = df + 2 is determined by df, so the sufficient set (n, r) is covered.
   expect_equal(checked$level, 3L)
   expect_false(any(checked$numbers$status == "inconsistent"))
   expect_equal(status_of(checked, "p"), "verified")

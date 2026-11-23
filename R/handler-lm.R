@@ -34,7 +34,7 @@ register_lm <- function() {
     reproduce = lm_reproduce,
     reported = lm_reported,
     disclosure = lm_disclosure,
-    conventions = "contrasts for factor predictors (stored with the statistics)",
+    choices = "contrasts for factor predictors (stored with the statistics)",
     example = function() {
       list(x = stats::lm(mpg ~ wt + factor(cyl), data = base_data("mtcars")), args = list())
     }
