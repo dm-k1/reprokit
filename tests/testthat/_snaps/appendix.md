@@ -114,7 +114,7 @@
       
       ### A. The numbers APA style asks for
       
-      |  | 1 | 2 |
+      |  | group 1 | group 2 |
       | --- | --- | --- |
       | n | 10 | 10 |
       | M | 0.75 | 2.33 |
@@ -125,7 +125,7 @@
       | t(17.78) | -1.86 |
       | p | .079 |
       | d, Cohen's d (pooled SD) | -0.83 |
-      | 95% CI of the mean difference (1 - 2) | [-3.37, 0.21] |
+      | 95% CI of the mean difference (group 1 - group 2) | [-3.37, 0.21] |
       
       ### B. Numbers APA does not require that the result needs
       

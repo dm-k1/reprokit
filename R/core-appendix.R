@@ -141,7 +141,10 @@ appendix_variant <- function(rel, answers) {
 appendix_cell_labels <- function(h, s) {
   if (is.null(h$cells)) return(character())
   labels <- names(s$stats$mean)
-  if (is.null(labels)) as.character(seq_len(h$cells)) else labels
+  if (is.null(labels)) labels <- as.character(seq_len(h$cells))
+  # Bare numeric levels ("1" - "2") read as arithmetic in the output, so name them.
+  if (!anyNA(suppressWarnings(as.numeric(labels)))) labels <- paste("group", labels)
+  labels
 }
 
 appendix_block_a <- function(h, s, vals, answers, labels, digits) {

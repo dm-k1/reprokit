@@ -35,6 +35,18 @@ test_that("the independent-samples appendix is stable", {
                   transform = ascii_safe)
 })
 
+test_that("numeric group levels print as 'group 1' and 'group 2'", {
+  s <- sufficient_stats(extra ~ group, data = sleep, test = "welch", sharing_reason = sharing)
+  text <- paste(appendix(s, choices = list(convention = "pooled")), collapse = "\n")
+  expect_match(text, paste0("group 1 ", intToUtf8(0x2212), " group 2"), fixed = TRUE)
+})
+
+test_that("non-numeric condition labels are left unchanged", {
+  text <- paste(appendix(paired_stats(), choices = list(convention = "d_z")), collapse = "\n")
+  expect_match(text, "drug1", fixed = TRUE)
+  expect_false(grepl("group drug", text, fixed = TRUE))
+})
+
 test_that("the Pearson appendix is stable", {
   s <- sufficient_stats(~ mpg + wt, data = mtcars, test = "pearson", sharing_reason = sharing)
   expect_snapshot(print(appendix(s)), transform = ascii_safe)
