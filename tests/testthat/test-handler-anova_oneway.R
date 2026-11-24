@@ -131,8 +131,21 @@ test_that("the one-way appendix prints F(df1, df2) and no CI row", {
   expect_match(text, "| ctrl | trt1 | trt2 |", fixed = TRUE)
 })
 
+test_that("a negative omega squared (F < 1) in a correct one-way paper is not flagged", {
+  m <- c("50.10", "50.00", "49.90")
+  sd <- c("5.00", "5.20", "4.80")
+  checked <- check_reported("anova_oneway", n = rep("10", 3), m = m, sd = sd, f = "0.00",
+                            df1 = "2", df2 = "27", p = ".996", eta2 = "-.07")
+  expect_true(checked$consistent)
+  expect_false("inconsistent" %in% checked$numbers$status)
+  # F > 1: a negative eta2 is still not a value either convention gives; never an error,
+  # never "inconsistent" (the eta2 relation is a convention).
+  big <- check_reported("anova_oneway", f = "15.00", df1 = "2", df2 = "27", eta2 = "-.02")
+  expect_false("inconsistent" %in% big$numbers$status)
+})
+
 test_that("quantity domains cover df1, df2 and eta2", {
   expect_equal(quantity_domain("eta2"), c(0, 1))
   expect_equal(quantity_domain("df1"), c(0, Inf))
-  expect_error(check_F(f = "4.00", df1 = "2", df2 = "27", eta2 = "1.50"), "between 0 and 1")
+  expect_error(check_F(f = "4.00", df1 = "2", df2 = "27", eta2 = "1.50"), "between -1 and 1")
 })

@@ -117,11 +117,11 @@ one_sample_paper <- function() {
 # One-way ANOVA ------------------------------------------------------------------------------
 # Raw data of k groups (k drawn from 2..6 unless given), equal sizes if `balanced`, otherwise
 # sizes drawn independently; group means and SDs differ. Returns list(y, g, k, n).
-oneway_raw <- function(k = sample(2:6, 1L), balanced = runif(1L) < 0.5) {
+oneway_raw <- function(k = sample(2:6, 1L), balanced = runif(1L) < 0.5, null = FALSE) {
   pool <- sizes[sizes >= 3]
   n <- if (balanced) rep(sample(pool, 1L), k) else sample(pool, k, replace = TRUE)
   scale <- 10^runif(1L, -1, 2)
-  effect <- runif(1L, 0, 1.5) * scale
+  effect <- if (null) 0 else runif(1L, 0, 1.5) * scale
   y <- unlist(lapply(seq_len(k), function(i) {
     rnorm(n[i]) * scale * runif(1L, 0.5, 2) + rnorm(1L) * effect
   }))
@@ -140,14 +140,15 @@ oneway_truth <- function(d) {
 }
 
 # A correctly reported one-way ANOVA; NULL when the draw is degenerate. eta2 is printed as
-# eta squared or, half of the time, as omega squared (a paper reports a negative omega
-# squared as 0.00 here: a negative value is outside the [0, 1] domain of eta2 and would be
-# an input error).
-oneway_paper <- function(d = oneway_raw()) {
+# eta squared or, half of the time, as omega squared; a negative omega squared (F < 1) is
+# printed with its sign (ADR 0022). `negative_omega = TRUE` forces omega squared and returns NULL
+# unless it prints as a negative number.
+oneway_paper <- function(d = oneway_raw(), negative_omega = FALSE) {
   truth <- oneway_truth(d)
   sds <- tapply(d$y, d$g, sd)
   if (!is.finite(truth$f) || any(!is.finite(sds)) || any(sds == 0)) return(NULL)
-  effect <- if (runif(1L) < 0.5) truth$eta2 else max(truth$omega2, 0)
+  if (negative_omega && !(round(truth$omega2, 2L) < 0)) return(NULL)
+  effect <- if (!negative_omega && runif(1L) < 0.5) truth$eta2 else truth$omega2
   list(n = as.character(d$n), m = fmt(tapply(d$y, d$g, mean), 2L), sd = fmt(sds, 2L),
        f = fmt(truth$f, 2L), df1 = as.character(truth$df1), df2 = as.character(truth$df2),
        p = fmt_p(truth$p), eta2 = fmt(effect, 2L))

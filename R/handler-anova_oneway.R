@@ -35,6 +35,8 @@ register_anova_oneway <- function() {
     design = apa_design(statistic = "f", effect_size = "eta2", cells = NA_integer_, ci = FALSE),
     sufficient = c("n", "m", "sd"),
     per_cell = c("n", "m", "sd"),
+    # Omega squared is negative when F < 1, unlike eta squared (ADR 0022).
+    domains = list(eta2 = c(-1, 1)),
     relations = anova_oneway_relations(),
     example = function() {
       list(x = weight ~ group, args = list(data = base_data("PlantGrowth"), test = "oneway"))

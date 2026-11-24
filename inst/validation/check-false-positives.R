@@ -11,7 +11,9 @@
 # into every paper: those must be 100% not inconsistent, in every subset that includes d.
 # One-way ANOVA: oneway.test(var.equal = TRUE) output for k = 2..6 groups, balanced
 # and unbalanced, printed as F 2 dp, p 3 dp or "< .001", M and SD 2 dp, eta2 or omega2 2 dp
-# (half each; a negative omega2 is printed 0.00), on subsets of every kind.
+# (half each; a negative omega2 is printed with its sign), on subsets of every kind; a second run
+# draws groups with equal true means (F < 1 often) and keeps the designs whose omega2 prints
+# negative (ADR 0022), every one of which must be not inconsistent and not an input error.
 # Rounding as printed: 2 decimals for t, M and SD (0 decimals in the "coarse"
 # designs), 3 for p and r, "< .001" below .001, CI at the decimals of M.
 # Each design is checked on several reported subsets (all numbers, no CI,
@@ -146,6 +148,10 @@ oneway_subsets <- function(paper, i) {
        sample(keys, sample(2:length(keys), 1L)))
 }
 oneway <- tally("anova_oneway", n_designs, function() oneway_paper(), oneway_subsets)
+# F < 1: equal true means, negative omega2 printed with its sign.
+oneway_neg <- tally("anova_oneway", 3L * n_designs,
+                    function() oneway_paper(oneway_raw(null = TRUE), negative_omega = TRUE),
+                    oneway_subsets)
 
 factorial_subsets <- function(paper, i) {
   keys <- names(paper)
@@ -204,7 +210,7 @@ chisq_gof_w1 <- chisq_tally(function() chisq_gof_paper(high_w = TRUE, k = 4L), n
 results <- list(chisq_independence = chisq_indep, chisq_independence_2x2 = chisq_indep22,
                 chisq_gof = chisq_gof_all, chisq_gof_w_gt_1 = chisq_gof_w1, t_paired = paired, t_paired_d = paired_d, cor_pearson = pearson,
                 t_independent_student = student, t_independent_welch = welch,
-                t_one_sample = one_sample, anova_oneway = oneway,
+                t_one_sample = one_sample, anova_oneway = oneway, anova_oneway_negative_omega2 = oneway_neg,
                 anova_factorial = factorial_all, anova_factorial_2x2 = factorial_22)
 table_out <- do.call(rbind, lapply(names(results), function(h) {
   r <- results[[h]]
@@ -228,7 +234,9 @@ for (h in names(results)) {
 }
 pass <- sum(table_out$false_positives) == 0L && sum(table_out$errors) == 0L
 w1_count <- chisq_gof_w1$w1
-pass <- pass && w1_count > 0L
+pass <- pass && w1_count > 0L && oneway_neg$designs > 0L
+cat("one-way designs with F < 1 and a negative omega2 checked and not flagged:",
+    oneway_neg$designs, "\n")
 cat("goodness-of-fit designs with w > 1 checked and not flagged:", w1_count, "\n")
 cat(if (pass) "\nPASS" else "\nFAIL", ": false positives = ", sum(table_out$false_positives),
     ", errors = ", sum(table_out$errors), "\n", sep = "")

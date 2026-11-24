@@ -54,6 +54,9 @@ First development version. Not yet on CRAN; names and output may change.
   a balanced design has none. Partial eta squared and partial omega squared are
   conventions. Exact F ranges are used for one-df effects and balanced main
   effects; other effects are checked for coherence only.
+* One-way ANOVA: a negative omega squared (F < 1) reported in the `eta2` slot is
+  no longer rejected as an input error; the `eta2` domain is [-1, 1], as for the
+  factorial handler (ADR 0022).
 
 ## Coverage
 
