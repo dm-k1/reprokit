@@ -15,7 +15,7 @@
 #' * [appendix()] writes the appendix for the paper.
 #'
 #' **Check** (you are reading a paper):
-#' * [check_t()], [check_r()] and [check_F()] test whether reported numbers are
+#' * [check_t()], [check_r()], [check_F()] and [check_chisq()] test whether reported numbers are
 #'   consistent with each other, allowing for rounding. They call
 #'   [check_reported()].
 #'

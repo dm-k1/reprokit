@@ -92,7 +92,14 @@ appendix_answers <- function(h, s, choices) {
     stop("`", h$name, "` has no effect-size convention to declare; drop `choices$convention`.",
          call. = FALSE)
   }
-  convention <- if (is.null(choices$convention)) NA_character_ else choices$convention
+  # A handler with one convention (V, w) has nothing for the author to choose.
+  convention <- if (!is.null(choices$convention)) {
+    choices$convention
+  } else if (length(convention_codes) == 1L) {
+    convention_codes
+  } else {
+    NA_character_
+  }
   if (!is.na(convention) && !convention %in% convention_codes) {
     stop("`choices$convention` must be one of: ",
          paste0("\"", convention_codes, "\"", collapse = ", "), ".", call. = FALSE)
@@ -100,7 +107,7 @@ appendix_answers <- function(h, s, choices) {
   answers <- list(
     tail = s$meta$alternative,
     level = if (is.null(s$meta$conf_level)) NULL else sprintf("%.2f", s$meta$conf_level),
-    test = s$meta$test,
+    test = if (is.null(s$meta$test_variant)) s$meta$test else s$meta$test_variant,
     convention = convention
   )
   answers[intersect(names(answers), kinds)]
@@ -115,6 +122,7 @@ appendix_values <- function(h, s, answers) {
   vals <- stats[intersect(names(stats), quantity_names())]
   reproduced <- as.list(h$reproduce(s))
   for (q in setdiff(names(reproduced), names(vals))) vals[[q]] <- reproduced[[q]]
+  for (q in intersect(names(s$meta), c("p0"))) vals[[q]] <- s$meta[[q]]
   args <- s$meta[intersect(h$test_args, names(s$meta))]
   relations <- relations_at(h, Filter(Negate(is.null), args))
   for (rel in relations) {
@@ -140,7 +148,7 @@ appendix_variant <- function(rel, answers) {
 
 # Names of the conditions (or variables), as the analysis wrote them.
 appendix_cell_labels <- function(h, s) {
-  if (is.null(h$cells)) return(character())
+  if (is.null(h$cells) || !is.null(h$appendix_table)) return(character())
   labels <- names(s$stats$mean)
   if (is.null(labels)) {
     groups <- if (is.na(h$cells)) length(s$stats$mean) else h$cells
@@ -153,7 +161,9 @@ appendix_cell_labels <- function(h, s) {
 
 appendix_block_a <- function(h, s, vals, answers, labels, digits) {
   out <- c("### A. The numbers APA style asks for", "")
-  if (identical(h$cells, 1L)) {
+  if (!is.null(h$appendix_table)) {
+    out <- c(out, h$appendix_table(s), "")
+  } else if (identical(h$cells, 1L)) {
     out <- c(out, appendix_row(c("n", "M", "SD")), appendix_row(rep("---", 3L)),
              appendix_row(c(vals$n, appendix_number(vals$m, digits),
                             appendix_number(vals$sd, digits))), "")
@@ -168,11 +178,12 @@ appendix_block_a <- function(h, s, vals, answers, labels, digits) {
   statistic <- h$design$statistic
   stat_label <- c(t = "t", f = "F", r = "r", chisq = "\u03c7\u00b2")[[statistic]]
   es <- h$design$effect_size
-  es_row <- if (identical(es, statistic)) NULL else if (is.null(vals[[es]])) {
+  es_row <- if (is.null(es) || identical(es, statistic)) NULL else if (is.null(vals[[es]])) {
     c(es, "not computed: declare the effect-size convention (block C)")
   } else {
-    c(paste0(es, ", ", variant_label(answers$convention)),
-      appendix_number(vals[[es]], digits, leading_zero = es != "eta2"))
+    es_label <- variant_label(answers$convention)
+    c(if (es == "v") es_label else paste0(es, ", ", es_label),
+      appendix_number(vals[[es]], digits, leading_zero = !es %in% c("eta2", "v")))
   }
   level <- if (is.null(s$meta$conf_level)) "" else
     paste0(variant_label(sprintf("%.2f", s$meta$conf_level)), " ")
@@ -191,6 +202,7 @@ appendix_block_a <- function(h, s, vals, answers, labels, digits) {
     appendix_row(c(paste0(stat_label, "(", df_text, ")"),
                    appendix_number(vals[[statistic]], digits, leading_zero = statistic != "r"))),
     appendix_row(c("p", appendix_p(vals$p))),
+    if ("n_total" %in% h$apa) appendix_row(c("N", vals$n_total)),
     if (!is.null(es_row)) appendix_row(es_row),
     if (isTRUE(h$design$ci)) {
       appendix_row(c(paste0(level, "CI", appendix_ci_of(h, s, labels)), ci))
@@ -228,7 +240,8 @@ appendix_block_b <- function(h, vals, labels, digits) {
     } else {
       display_quantities(h, q)
     }
-    appendix_row(c(name, appendix_number(vals[[q]], digits, leading_zero = q != "r"),
+    appendix_row(c(name, paste(appendix_number(vals[[q]], digits, leading_zero = q != "r"),
+                               collapse = ", "),
                    paste0("APA does not require this; ", reasons[[q]])))
   }, character(1), USE.NAMES = FALSE)
   c(out, appendix_row(c("Number", "Value", "Why it is needed")),

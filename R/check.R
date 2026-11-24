@@ -144,6 +144,74 @@ check_F <- function(..., handler = "anova_oneway", variants = NULL) { # nolint: 
   check_reported(handler = handler, ..., variants = variants)
 }
 
+#' @rdname check_reported
+#' @param dims For `check_chisq()`, the table shape: `c(rows, columns)` for a
+#'   test of independence, the number of categories for goodness of fit. Not
+#'   needed when `n` is a matrix (its `dim()` is read before the counts are
+#'   parsed). Without a shape `df` cannot be checked, because a flat vector of
+#'   counts does not say whether 12 cells are 2 x 6 or 3 x 4.
+#' @param p0 For `check_chisq()` with goodness of fit, the H0 proportions, one
+#'   per category, summing to 1 (within 1e-8). Without them the categories are
+#'   taken as equally likely.
+#' @export
+#' @examples
+#' # A 2 x 2 table: Yates' correction is a variant, V is a convention
+#' check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
+#'             p = ".0001", v = ".41")
+check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = NULL) {
+  dots <- list(...)
+  n <- dots$n
+  notes <- character()
+  if (!is.null(n)) {
+    shape <- dim(n)
+    # A 1-d table is a vector of counts.
+    if (length(shape) == 1L) shape <- NULL
+    if (length(shape) > 2L) {
+      stop("`n` must be a matrix or a vector, not an array of ", length(shape),
+           " dimensions.", call. = FALSE)
+    }
+    if (!is.null(shape)) {
+      if (!is.null(dims) && !identical(as.integer(dims), as.integer(shape))) {
+        stop("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of `n` (",
+             paste(shape, collapse = " x "), ").", call. = FALSE)
+      }
+      dims <- shape
+    }
+    dots$n <- as.vector(unclass(n))
+  }
+  if (is.null(handler)) {
+    handler <- if (length(dims) == 1L || (is.null(dims) && !is.null(n) && is.null(shape))) {
+      if (is.null(dims) && is.null(n)) "chisq_independence" else "chisq_gof"
+    } else {
+      "chisq_independence"
+    }
+  }
+  if (!handler %in% c("chisq_independence", "chisq_gof")) {
+    stop("`handler` must be \"chisq_independence\" or \"chisq_gof\".", call. = FALSE)
+  }
+  if (handler == "chisq_gof" && is.null(dims) && !is.null(dots$n)) dims <- length(dots$n)
+  if (handler == "chisq_independence" && !is.null(p0)) {
+    stop("`p0` is for goodness of fit; a test of independence has no H0 proportions.",
+         call. = FALSE)
+  }
+  if (!is.null(p0)) check_p0(p0, if (handler == "chisq_gof") dims else NULL)
+  if (!is.null(dims)) check_table_dims(dims, if (handler == "chisq_gof") "gof" else "independence")
+  if (handler == "chisq_independence" && !is.null(dots$v) && is.character(dots$v)) {
+    stripped <- sub("^\\s*[-\u2212]\\s*", "", dots$v)
+    if (!identical(stripped, dots$v)) {
+      dots$v <- stripped
+      notes <- "A negative V (phi) is compared by absolute value; V is not signed."
+    }
+  } else if (handler == "chisq_independence" && is.numeric(dots$v) && any(dots$v < 0)) {
+    dots$v <- abs(dots$v)
+    notes <- "A negative V (phi) is compared by absolute value; V is not signed."
+  }
+  out <- do.call(check_reported, c(list(handler = handler), dots,
+                                   list(variants = variants, dims = dims, p0 = p0)))
+  out$notes <- c(out$notes, notes)
+  out
+}
+
 # The test arguments the user gave, as a named list: `mu` only when it is not its
 # default 0 (so a handler without a test value still accepts mu = 0), `dims` and
 # `p0` when not NULL. What a handler does not declare is rejected by relations_at().

@@ -255,3 +255,102 @@
       
       **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: group sizes. This lowers the risk of identifying a participant; it does not remove it.
 
+# the chi-squared independence appendix is stable
+
+    Code
+      print(appendix(s))
+    Output
+      ## Appendix: sufficient statistics for the chi-squared test of independence
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      | Admit \ Gender | Male | Female |
+      | --- | --- | --- |
+      | Admitted | 1198 | 557 |
+      | Rejected | 1493 | 1278 |
+      
+      | Result | Value |
+      | --- | --- |
+      | χ²(1) | 91.61 |
+      | p | < .001 |
+      | N | 4526 |
+      | Cramér's V | .14 |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      None: the APA numbers in block A determine the result.
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | Test | Yates' continuity correction |
+      | Effect-size convention | Cramér's V (declaring it is a reprokit rule; APA does not require it) |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - checking that the expected counts are large enough for the chi-squared approximation (expected counts below 5; reprokit does not test this)
+      - exact, Fisher or Monte Carlo alternatives for sparse tables
+      - any variable other than the ones in the table
+      
+      **Disclosure check.** No summary rests on fewer than 1 cases, and n is at least 2. Checked: cell counts. This lowers the risk of identifying a participant; it does not remove it.
+
+# the chi-squared goodness-of-fit appendix is stable
+
+    Code
+      print(appendix(s))
+    Output
+      ## Appendix: sufficient statistics for the chi-squared goodness of fit
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      | cyl | 4 | 6 | 8 |
+      | --- | --- | --- | --- |
+      | n | 11 | 7 | 14 |
+      
+      | Result | Value |
+      | --- | --- |
+      | χ²(2) | 2.31 |
+      | p | .315 |
+      | N | 32 |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      | Number | Value | Why it is needed |
+      | --- | --- | --- |
+      | H0 proportions | 0.3333, 0.3333, 0.3333 | APA does not require this; the expected counts depend on them; not needed when they are equal |
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | Effect-size convention | Cohen's w (declaring it is a reprokit rule; APA does not require it) |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - checking that the expected counts are large enough for the chi-squared approximation (expected counts below 5; reprokit does not test this)
+      - exact, Fisher or Monte Carlo alternatives for sparse tables
+      - any variable other than the ones in the table
+      
+      **Disclosure check.** No summary rests on fewer than 1 cases, and n is at least 2. Checked: cell counts. This lowers the risk of identifying a participant; it does not remove it.
+

@@ -147,3 +147,17 @@ test_that("the one-way appendix is stable", {
   expect_snapshot(print(appendix(s, choices = list(convention = "eta2"))),
                   transform = ascii_safe)
 })
+
+test_that("the chi-squared independence appendix is stable", {
+  d <- as.data.frame(margin.table(UCBAdmissions, c(1, 2)))
+  d <- d[rep(seq_len(nrow(d)), d$Freq), c("Admit", "Gender")]
+  s <- sufficient_stats(~ Admit + Gender, data = d, test = "chisq", sharing_reason = sharing,
+                        threshold = 1)
+  expect_snapshot(print(appendix(s)), transform = ascii_safe)
+})
+
+test_that("the chi-squared goodness-of-fit appendix is stable", {
+  s <- sufficient_stats(~ cyl, data = data.frame(cyl = mtcars$cyl), test = "gof",
+                        sharing_reason = sharing, threshold = 1)
+  expect_snapshot(print(appendix(s)), transform = ascii_safe)
+})

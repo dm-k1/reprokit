@@ -10,6 +10,8 @@ register_builtin_handlers <- function() {
   register_t_paired()
   register_cor_pearson()
   register_anova_oneway()
+  register_chisq_independence()
+  register_chisq_gof()
   register_lm()
 }
 

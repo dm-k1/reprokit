@@ -25,7 +25,7 @@ and a list of what readers lose.
 
 \strong{Check} (you are reading a paper):
 \itemize{
-\item \code{\link[=check_t]{check_t()}}, \code{\link[=check_r]{check_r()}} and \code{\link[=check_F]{check_F()}} test whether reported numbers are
+\item \code{\link[=check_t]{check_t()}}, \code{\link[=check_r]{check_r()}}, \code{\link[=check_F]{check_F()}} and \code{\link[=check_chisq]{check_chisq()}} test whether reported numbers are
 consistent with each other, allowing for rounding. They call
 \code{\link[=check_reported]{check_reported()}}.
 }

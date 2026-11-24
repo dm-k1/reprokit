@@ -108,8 +108,8 @@ test_that("input errors are clear", {
   expect_error(check_reported("t_paired", tstat = "2.85"), "Unknown reported quantity")
   expect_error(check_reported("nope", t = "2.85"), "No handler registered")
   expect_error(check_reported("lm", t = "2.85"),
-               paste0("no relations.*Handlers that do: anova_oneway, cor_pearson, ",
-                      "t_independent, t_one_sample, t_paired"))
+               paste0("no relations.*Handlers that do: anova_oneway, chisq_gof, ",
+                      "chisq_independence, cor_pearson, t_independent, t_one_sample, t_paired"))
 })
 
 test_that("a confidence level is reported apart from the tails", {

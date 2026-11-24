@@ -5,15 +5,18 @@
 \alias{check_t}
 \alias{check_r}
 \alias{check_F}
+\alias{check_chisq}
 \title{Check reported statistics against each other}
 \usage{
-check_reported(handler, ..., variants = NULL, mu = 0)
+check_reported(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL)
 
 check_t(..., handler = "t_paired", variants = NULL, mu = 0)
 
 check_r(..., handler = "cor_pearson", variants = NULL)
 
 check_F(..., handler = "anova_oneway", variants = NULL)
+
+check_chisq(..., handler = NULL, variants = NULL, dims = NULL, p0 = NULL)
 }
 \arguments{
 \item{handler}{Name of a registered handler, such as \code{"t_paired"}.}
@@ -48,6 +51,16 @@ handlers whose t depends on it (\code{t_one_sample}, \code{t_paired}). A plain
 number, not a string (\code{mu = 20}, not \code{mu = "20"}), unlike the reported
 numbers. Default 0. A handler without a test value errors on \code{mu} other
 than 0.}
+
+\item{dims}{For \code{check_chisq()}, the table shape: \code{c(rows, columns)} for a
+test of independence, the number of categories for goodness of fit. Not
+needed when \code{n} is a matrix (its \code{dim()} is read before the counts are
+parsed). Without a shape \code{df} cannot be checked, because a flat vector of
+counts does not say whether 12 cells are 2 x 6 or 3 x 4.}
+
+\item{p0}{For \code{check_chisq()} with goodness of fit, the H0 proportions, one
+per category, summing to 1 (within 1e-8). Without them the categories are
+taken as equally likely.}
 }
 \value{
 A \code{reprokit_check} object: \verb{$numbers} (status of each reported
@@ -94,4 +107,7 @@ reported, it gives the range the missing input must lie in.
 }
 \examples{
 check_reported("t_paired", n = "20", t = "2.85", df = "19", p = ".010")
+# A 2 x 2 table: Yates' correction is a variant, V is a convention
+check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
+            p = ".0001", v = ".41")
 }
