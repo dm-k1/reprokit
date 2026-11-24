@@ -354,3 +354,165 @@
       
       **Disclosure check.** No summary rests on fewer than 1 cases, and n is at least 2. Checked: cell counts. This lowers the risk of identifying a participant; it does not remove it.
 
+# the factorial appendix is stable: balanced, then unbalanced with and without the SS type
+
+    Code
+      print(appendix(s, choices = list(convention = "partial_eta2")))
+    Output
+      ## Appendix: sufficient statistics for the factorial ANOVA, two factors
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      | supp | dose | n | M | SD |
+      | --- | --- | --- | --- | --- |
+      | OJ | 0.5 | 10 | 13.23 | 4.46 |
+      | VC | 0.5 | 10 | 7.98 | 2.75 |
+      | OJ | 1 | 10 | 22.70 | 3.91 |
+      | VC | 1 | 10 | 16.77 | 2.52 |
+      | OJ | 2 | 10 | 26.06 | 2.66 |
+      | VC | 2 | 10 | 26.14 | 4.80 |
+      
+      | Effect | F(df1, df2) | p | partial eta squared |
+      | --- | --- | --- | --- |
+      | supp | F(1, 54) = 15.57 | < .001 | .22 |
+      | dose | F(2, 54) = 92.00 | < .001 | .77 |
+      | supp × dose | F(2, 54) = 4.11 | .022 | .13 |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      None: the APA numbers in block A determine the result.
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | SS type | not needed (balanced design: all types agree) |
+      | Effect-size convention | partial eta squared (declaring it is a reprokit rule; APA does not require it) |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - equal variances assumed (pooled error term)
+      - checking the distribution and outliers within each cell
+      - simple effects, post-hoc comparisons and contrasts that need the raw data or an error term other than the pooled one
+      - covariates and any factor other than the two in the model
+      
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: cell sizes. This lowers the risk of identifying a participant; it does not remove it.
+
+---
+
+    Code
+      print(appendix(su))
+    Output
+      ## Appendix: sufficient statistics for the factorial ANOVA, two factors
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      | a | b | n | M | SD |
+      | --- | --- | --- | --- | --- |
+      | a1 | 1 | 8 | 9.95 | 1.45 |
+      | a2 | 1 | 14 | 10.99 | 1.83 |
+      | a1 | 2 | 20 | 11.33 | 2.03 |
+      | a2 | 2 | 6 | 10.41 | 1.71 |
+      | a1 | 3 | 12 | 12.30 | 2.26 |
+      | a2 | 3 | 9 | 14.24 | 2.64 |
+      
+      | Effect | F(df1, df2) | p | effect size |
+      | --- | --- | --- | --- |
+      | a | not computed: declare the SS type (block C) | - | - |
+      | b | not computed: declare the SS type (block C) | - | - |
+      | a × b | F(2, 63) = 2.48 | .092 | not computed: declare the effect-size convention (block C) |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      None: the APA numbers in block A determine the result.
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | SS type | not declared |
+      | Effect-size convention | not declared (declaring it is a reprokit rule; APA does not require it) |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - equal variances assumed (pooled error term)
+      - checking the distribution and outliers within each cell
+      - simple effects, post-hoc comparisons and contrasts that need the raw data or an error term other than the pooled one
+      - covariates and any factor other than the two in the model
+      
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: cell sizes. This lowers the risk of identifying a participant; it does not remove it.
+
+---
+
+    Code
+      print(appendix(su, choices = list(ss_type = "II", convention = "partial_omega2")))
+    Output
+      ## Appendix: sufficient statistics for the factorial ANOVA, two factors
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      | a | b | n | M | SD |
+      | --- | --- | --- | --- | --- |
+      | a1 | 1 | 8 | 9.95 | 1.45 |
+      | a2 | 1 | 14 | 10.99 | 1.83 |
+      | a1 | 2 | 20 | 11.33 | 2.03 |
+      | a2 | 2 | 6 | 10.41 | 1.71 |
+      | a1 | 3 | 12 | 12.30 | 2.26 |
+      | a2 | 3 | 9 | 14.24 | 2.64 |
+      
+      | Effect | F(df1, df2) | p | partial omega squared |
+      | --- | --- | --- | --- |
+      | a | F(1, 63) = 1.95 | .167 | .01 |
+      | b | F(2, 63) = 9.64 | < .001 | .20 |
+      | a × b | F(2, 63) = 2.48 | .092 | .04 |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      None: the APA numbers in block A determine the result.
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | SS type | type II |
+      | Effect-size convention | partial omega squared (declaring it is a reprokit rule; APA does not require it) |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - equal variances assumed (pooled error term)
+      - checking the distribution and outliers within each cell
+      - simple effects, post-hoc comparisons and contrasts that need the raw data or an error term other than the pooled one
+      - covariates and any factor other than the two in the model
+      
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: cell sizes. This lowers the risk of identifying a participant; it does not remove it.
+

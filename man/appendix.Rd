@@ -11,7 +11,9 @@ appendix(s, choices = list(), digits = 2L, digits_added = 4L)
 
 \item{choices}{Named list of answers the object cannot know. \code{convention}:
 the effect-size convention, as a variant code (e.g. \code{"d_z"}, \code{"d_av"}).
-Declaring it is a reprokit rule, not an APA requirement.}
+Declaring it is a reprokit rule, not an APA requirement. \code{ss_type}: for a
+factorial ANOVA, the type of sums of squares (\code{"III"}, \code{"II"} or \code{"I"}); only
+an unbalanced design needs it.}
 
 \item{digits}{Decimals for the APA numbers in block A (p always gets 3).}
 

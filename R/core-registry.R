@@ -59,9 +59,11 @@
 #'   that list; the registry keeps the list at the defaults and the function
 #'   (`relations_at`), and `check_reported()` builds the relations at check time.
 #' @param test_args Character vector of the test arguments the handler's
-#'   `relations` function takes (`"mu"`, `"dims"`, `"p0"`), or `NULL` for the
-#'   names of its formals. Each is a plain number or numeric vector; a test
-#'   argument the handler does not declare is an error (`relations_at()`).
+#'   `relations` function takes (`"mu"`, `"dims"`, `"p0"`, `"effect"`, `"balanced"`),
+#'   or `NULL` for the names of its formals. Each is a plain number or numeric
+#'   vector, except `effect` (a string) and `balanced` (TRUE or FALSE, set by
+#'   `check_reported()` from the reported n); a test argument the handler does not
+#'   declare is an error (`relations_at()`).
 #' @param domains Named list of quantity domains that replace the default
 #'   `quantity_domain()` for this handler (`n = c(0, Inf)` for counts that may
 #'   be 0), or `NULL`.
@@ -70,6 +72,10 @@
 #' @param appendix_table `function(s)` returning the markdown lines of the
 #'   counts table that replaces the n, M and SD table in block A of the
 #'   appendix, or `NULL`.
+#' @param appendix_effects `function(s, answers, digits)` returning the markdown
+#'   lines that replace the single result table of block A (a design with several
+#'   effects, each with its own F), or `NULL`. `answers` is the author's answer per
+#'   kind of variant, as `appendix()` has it.
 #' @param per_cell Character vector of the quantities that have one value per
 #'   condition (`cells` of them), or `NULL` for the default, `m` and `sd`. A
 #'   handler whose n differs between conditions (independent groups) adds `n`.
@@ -82,7 +88,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                              formula_tests = NULL, example = NULL, design = NULL,
                              sufficient = NULL, relations = NULL, per_cell = NULL,
                              not_checkable = NULL, test_args = NULL, domains = NULL,
-                             labels = NULL, appendix_table = NULL) {
+                             labels = NULL, appendix_table = NULL, appendix_effects = NULL) {
   check_verdict(verdict)
   relations_at <- NULL
   if (is.function(relations)) {
@@ -113,7 +119,8 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                            all(vapply(domains, function(d) is.numeric(d) && length(d) == 2L,
                                       logical(1)))),
     is.null(labels) || (is.character(labels) && !is.null(names(labels))),
-    is.null(appendix_table) || is.function(appendix_table)
+    is.null(appendix_table) || is.function(appendix_table),
+    is.null(appendix_effects) || is.function(appendix_effects)
   )
   if (length(test_args) > 0L && is.null(relations_at)) {
     stop("Handler '", name, "' declares test arguments but its `relations` is not a function.",
@@ -145,7 +152,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     design = design, apa = if (is.null(design)) NULL else apa_quantities(design),
     cells = design$cells, sufficient = sufficient, relations = relations,
     relations_at = relations_at, test_args = test_args, domains = domains,
-    labels = labels, appendix_table = appendix_table,
+    labels = labels, appendix_table = appendix_table, appendix_effects = appendix_effects,
     per_cell = if (is.null(per_cell)) per_cell_quantities() else per_cell
   ), envir = .registry)
   invisible(name)
@@ -258,13 +265,16 @@ handler_choices <- function(h) {
     of_kind <- Filter(function(rel) kind %in% names(rel$variants), h$relations)
     if (length(of_kind) == 0L) return(NULL)
     codes <- unique(unlist(lapply(of_kind, function(rel) rel$variants[[kind]])))
+    if (kind == "test" && all(codes %in% ss_type_codes())) {
+      labels[["test"]] <- "SS type for unbalanced designs"
+    }
     paste0(labels[[kind]], " (", paste(variant_label(codes), collapse = ", "), ")")
   }))
   c(from_relations, h$choices)
 }
 
 # The test arguments a handler's relations can take (`test_args`).
-test_arg_names <- function() c("mu", "dims", "p0")
+test_arg_names <- function() c("mu", "dims", "p0", "effect", "balanced")
 
 # Display ---------------------------------------------------------------------
 

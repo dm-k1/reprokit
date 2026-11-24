@@ -25,7 +25,9 @@
 #' @param s A `reprokit_sufficient_stats` object from [sufficient_stats()].
 #' @param choices Named list of answers the object cannot know. `convention`:
 #'   the effect-size convention, as a variant code (e.g. `"d_z"`, `"d_av"`).
-#'   Declaring it is a reprokit rule, not an APA requirement.
+#'   Declaring it is a reprokit rule, not an APA requirement. `ss_type`: for a
+#'   factorial ANOVA, the type of sums of squares (`"III"`, `"II"` or `"I"`); only
+#'   an unbalanced design needs it.
 #' @param digits Decimals for the APA numbers in block A (p always gets 3).
 #' @param digits_added Decimals for the added numbers in block B. They feed
 #'   back into the result, so they get more decimals than APA's two; the object
@@ -104,13 +106,32 @@ appendix_answers <- function(h, s, choices) {
     stop("`choices$convention` must be one of: ",
          paste0("\"", convention_codes, "\"", collapse = ", "), ".", call. = FALSE)
   }
+  test <- if (is.null(s$meta$test_variant)) s$meta$test else s$meta$test_variant
+  ss_codes <- unique(unlist(lapply(h$relations, function(rel) rel$variants$test)))
+  if (has_ss_types(h)) {
+    # The SS type is the author's to declare (never inferred); a stored one counts.
+    test <- if (!is.null(choices$ss_type)) choices$ss_type else
+      if (!is.null(s$meta$ss_type)) s$meta$ss_type else NA_character_
+    if (!is.na(test) && !test %in% ss_codes) {
+      stop("`choices$ss_type` must be one of: ",
+           paste0("\"", ss_codes, "\"", collapse = ", "), ".", call. = FALSE)
+    }
+  } else if (!is.null(choices$ss_type)) {
+    stop("`", h$name, "` has no SS type to declare; drop `choices$ss_type`.", call. = FALSE)
+  }
   answers <- list(
     tail = s$meta$alternative,
     level = if (is.null(s$meta$conf_level)) NULL else sprintf("%.2f", s$meta$conf_level),
-    test = if (is.null(s$meta$test_variant)) s$meta$test else s$meta$test_variant,
+    test = test,
     convention = convention
   )
   answers[intersect(names(answers), kinds)]
+}
+
+# Whether the handler's `test` variants are SS types (a factorial ANOVA).
+has_ss_types <- function(h) {
+  codes <- unique(unlist(lapply(h$relations, function(rel) rel$variants$test)))
+  length(codes) > 0L && all(codes %in% ss_type_codes())
 }
 
 # Every quantity's value: the stored descriptives, then what reproduce() returns
@@ -175,6 +196,7 @@ appendix_block_a <- function(h, s, vals, answers, labels, digits) {
              appendix_row(rep("---", length(labels) + 1L)), rows, "")
     if (length(vals$n) == 1L) out <- c(out, paste0("n = ", vals$n), "")
   }
+  if (!is.null(h$appendix_effects)) return(c(out, h$appendix_effects(s, answers, digits), ""))
   statistic <- h$design$statistic
   stat_label <- c(t = "t", f = "F", r = "r", chisq = "\u03c7\u00b2")[[statistic]]
   es <- h$design$effect_size
@@ -251,9 +273,13 @@ appendix_block_b <- function(h, vals, labels, digits) {
 appendix_block_c <- function(h, s, answers, labels) {
   kind_labels <- c(tail = "Tails", level = "Confidence level", test = "Test",
                    convention = "Effect-size convention")
+  if (has_ss_types(h)) kind_labels[["test"]] <- "SS type"
   rows <- vapply(names(answers), function(kind) {
     answer <- answers[[kind]]
     text <- if (is.na(answer)) "not declared" else variant_label(answer)
+    if (kind == "test" && kind_labels[["test"]] == "SS type" && isTRUE(s$meta$balanced)) {
+      text <- "not needed (balanced design: all types agree)"
+    }
     if (kind == "convention") {
       text <- paste0(text, " (declaring it is a reprokit rule; APA does not require it)")
     }

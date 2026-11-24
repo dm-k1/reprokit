@@ -115,9 +115,15 @@ variant_labels <- function() {
     d_z = "d_z (SD of the differences)", d_rm = "d_rm (repeated measures)",
     d_av = "d_av (average SD)", g_av = "g_av (average SD, Hedges' correction)",
     eta2 = "eta squared", omega2 = "omega squared",
+    III = "type III", II = "type II", I = "type I",
+    partial_eta2 = "partial eta squared", partial_omega2 = "partial omega squared",
     pearson = "Pearson chi-squared", yates = "Yates' continuity correction",
     v = "Cram\u00e9r's V", w = "Cohen's w")
 }
+
+# The SS types of a factorial ANOVA, in the order they are tried; the `test` variants
+# of its F and p.
+ss_type_codes <- function() c("III", "II", "I")
 
 variant_label <- function(codes) {
   labels <- variant_labels()

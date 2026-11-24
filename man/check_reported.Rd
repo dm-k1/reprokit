@@ -8,13 +8,21 @@
 \alias{check_chisq}
 \title{Check reported statistics against each other}
 \usage{
-check_reported(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL)
+check_reported(
+  handler,
+  ...,
+  variants = NULL,
+  mu = 0,
+  dims = NULL,
+  p0 = NULL,
+  effect = NULL
+)
 
 check_t(..., handler = "t_paired", variants = NULL, mu = 0)
 
 check_r(..., handler = "cor_pearson", variants = NULL)
 
-check_F(..., handler = "anova_oneway", variants = NULL)
+check_F(..., handler = NULL, variants = NULL, effect = NULL, dims = NULL)
 
 check_chisq(..., handler = NULL, variants = NULL, dims = NULL, p0 = NULL)
 }
@@ -39,10 +47,13 @@ the handler does not have is an error that lists the ones it has.
 one-sided (less), one-sided (greater)).
 \item Level: \code{"0.90"}, \code{"0.95"}, \code{"0.99"} (shown as 90\%, 95\%, 99\%).
 \item Test: \code{"student"}, \code{"welch"} (shown as Student's t, Welch's t).
+\item SS type (factorial ANOVA, unbalanced designs): \code{"III"}, \code{"II"}, \code{"I"} (shown as
+type III, type II, type I).
 \item Effect-size convention: \code{"pooled"} (Cohen's d, pooled SD), \code{"hedges_g"},
 \code{"average"} (Cohen's d, root mean square of the SDs), \code{"glass_sd1"},
 \code{"glass_sd2"} (Glass's delta), \code{"cohen"}, \code{"d_z"}, \code{"d_rm"}, \code{"d_av"},
-\code{"g_av"}, \code{"eta2"} (eta squared), \code{"omega2"} (omega squared). Which of
+\code{"g_av"}, \code{"eta2"} (eta squared), \code{"omega2"} (omega squared),
+\code{"partial_eta2"}, \code{"partial_omega2"} (factorial ANOVA). Which of
 them a handler has depends on the test.
 }}
 
@@ -52,7 +63,7 @@ number, not a string (\code{mu = 20}, not \code{mu = "20"}), unlike the reported
 numbers. Default 0. A handler without a test value errors on \code{mu} other
 than 0.}
 
-\item{dims}{For \code{check_chisq()}, the table shape: \code{c(rows, columns)} for a
+\item{dims}{For \code{check_chisq()} and \code{check_F()}, the table shape: \code{c(rows, columns)} for a
 test of independence, the number of categories for goodness of fit. Not
 needed when \code{n} is a matrix (its \code{dim()} is read before the counts are
 parsed). Without a shape \code{df} cannot be checked, because a flat vector of
@@ -61,6 +72,12 @@ counts does not say whether 12 cells are 2 x 6 or 3 x 4.}
 \item{p0}{For \code{check_chisq()} with goodness of fit, the H0 proportions, one
 per category, summing to 1 (within 1e-8). Without them the categories are
 taken as equally likely.}
+
+\item{effect}{For \code{check_F()} on a two-factor between-subjects design, the effect
+to check: \code{"A"} (main effect of the factor in the rows of the cell matrices),
+\code{"B"} (the columns) or \code{"AB"} (the interaction). A paper with three F tests gets
+three calls with the same cell descriptives. Giving \code{effect} (or \code{dims})
+selects the factorial handler; without it \code{check_F()} is the one-way ANOVA.}
 }
 \value{
 A \code{reprokit_check} object: \verb{$numbers} (status of each reported
@@ -107,6 +124,17 @@ reported, it gives the range the missing input must lie in.
 }
 \examples{
 check_reported("t_paired", n = "20", t = "2.85", df = "19", p = ".010")
+# A 2 x 2 between-subjects ANOVA: one call per effect, the same cell descriptives.
+# Rows of the matrices are the levels of A, columns the levels of B.
+cells <- list(n = matrix(rep("10", 4), 2),
+              m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
+              sd = matrix(rep("1.50", 4), 2))
+check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "A",
+        f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
+check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "B",
+        f = "9.34", df1 = "1", df2 = "36", p = ".004", eta2 = ".21")
+check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "AB",
+        f = "2.50", df1 = "1", df2 = "36", p = ".123", eta2 = ".06")
 # A 2 x 2 table: Yates' correction is a variant, V is a convention
 check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
             p = ".0001", v = ".41")

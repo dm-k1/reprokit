@@ -161,3 +161,30 @@ test_that("the chi-squared goodness-of-fit appendix is stable", {
                         sharing_reason = sharing, threshold = 1)
   expect_snapshot(print(appendix(s)), transform = ascii_safe)
 })
+
+test_that("the factorial appendix is stable: balanced, then unbalanced with and without the SS type", {
+  tg <- datasets::ToothGrowth
+  tg$dose <- factor(tg$dose)
+  s <- sufficient_stats(len ~ supp * dose, data = tg, test = "factorial", sharing_reason = sharing)
+  expect_snapshot(print(appendix(s, choices = list(convention = "partial_eta2"))),
+                  transform = ascii_safe)
+  u <- factorial_unbalanced()
+  su <- sufficient_stats(y ~ a * b, data = u, test = "factorial", sharing_reason = sharing)
+  expect_snapshot(print(appendix(su)), transform = ascii_safe)
+  expect_snapshot(print(appendix(su, choices = list(ss_type = "II", convention = "partial_omega2"))),
+                  transform = ascii_safe)
+})
+
+test_that("the factorial appendix numbers equal the handler's at the declared SS type", {
+  u <- factorial_unbalanced()
+  su <- sufficient_stats(y ~ a * b, data = u, test = "factorial", sharing_reason = sharing)
+  out <- paste(capture.output(print(appendix(su, choices = list(ss_type = "I",
+                                                               convention = "partial_eta2")))),
+               collapse = "\n")
+  r <- anova_factorial_reported(y ~ a * b, u, "factorial", ss_type = "I")
+  expect_match(out, sprintf("F(1, %d) = %.2f", r[["df2"]], r[["f_A"]]), fixed = TRUE)
+  expect_error(appendix(su, choices = list(ss_type = "IV")), "ss_type")
+  expect_error(appendix(sufficient_stats(weight ~ group, data = PlantGrowth, test = "oneway",
+                                        sharing_reason = sharing),
+                        choices = list(ss_type = "III")), "SS type")
+})

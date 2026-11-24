@@ -30,10 +30,13 @@
 #'     one-sided (less), one-sided (greater)).
 #'   * Level: `"0.90"`, `"0.95"`, `"0.99"` (shown as 90%, 95%, 99%).
 #'   * Test: `"student"`, `"welch"` (shown as Student's t, Welch's t).
+#'   * SS type (factorial ANOVA, unbalanced designs): `"III"`, `"II"`, `"I"` (shown as
+#'     type III, type II, type I).
 #'   * Effect-size convention: `"pooled"` (Cohen's d, pooled SD), `"hedges_g"`,
 #'     `"average"` (Cohen's d, root mean square of the SDs), `"glass_sd1"`,
 #'     `"glass_sd2"` (Glass's delta), `"cohen"`, `"d_z"`, `"d_rm"`, `"d_av"`,
-#'     `"g_av"`, `"eta2"` (eta squared), `"omega2"` (omega squared). Which of
+#'     `"g_av"`, `"eta2"` (eta squared), `"omega2"` (omega squared),
+#'     `"partial_eta2"`, `"partial_omega2"` (factorial ANOVA). Which of
 #'     them a handler has depends on the test.
 #' @param mu The test value the mean (or mean difference) is compared with, for
 #'   handlers whose t depends on it (`t_one_sample`, `t_paired`). A plain
@@ -78,13 +81,19 @@
 #' @export
 #' @examples
 #' check_reported("t_paired", n = "20", t = "2.85", df = "19", p = ".010")
-check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL) {
+check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL,
+                           effect = NULL) {
   if (missing(handler)) {
     stop("Name the handler first: check_reported(\"t_paired\", t = ...). Handlers that can ",
          "check: ", paste(handlers_with_relations(), collapse = ", "), ".", call. = FALSE)
   }
   entry <- get_handler(handler)
-  entry$relations <- relations_at(entry, test_arguments(mu = mu, dims = dims, p0 = p0))
+  if ("effect" %in% entry$test_args && is.null(effect)) {
+    stop("Handler '", handler, "' checks one effect at a time: name it with ",
+         "`effect = \"A\"`, `\"B\"` or `\"AB\"`.", call. = FALSE)
+  }
+  args <- test_arguments(mu = mu, dims = dims, p0 = p0, effect = effect)
+  entry$relations <- relations_at(entry, args)
   dots <- list(...)
   if (length(entry$relations) == 0L) {
     stop("Handler '", handler, "' has no relations to check against. Handlers that do: ",
@@ -102,6 +111,11 @@ check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p
     restrict_to_domain(interval_bounds(reported_value(x, as_count = as_count)), quantity, x,
                        entry$domains)
   }, reported, names(reported))
+  # A balanced design has one SS type: the handler drops the variant when every cell
+  # size is reported exactly and equal. Anything less certain keeps the variants.
+  if ("balanced" %in% entry$test_args && is_balanced_report(intervals$n)) {
+    entry$relations <- relations_at(entry, c(args, list(balanced = TRUE)))
+  }
   implied_inputs <- derive_implied_inputs(entry$relations, intervals)
   evaluations <- evaluate_relations(entry$relations, intervals, variants, implied_inputs)
 
@@ -140,12 +154,69 @@ check_r <- function(..., handler = "cor_pearson", variants = NULL) {
 
 #' @rdname check_reported
 #' @export
-check_F <- function(..., handler = "anova_oneway", variants = NULL) { # nolint: object_name_linter
-  check_reported(handler = handler, ..., variants = variants)
+#' @examples
+#' # A 2 x 2 between-subjects ANOVA: one call per effect, the same cell descriptives.
+#' # Rows of the matrices are the levels of A, columns the levels of B.
+#' cells <- list(n = matrix(rep("10", 4), 2),
+#'               m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
+#'               sd = matrix(rep("1.50", 4), 2))
+#' check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "A",
+#'         f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
+#' check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "B",
+#'         f = "9.34", df1 = "1", df2 = "36", p = ".004", eta2 = ".21")
+#' check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "AB",
+#'         f = "2.50", df1 = "1", df2 = "36", p = ".123", eta2 = ".06")
+check_F <- function(..., handler = NULL, variants = NULL, effect = NULL, # nolint: object_name_linter
+                    dims = NULL) {
+  dots <- list(...)
+  factorial <- identical(handler, "anova_factorial") ||
+    (is.null(handler) && (!is.null(effect) || !is.null(dims)))
+  if (is.null(handler)) handler <- if (factorial) "anova_factorial" else "anova_oneway"
+  if (!factorial) {
+    return(check_reported(handler = handler, ..., variants = variants, effect = effect,
+                          dims = dims))
+  }
+  # The cells are a x b matrices: read their shape, check that they agree, flatten.
+  shapes <- lapply(dots[intersect(names(dots), c("n", "m", "sd"))], dim)
+  shapes <- Filter(Negate(is.null), shapes)
+  if (length(shapes) > 0L) {
+    if (any(vapply(shapes, length, integer(1)) != 2L)) {
+      stop("`n`, `m` and `sd` must be matrices with one row per level of the first factor ",
+           "and one column per level of the second, or plain vectors.", call. = FALSE)
+    }
+    if (length(unique(shapes)) > 1L) {
+      stop("`n`, `m` and `sd` must have the same dimensions; got ",
+           paste0(names(shapes), " = ", vapply(shapes, paste, character(1), collapse = " x "),
+                  collapse = ", "), ".", call. = FALSE)
+    }
+    shape <- shapes[[1L]]
+    if (!is.null(dims) && !identical(as.integer(dims), as.integer(shape))) {
+      stop("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of ",
+           "the matrices (", paste(shape, collapse = " x "), ").", call. = FALSE)
+    }
+    dims <- shape
+  }
+  for (q in intersect(names(dots), c("n", "m", "sd"))) {
+    dots[[q]] <- as.vector(unclass(dots[[q]]))
+    if (!is.null(dims) && length(dots[[q]]) != prod(dims)) {
+      stop("`", q, "` has ", length(dots[[q]]), " values, but `dims` says ",
+           paste(dims, collapse = " x "), " = ", prod(dims), " cells.", call. = FALSE)
+    }
+  }
+  if (!is.null(dims)) check_factorial_dims(dims)
+  out <- do.call(check_reported, c(list(handler = handler), dots,
+                                   list(variants = variants, dims = dims, effect = effect)))
+  out$notes <- c(out$notes, paste0("Effect checked: ", factorial_effect_words(effect), "."))
+  out
 }
 
 #' @rdname check_reported
-#' @param dims For `check_chisq()`, the table shape: `c(rows, columns)` for a
+#' @param effect For `check_F()` on a two-factor between-subjects design, the effect
+#'   to check: `"A"` (main effect of the factor in the rows of the cell matrices),
+#'   `"B"` (the columns) or `"AB"` (the interaction). A paper with three F tests gets
+#'   three calls with the same cell descriptives. Giving `effect` (or `dims`)
+#'   selects the factorial handler; without it `check_F()` is the one-way ANOVA.
+#' @param dims For `check_chisq()` and `check_F()`, the table shape: `c(rows, columns)` for a
 #'   test of independence, the number of categories for goodness of fit. Not
 #'   needed when `n` is a matrix (its `dim()` is read before the counts are
 #'   parsed). Without a shape `df` cannot be checked, because a flat vector of
@@ -213,25 +284,44 @@ check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = 
 }
 
 # The test arguments the user gave, as a named list: `mu` only when it is not its
-# default 0 (so a handler without a test value still accepts mu = 0), `dims` and
-# `p0` when not NULL. What a handler does not declare is rejected by relations_at().
-test_arguments <- function(mu = 0, dims = NULL, p0 = NULL) {
+# default 0 (so a handler without a test value still accepts mu = 0), `dims`, `p0`
+# and `effect` when not NULL. What a handler does not declare is rejected by
+# relations_at().
+test_arguments <- function(mu = 0, dims = NULL, p0 = NULL, effect = NULL) {
   args <- list()
   if (!(is.numeric(mu) && length(mu) == 1L && isTRUE(mu == 0))) args$mu <- mu
   if (!is.null(dims)) args$dims <- dims
   if (!is.null(p0)) args$p0 <- p0
+  if (!is.null(effect)) args$effect <- effect
   args
 }
 
+# TRUE when n is reported for every cell, each exactly (a count) and all equal.
+is_balanced_report <- function(n) {
+  if (is.null(n)) return(FALSE)
+  bounds <- interval_bounds(n)
+  length(bounds$lower) > 1L && all(bounds$lower == bounds$upper) &&
+    length(unique(bounds$lower)) == 1L
+}
+
 # The handler's relations at the test arguments `args` (a named list of plain
-# numbers: `mu` for the t handlers, `dims` and `p0` for the chi-squared handlers).
+# numbers: `mu` for the t handlers, `dims` and `p0` for the chi-squared handlers; the
+# factorial ANOVA also takes `effect`, a string, and the internal flag `balanced`).
 # A handler registered with `relations = function(<its test arguments>)` builds
 # them here; one with a fixed list has no test arguments. An argument the handler
 # does not declare is an error rather than silently ignored.
 relations_at <- function(entry, args = list()) {
   for (name in names(args)) {
     value <- args[[name]]
-    if (!is.numeric(value) || length(value) < 1L || any(!is.finite(value))) {
+    if (name == "effect") {
+      if (!(is.character(value) && length(value) == 1L && value %in% c("A", "B", "AB"))) {
+        stop("`effect` must be one of \"A\", \"B\" or \"AB\".", call. = FALSE)
+      }
+    } else if (name == "balanced") {
+      if (!(is.logical(value) && length(value) == 1L && !is.na(value))) {
+        stop("`balanced` must be TRUE or FALSE.", call. = FALSE)
+      }
+    } else if (!is.numeric(value) || length(value) < 1L || any(!is.finite(value))) {
       stop("`", name, "` must be ", if (name == "mu") "one finite number" else
              "finite numbers", ".", call. = FALSE)
     }
@@ -785,7 +875,9 @@ print.reprokit_check <- function(x, ...) {
     } else {
       "none"
     }
-    cat(variant_kind_labels()[[kind]], ": ", fitting_text, "\n", sep = "")
+    kind_label <- variant_kind_labels()[[kind]]
+    if (kind == "test" && all(tried$variant %in% ss_type_codes())) kind_label <- "SS types that fit"
+    cat(kind_label, ": ", fitting_text, "\n", sep = "")
   }
   if (nrow(x$numbers) > 0L) {
     cat("\n")
