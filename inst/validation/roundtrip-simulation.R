@@ -6,6 +6,8 @@
 # The worst absolute difference is shown for information only.
 # Chi-squared (ADR 0016): independence tables 2 x 2 to 4 x 5 (Yates or Pearson in a 2 x 2) and
 # goodness of fit with k = 2..8 (uniform or given p0), both with empty cells.
+# Factorial ANOVA (ADR 0017): 2 x 2 to 3 x 4 designs, balanced (types agree) and unbalanced with
+# each SS type (III, II, I), unequal SDs and cell means, against anova()/drop1() on the raw data.
 # Run: Rscript inst/validation/roundtrip-simulation.R   (after devtools::load_all())
 
 n_designs <- 200L
@@ -135,12 +137,30 @@ chisq_gof_design <- function() {
                          if (runif(1L) < 0.5) list(p0 = q / sum(q))))
 }
 
+# One random factorial design: a x b = 2..3 x 2..4 cells, balanced or not, unequal SDs and means.
+factorial_design <- function(balanced, type) {
+  a <- sample(2:3, 1L)
+  b <- sample(2:4, 1L)
+  n <- if (balanced) rep(sample(4:30, 1L), a * b) else sample(3:30, a * b, replace = TRUE)
+  cell <- rep(seq_len(a * b), n)
+  mu <- rnorm(a * b, sd = 1.5)
+  sds <- runif(a * b, 0.5, 3)
+  d <- data.frame(y = rnorm(length(cell), mu[cell], sds[cell]),
+                  a = factor(paste0("a", ((cell - 1L) %% a) + 1L)),
+                  b = factor(paste0("b", ((cell - 1L) %/% a) + 1L)))
+  list(x = y ~ a * b, args = list(data = d, test = "factorial", ss_type = type, threshold = 1))
+}
+
 designs <- list(chisq_independence = chisq_independence_design, chisq_gof = chisq_gof_design,
                 t_independent = t_design, t_one_sample = t_one_sample_design,
                 t_paired = t_paired_design, cor_pearson = cor_pearson_design, lm = lm_design,
                 anova_oneway_balanced = function() oneway_design(TRUE),
-                anova_oneway_unbalanced = function() oneway_design(FALSE))
-handler_of <- function(name) sub("_(un)?balanced$", "", name)
+                anova_oneway_unbalanced = function() oneway_design(FALSE),
+                anova_factorial_balanced = function() factorial_design(TRUE, "III"),
+                anova_factorial_unbalanced_III = function() factorial_design(FALSE, "III"),
+                anova_factorial_unbalanced_II = function() factorial_design(FALSE, "II"),
+                anova_factorial_unbalanced_I = function() factorial_design(FALSE, "I"))
+handler_of <- function(name) sub("_(un)?balanced(_I+)?$", "", name)
 
 rows <- lapply(names(designs), function(name) {
   h <- get_handler(handler_of(name))

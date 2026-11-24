@@ -87,6 +87,18 @@
 # hard test; a raw rate cannot tell a regression from a genuinely undetectable error.
 # Seed 20261124. Size: 1000 papers per handler group, 6 groups. Runtime about 4 minutes
 # (6 cores via parallel::mclapply).
+# Factorial ANOVA (ADR 0017), a third section at the end with its own PASS line: papers from
+# factorial_paper() (check-designs.R: 2..3 x 2..4 cells, balanced or not, effect A, B or AB, SS
+# type III, II or I, partial eta2 or omega2 printed), one planted error each, the type rotating:
+# cell_mean_change (one cell M off by 5-20 units of its last digit), f_digit (last digit of F off
+# by 1-9 units of .01), p_digit, df2_wrong (N - 1 or N - a - b + 1 instead of N - a b) and
+# type_mix (F of type III with the p of type II, unbalanced designs where the two differ by more
+# than 10% in F). Subsets: all, f/df/p, desc+f+p (n, M, SD, F, p; df is derived from the cells).
+# Oracle (base R, independent of the package) for f/df/p, where the claim is exact: the planted
+# paper is detectable iff the p implied by F over its rounding interval (101 values) with the
+# printed df misses the p rounding interval. Criteria: no error; oracle-detectable not flagged =
+# 0; oracle-undetectable flagged = 0; a case flagged on f/df/p is flagged on all; every type x
+# subset cell that contains the planted number flags something.
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-planted-errors.R")'
 
@@ -538,3 +550,107 @@ chisq_ok <- chisq_errors == 0 && chisq_missed == 0 && chisq_false == 0 && chisq_
 cat(if (chisq_ok) "\nPASS" else "\nFAIL", ": chi-squared planted errors, errors = ", chisq_errors,
     ", oracle-detectable not flagged = ", chisq_missed, ", oracle-undetectable flagged = ",
     chisq_false, ", cells never flagged = ", chisq_dead, "\n", sep = "")
+
+# Factorial ANOVA planted errors ---------------------------------------------------------------
+set.seed(20261124)
+fact_types <- c("cell_mean_change", "f_digit", "p_digit", "df2_wrong", "type_mix")
+fact_subsets <- function(paper) {
+  list(all = names(paper), `f/df/p` = c("f", "df1", "df2", "p"),
+       `desc+f+p` = c("n", "m", "sd", "f", "p"))
+}
+fact_plant <- function(paper, type) {
+  dims <- attr(paper, "dims")
+  switch(type,
+    cell_mean_change = {
+      i <- sample(length(paper$m), 1L)
+      units <- sample(5:20, 1L) * sample(c(-1, 1), 1L)
+      paper$m[i] <- fmt(as.numeric(paper$m[i]) + units * 0.01, 2L)
+      list(paper = paper, quantity = "m")
+    },
+    f_digit = {
+      f0 <- as.numeric(paper$f)
+      step <- sample(c(-1, 1), 1L) * sample(1:9, 1L) / 100
+      if (f0 + step <= 0) step <- abs(step)
+      paper$f <- fmt(f0 + step, 2L)
+      list(paper = paper, quantity = "f")
+    },
+    p_digit = {
+      if (is.na(p_value(paper$p))) return(NULL)
+      changed <- change_digit(paper$p)
+      if (is.null(changed)) return(NULL)
+      paper$p <- changed$value
+      list(paper = paper, quantity = "p")
+    },
+    df2_wrong = {
+      N <- sum(as.numeric(paper$n))
+      wrong <- sample(c(N - 1, N - sum(dims) + 1), 1L)
+      if (wrong == as.numeric(paper$df2)) return(NULL)
+      paper$df2 <- as.character(wrong)
+      list(paper = paper, quantity = "df2")
+    })
+}
+fact_mix_paper <- function() {
+  raw <- factorial_raw(balanced = FALSE)
+  effect <- sample(c("A", "B", "AB"), 1L)
+  paper <- factorial_paper(raw, effect, "III")
+  if (is.null(paper)) return(NULL)
+  t3 <- factorial_truth(raw$d, "III")
+  t2 <- factorial_truth(raw$d, "II")
+  if (abs(t3$f[[effect]] - t2$f[[effect]]) < 0.1 * t3$f[[effect]]) return(NULL)
+  paper$p <- fmt_p(t2$p[[effect]])
+  list(paper = paper, quantity = "p")
+}
+fact_oracle <- function(paper) {
+  fi <- interval(paper$f)
+  pi <- pmin(pmax(interval(paper$p), 0), 1)
+  fg <- seq(max(fi[1L], 0), fi[2L], length.out = 101L)
+  verdict(overlap(range(pf(fg, as.numeric(paper$df1), as.numeric(paper$df2),
+                           lower.tail = FALSE)), pi))
+}
+fact_rows <- list()
+n_fact <- 600L
+for (i in seq_len(n_fact)) {
+  type <- fact_types[(i - 1L) %% length(fact_types) + 1L]
+  planted <- NULL
+  for (attempt in 1:200) {
+    if (type == "type_mix") {
+      planted <- fact_mix_paper()
+    } else {
+      paper <- factorial_paper()
+      planted <- if (is.null(paper)) NULL else fact_plant(paper, type)
+    }
+    if (!is.null(planted)) break
+  }
+  if (is.null(planted)) next
+  subsets <- fact_subsets(planted$paper)
+  for (sub in names(subsets)) {
+    keys <- subsets[[sub]]
+    if (!planted$quantity %in% keys) next
+    res <- run_factorial_check(planted$paper, keys)
+    outcome <- if (inherits(res, "error")) "error" else if (!res$consistent) "flagged" else "not flagged"
+    fact_rows[[length(fact_rows) + 1L]] <- data.frame(
+      case = i, type = type, subset = sub, outcome = outcome,
+      oracle = if (sub == "f/df/p") fact_oracle(planted$paper) else NA_character_)
+  }
+}
+fact_results <- do.call(rbind, fact_rows)
+fact_cells <- aggregate(outcome ~ type + subset, fact_results,
+                        function(o) c(n = length(o), flagged = sum(o == "flagged")))
+fact_cells <- cbind(fact_cells[1:2], as.data.frame(fact_cells$outcome))
+fact_cells$`% flagged` <- round(100 * fact_cells$flagged / fact_cells$n, 1)
+cat("\n== Factorial ANOVA planted errors ==\n")
+print(fact_cells, row.names = FALSE)
+fcov <- fact_results[!is.na(fact_results$oracle) & fact_results$oracle != "edge", ]
+print(as.data.frame(table(oracle = fcov$oracle, outcome = fcov$outcome)), row.names = FALSE)
+fact_errors <- sum(fact_results$outcome == "error")
+fact_missed <- sum(fcov$oracle == "detectable" & fcov$outcome != "flagged")
+fact_false <- sum(fcov$oracle == "undetectable" & fcov$outcome == "flagged")
+fl <- function(s) unique(fact_results$case[fact_results$subset == s & fact_results$outcome == "flagged"])
+fact_hidden <- length(setdiff(fl("f/df/p"), fl("all")))
+fact_dead <- sum(fact_cells$flagged == 0)
+fact_ok <- fact_errors == 0 && fact_missed == 0 && fact_false == 0 && fact_hidden == 0 &&
+  fact_dead == 0
+cat(if (fact_ok) "\nPASS" else "\nFAIL", ": factorial planted errors, errors = ", fact_errors,
+    ", oracle-detectable not flagged = ", fact_missed, ", oracle-undetectable flagged = ",
+    fact_false, ", flagged on f/df/p but not on all = ", fact_hidden, ", cells never flagged = ",
+    fact_dead, "\n", sep = "")

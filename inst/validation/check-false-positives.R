@@ -23,9 +23,14 @@
 # or Yates in a 2 x 2, empty cells, V or signed phi) and goodness of fit (k = 2..8, uniform or
 # given p0, w reported); one more group is forced to Cohen's w > 1 (k = 4, 97% of the counts in
 # one category, uniform p0), which must not be flagged: w is not bounded by 1 (ADR 0021).
+# Factorial ANOVA (ADR 0017): one effect (A, B or the interaction) of a classical type I, II or
+# III table for 2 x 2 to 3 x 4 designs, balanced and unbalanced, F 2 dp, p 3 dp or "< .001", cell
+# M and SD 2 dp, partial eta2 or partial omega2 (half each; a negative omega2 is printed with its
+# sign), on subsets of every kind; the SS type the paper used is never told to the checker, so a
+# paper printed at type I or II must fit by its own type and not be flagged.
 # PASS criterion: false positives == 0 AND errors == 0. A false positive is a
 # release blocker.
-# Size: 300 designs per handler (anova_oneway, chisq_independence, chisq_gof, chisq_gof w > 1,
+# Size: 300 designs per handler (anova_oneway, anova_factorial (all shapes, and 2 x 2 only), chisq_independence, chisq_gof, chisq_gof w > 1,
 # t_paired, t_paired with d, cor_pearson, t_independent Student
 # and Welch, t_one_sample), about 4 to 6 subsets each (the paired "no r" subset takes about
 # 3 s, so it is run on every 15th design only).
@@ -142,6 +147,35 @@ oneway_subsets <- function(paper, i) {
 }
 oneway <- tally("anova_oneway", n_designs, function() oneway_paper(), oneway_subsets)
 
+factorial_subsets <- function(paper, i) {
+  keys <- names(paper)
+  list(keys, setdiff(keys, "eta2"), c("n", "m", "sd", "f", "p"), c("f", "df1", "df2", "p"),
+       c("n", "df1", "df2", "f"), c("n", "m", "sd", "df1", "df2"),
+       c("n", "m", "sd", "f", "eta2"), c("f", "df1", "df2", "eta2"),
+       sample(keys, sample(2:length(keys), 1L)))
+}
+factorial_tally <- function(make, n_designs) {
+  total <- list(designs = 0L, checks = 0L, fp = list(), err = list(), unbalanced = 0L)
+  for (i in seq_len(n_designs)) {
+    paper <- make()
+    if (is.null(paper)) next
+    total$designs <- total$designs + 1L
+    total$unbalanced <- total$unbalanced + !isTRUE(attr(paper, "balanced"))
+    for (keys in factorial_subsets(paper, i)) {
+      res <- run_factorial_check(paper, keys)
+      total$checks <- total$checks + 1L
+      if (inherits(res, "error")) {
+        total$err[[length(total$err) + 1L]] <- list(msg = conditionMessage(res))
+      } else if (!res$consistent) {
+        total$fp[[length(total$fp) + 1L]] <- list(keys = keys, paper = paper[keys])
+      }
+    }
+  }
+  total
+}
+factorial_all <- factorial_tally(factorial_paper, n_designs)
+factorial_22 <- factorial_tally(function() factorial_paper(factorial_raw(c(2L, 2L))), n_designs)
+
 chisq_tally <- function(make, n_designs) {
   total <- list(designs = 0L, checks = 0L, fp = list(), err = list(), yates = 0L, w1 = 0L)
   for (i in seq_len(n_designs)) {
@@ -170,7 +204,8 @@ chisq_gof_w1 <- chisq_tally(function() chisq_gof_paper(high_w = TRUE, k = 4L), n
 results <- list(chisq_independence = chisq_indep, chisq_independence_2x2 = chisq_indep22,
                 chisq_gof = chisq_gof_all, chisq_gof_w_gt_1 = chisq_gof_w1, t_paired = paired, t_paired_d = paired_d, cor_pearson = pearson,
                 t_independent_student = student, t_independent_welch = welch,
-                t_one_sample = one_sample, anova_oneway = oneway)
+                t_one_sample = one_sample, anova_oneway = oneway,
+                anova_factorial = factorial_all, anova_factorial_2x2 = factorial_22)
 table_out <- do.call(rbind, lapply(names(results), function(h) {
   r <- results[[h]]
   data.frame(handler = h, designs = r$designs, checks = r$checks,
@@ -179,6 +214,7 @@ table_out <- do.call(rbind, lapply(names(results), function(h) {
              `sd 0 dec` = if (is.null(r$zero_dec)) 0L else r$zero_dec,
              yates = if (is.null(r$yates)) 0L else r$yates,
              `w>1` = if (is.null(r$w1)) 0L else r$w1,
+             unbalanced = if (is.null(r$unbalanced)) 0L else r$unbalanced,
              false_positives = length(r$fp), errors = length(r$err),
              check.names = FALSE)
 }))

@@ -153,6 +153,78 @@ oneway_paper <- function(d = oneway_raw()) {
        p = fmt_p(truth$p), eta2 = fmt(effect, 2L))
 }
 
+# Factorial ANOVA (ADR 0017) ---------------------------------------------------------------
+# factorial_raw() draws a x b = 2..3 x 2..4 cells of raw data, balanced or not (cell sizes at
+# least 3), with unequal cell means and SDs; factorial_paper() prints one effect (A, B or AB) of
+# the classical type I, II or III table as a paper does (F 2 dp, p 3 dp or "< .001", cell M and SD
+# 2 dp, partial eta2 or partial omega2 2 dp, cell n), the cell matrices as a x b matrices, and
+# sets the attributes `effect`, `dims` and `truth` (the SS type it was printed at, df).
+# Truth is computed here from stats::lm() with anova()/drop1(), independently of reprokit's handler.
+factorial_raw <- function(dims = c(sample(2:3, 1L), sample(2:4, 1L)),
+                          balanced = runif(1L) < 0.4) {
+  cells <- prod(dims)
+  pool <- sizes[sizes >= 3 & sizes <= 60]
+  n <- if (balanced) rep(sample(pool, 1L), cells) else sample(pool, cells, replace = TRUE)
+  scale <- 10^runif(1L, -1, 2)
+  effect <- runif(1L, 0, 1.5) * scale
+  mu <- rnorm(cells) * effect
+  sds <- runif(cells, 0.5, 2) * scale
+  cell <- rep(seq_len(cells), n)
+  list(d = data.frame(y = rnorm(length(cell), mu[cell], sds[cell]),
+                      a = factor(((cell - 1L) %% dims[1L]) + 1L, levels = seq_len(dims[1L])),
+                      b = factor(((cell - 1L) %/% dims[1L]) + 1L, levels = seq_len(dims[2L]))),
+       dims = dims, balanced = balanced)
+}
+
+factorial_truth <- function(d, type) {
+  full <- stats::lm(y ~ a * b, d)
+  ss <- switch(type,
+    I = c(A = anova(full)["a", "Sum Sq"], B = anova(stats::lm(y ~ b * a, d))["b", "Sum Sq"],
+          AB = anova(full)["a:b", "Sum Sq"]),
+    II = {
+      dr <- stats::drop1(stats::lm(y ~ a + b, d), scope = ~ a + b)
+      c(A = dr["a", "Sum of Sq"], B = dr["b", "Sum of Sq"], AB = anova(full)["a:b", "Sum Sq"])
+    },
+    III = {
+      dr <- stats::drop1(stats::lm(y ~ a * b, d, contrasts = list(a = "contr.sum", b = "contr.sum")),
+                         scope = ~ a + b + a:b)
+      c(A = dr["a", "Sum of Sq"], B = dr["b", "Sum of Sq"], AB = dr["a:b", "Sum of Sq"])
+    })
+  df1 <- c(A = nlevels(d$a) - 1, B = nlevels(d$b) - 1, AB = (nlevels(d$a) - 1) * (nlevels(d$b) - 1))
+  df2 <- stats::df.residual(full)
+  sse <- stats::deviance(full)
+  f <- (ss / df1) / (sse / df2)
+  list(f = f, df1 = df1, df2 = df2, p = stats::pf(f, df1, df2, lower.tail = FALSE),
+       eta2 = ss / (ss + sse), omega2 = df1 * (f - 1) / (df1 * (f - 1) + df2 + nlevels(d$a) * nlevels(d$b)))
+}
+
+factorial_paper <- function(raw = factorial_raw(), effect = sample(c("A", "B", "AB"), 1L),
+                            type = sample(c("III", "II", "I"), 1L)) {
+  d <- raw$d
+  sds <- tapply(d$y, list(d$a, d$b), sd)
+  if (any(!is.finite(sds)) || any(sds == 0)) return(NULL)
+  truth <- factorial_truth(d, type)
+  if (!is.finite(truth$f[[effect]]) || truth$f[[effect]] <= 0) return(NULL)
+  size <- if (runif(1L) < 0.5) truth$eta2[[effect]] else truth$omega2[[effect]]
+  paper <- list(n = matrix(as.character(as.vector(table(d$a, d$b))), raw$dims[1L]),
+                m = matrix(fmt(as.vector(tapply(d$y, list(d$a, d$b), mean)), 2L), raw$dims[1L]),
+                sd = matrix(fmt(as.vector(sds), 2L), raw$dims[1L]),
+                f = fmt(truth$f[[effect]], 2L), df1 = as.character(truth$df1[[effect]]),
+                df2 = as.character(truth$df2), p = fmt_p(truth$p[[effect]]),
+                eta2 = fmt(size, 2L))
+  attr(paper, "effect") <- effect
+  attr(paper, "dims") <- raw$dims
+  attr(paper, "balanced") <- raw$balanced
+  attr(paper, "type") <- type
+  paper
+}
+
+# check_F() on the named numbers of a factorial paper; an error is returned, not thrown.
+run_factorial_check <- function(paper, keys) {
+  args <- c(paper[keys], list(effect = attr(paper, "effect"), dims = attr(paper, "dims")))
+  tryCatch(suppressWarnings(do.call(check_F, args)), error = function(e) e)
+}
+
 # Planted errors ----------------------------------------------------------------
 # Each planter takes a correct paper (named list of printed strings) and returns
 # list(paper, quantity, size) with ONE number changed, or NULL when the paper cannot take

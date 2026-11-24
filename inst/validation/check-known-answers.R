@@ -55,6 +55,23 @@
 #      is inconsistent; the same with only f, df1, df2, p;
 #   9. a planted wrong df2 (29, N instead of N - k) is flagged.
 #   PASS: claims 7 to 9 hold.
+#
+# Case 5 (POSITIVE FIXTURE, factorial ANOVA, ADR 0017): two between-subjects designs.
+#   ToothGrowth supp x dose (2 x 3, balanced, n = 10 per cell; dose as a factor) and mtcars
+#   am x vs (2 x 2, cells 12, 6, 7, 7: unbalanced). The expected F, df, p are NOT taken from
+#   reprokit: the ToothGrowth values are the widely published two-way table (supp F = 15.572,
+#   dose F = 92.000, supp x dose F = 4.107, df2 = 54) and the mtcars values are computed here
+#   with stats::anova() (type I, both entry orders) and stats::drop1() (types II and III, the
+#   latter with sum contrasts); car::Anova() is compared when car is installed. Claims:
+#   10. ToothGrowth: every effect's F, df1, df2, p and partial eta2 from reproduce() match the
+#       published/aov values, in all three SS types (one balanced design: all types agree);
+#   11. mtcars: reproduce() at each SS type equals anova()/drop1() to 1e-8 scaled, for F and p
+#       of both main effects, and the three types differ for the main effects (the SS type is a
+#       real choice) while the interaction is the same in all;
+#   12. check_F() on the correct rounded report of each effect is consistent with no row
+#       inconsistent, and for mtcars it identifies the type that produced it (and only it);
+#   13. a planted wrong df2 (N - 1 instead of N - cells) is flagged.
+#   PASS: claims 10 to 13 hold.
 # Run: Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-known-answers.R")'
 
 n1 <- 24
@@ -277,3 +294,128 @@ checks4 <- c(all(rows4$consistent), all(rows4$none_inconsistent),
 cat(if (all(checks4)) "\nPASS" else "\nFAIL",
     ": correct chi-squared reports consistent, test variant identified, wrong df flagged (",
     sum(checks4), "/4)\n", sep = "")
+
+# Case 5: factorial ANOVA -------------------------------------------------------------------
+scaled_close <- function(a, b) all(abs(a - b) / pmax(1, abs(b)) < 1e-8)
+tg <- datasets::ToothGrowth
+tg$dose <- factor(tg$dose)
+tg_fit <- aov(len ~ supp * dose, data = tg)
+tg_tab <- summary(tg_fit)[[1L]]
+published <- c(f_A = 15.572, f_B = 92.000, f_AB = 4.107)
+tg_rep <- lapply(ss_type_codes(), function(type) {
+  reproduce(sufficient_stats(len ~ supp * dose, data = tg, test = "factorial", ss_type = type,
+                             sharing_reason = "validation"))
+})
+tg_ok <- vapply(tg_rep, function(r) {
+  all(abs(r[c("f_A", "f_B", "f_AB")] - published) < 5e-4) &&
+    scaled_close(r[c("f_A", "f_B", "f_AB")], tg_tab[["F value"]][1:3]) &&
+    scaled_close(r[c("p_A", "p_B", "p_AB")], tg_tab[["Pr(>F)"]][1:3]) &&
+    identical(unname(r[c("df1_A", "df1_B", "df1_AB", "df2")]), c(1, 2, 2, 54)) &&
+    scaled_close(r[c("eta2_A", "eta2_B", "eta2_AB")],
+                 tg_tab[["Sum Sq"]][1:3] / (tg_tab[["Sum Sq"]][1:3] + tg_tab[["Sum Sq"]][4L]))
+}, logical(1))
+
+mt <- datasets::mtcars
+mt$am <- factor(mt$am)
+mt$vs <- factor(mt$vs)
+base_ss <- function(type) {
+  full <- lm(mpg ~ am * vs, mt)
+  if (type == "I") {
+    c(A = anova(full)["am", "Sum Sq"], B = anova(lm(mpg ~ vs * am, mt))["vs", "Sum Sq"],
+      AB = anova(full)["am:vs", "Sum Sq"])
+  } else if (type == "II") {
+    d <- drop1(lm(mpg ~ am + vs, mt), scope = ~ am + vs)
+    c(A = d["am", "Sum of Sq"], B = d["vs", "Sum of Sq"], AB = anova(full)["am:vs", "Sum Sq"])
+  } else {
+    d <- drop1(lm(mpg ~ am * vs, mt, contrasts = list(am = "contr.sum", vs = "contr.sum")),
+               scope = ~ am + vs + am:vs)
+    c(A = d["am", "Sum of Sq"], B = d["vs", "Sum of Sq"], AB = d["am:vs", "Sum of Sq"])
+  }
+}
+mt_full <- lm(mpg ~ am * vs, mt)
+sse <- deviance(mt_full)
+df2 <- df.residual(mt_full)
+mt_rows <- lapply(ss_type_codes(), function(type) {
+  r <- reproduce(sufficient_stats(mpg ~ am * vs, data = mt, test = "factorial", ss_type = type,
+                                  sharing_reason = "validation"))
+  f <- base_ss(type) / (sse / df2)
+  list(type = type, f_match = scaled_close(r[c("f_A", "f_B", "f_AB")], f),
+       p_match = scaled_close(r[c("p_A", "p_B", "p_AB")], pf(f, 1, df2, lower.tail = FALSE)),
+       car_match = if (type != "I" && requireNamespace("car", quietly = TRUE)) {
+         ct <- suppressMessages(car::Anova(
+           lm(mpg ~ am * vs, mt, contrasts = list(am = "contr.sum", vs = "contr.sum")),
+           type = type))
+         scaled_close(r[c("f_A", "f_B", "f_AB")], ct[c("am", "vs", "am:vs"), "F value"])
+       } else NA, f = r[c("f_A", "f_B", "f_AB")])
+})
+differ <- function(i, j) abs(mt_rows[[i]]$f[["f_A"]] - mt_rows[[j]]$f[["f_A"]]) > 0.1
+types_differ <- differ(1, 2) && differ(1, 3) && differ(2, 3)
+same_ab <- scaled_close(mt_rows[[1L]]$f[["f_AB"]], mt_rows[[2L]]$f[["f_AB"]]) &&
+  scaled_close(mt_rows[[1L]]$f[["f_AB"]], mt_rows[[3L]]$f[["f_AB"]])
+
+fx <- function(x, d) formatC(x, format = "f", digits = d)
+paper_for <- function(d, a, b, y, effect, type) {
+  r <- anova_factorial_reported(as.formula(paste(y, "~", a, "*", b)), d, "factorial", ss_type = type)
+  tab <- function(fun, digits) matrix(fx(as.vector(tapply(d[[y]], list(d[[a]], d[[b]]), fun)), digits),
+                                      nlevels(d[[a]]))
+  list(n = matrix(as.character(as.vector(table(d[[a]], d[[b]]))), nlevels(d[[a]])),
+       m = tab(mean, 2L), sd = tab(sd, 2L), f = fx(r[[paste0("f_", effect)]], 2L),
+       df1 = as.character(r[[paste0("df1_", effect)]]), df2 = as.character(r[["df2"]]),
+       p = fx(r[[paste0("p_", effect)]], 3L), eta2 = fx(r[[paste0("eta2_", effect)]], 2L),
+       effect = effect, dims = c(nlevels(d[[a]]), nlevels(d[[b]])))
+}
+fits_of <- function(x) {
+  v <- x$variants$test
+  if (is.null(v)) NULL else v$variant[v$fits]
+}
+tg_checks <- do.call(rbind, lapply(c("A", "B", "AB"), function(effect) {
+  ok <- do.call(check_F, paper_for(tg, "supp", "dose", "len", effect, "III"))
+  bad <- paper_for(tg, "supp", "dose", "len", effect, "III")
+  bad$df2 <- "59"
+  data.frame(design = "ToothGrowth", effect = effect, type = "-", consistent = ok$consistent,
+             none_inconsistent = !any(ok$numbers$status == "inconsistent"),
+             type_identified = is.null(fits_of(ok)),
+             wrong_df2_flagged = !do.call(check_F, bad)$consistent)
+}))
+mt_checks <- do.call(rbind, lapply(ss_type_codes(), function(type) {
+  do.call(rbind, lapply(c("A", "B", "AB"), function(effect) {
+    paper <- paper_for(mt, "am", "vs", "mpg", effect, type)
+    ok <- do.call(check_F, paper)
+    bad <- paper
+    bad$df2 <- "31"
+    data.frame(design = "mtcars", effect = effect, type = type, consistent = ok$consistent,
+               none_inconsistent = !any(ok$numbers$status == "inconsistent"),
+               type_identified = if (effect == "AB") is.null(fits_of(ok)) else
+                 identical(fits_of(ok), type),
+               wrong_df2_flagged = !do.call(check_F, bad)$consistent)
+  }))
+}))
+checks5_table <- rbind(tg_checks, mt_checks)
+cat("\n== Case 5: factorial ANOVA ==\n")
+print(data.frame(design = "ToothGrowth", type = ss_type_codes(), matches_published_and_aov = tg_ok),
+      row.names = FALSE)
+print(data.frame(design = "mtcars", type = ss_type_codes(),
+                 F_matches_base_R = vapply(mt_rows, `[[`, logical(1), "f_match"),
+                 p_matches_base_R = vapply(mt_rows, `[[`, logical(1), "p_match"),
+                 matches_car = vapply(mt_rows, function(x) x$car_match, logical(1))),
+      row.names = FALSE)
+cat("(matches_car is NA for type I, which car::Anova() does not offer, and when car is not installed.)\n")
+print(checks5_table, row.names = FALSE)
+checks5 <- c(all(tg_ok), all(vapply(mt_rows, `[[`, logical(1), "f_match")),
+             all(vapply(mt_rows, `[[`, logical(1), "p_match")),
+             all(vapply(mt_rows, function(x) isTRUE(x$car_match) || is.na(x$car_match), logical(1))),
+             types_differ, same_ab, all(checks5_table$consistent),
+             all(checks5_table$none_inconsistent), all(checks5_table$type_identified),
+             all(checks5_table$wrong_df2_flagged))
+names(checks5) <- c("ToothGrowth matches published values and aov (all types)",
+                    "mtcars F equals anova()/drop1() at each type",
+                    "mtcars p equals anova()/drop1() at each type",
+                    "mtcars equals car::Anova() when installed",
+                    "mtcars main-effect F differs across the three types",
+                    "mtcars interaction F is the same in every type",
+                    "every correct report consistent", "no row inconsistent",
+                    "SS type identified (mtcars) / no variant (balanced, interaction)",
+                    "planted wrong df2 flagged")
+print(data.frame(assertion = names(checks5), holds = unname(checks5)), row.names = FALSE)
+cat(if (all(checks5)) "\nPASS" else "\nFAIL",
+    ": factorial known answers (", sum(checks5), "/", length(checks5), ")\n", sep = "")

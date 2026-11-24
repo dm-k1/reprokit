@@ -21,6 +21,18 @@
 # (oneway_ssb_min) against stats::optimize() over the shared point, on 1000 random boxes
 # (agreement within 1e-6 relative); (c) named case: three overlapping mean intervals, where
 # the corner-only minimum F is above 0 and the exact minimum is 0 (printed side by side).
+# Factorial ANOVA F and p (ADR 0017), a fourth section with its own PASS line: the two
+# range cases the ADR decides, (a) df1 = 1 (a contrast: 2 x 2 to 2 x 4 designs, effect A, and AB
+# of a 2 x 2; balanced and unbalanced, every SS type) and (b) a balanced main effect with
+# df1 > 1 (marginal means). 60 random boxes per case against 2000 uniform draws each (none may
+# escape, for F and for p); the F upper bound is attained: the largest F over the 2^cells
+# corners of the means at the smallest SD equals the range upper bound (F is convex in the
+# means, so the maximum is a vertex; uniform draws never get near it, which is why it is
+# checked at the vertex). A third check is that the lower bound is not vacuous: the sampled
+# minimum is within 50% of the range width of the lower bound (a range that is far too wide
+# would fail; the printed upper gap is information only). The cases that have no
+# exact range (the interaction with df1 > 1, an unbalanced effect with df1 > 1) must return a
+# non-finite range (skipped), never a guess.
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-range-exactness.R")'
 
@@ -339,3 +351,98 @@ print(data.frame(check = c("max |range - chisq.test() V|, 200 tables",
 v_pass <- max(table_gap) < 1e-9 && max(w_gap) < 1e-9 && v_escaped == 0L && v_boxes > 0L
 cat(if (v_pass) "\nPASS" else "\nFAIL", ": V and w ranges, point from counts equals chisq.test() = ",
     max(c(table_gap, w_gap)) < 1e-9, ", escaped samples = ", v_escaped, "\n", sep = "")
+
+# Factorial ANOVA F and p (ADR 0017), a fourth section with its own PASS line ---------------
+set.seed(20261123)
+factorial_box <- function(dims, balanced) {
+  cells <- prod(dims)
+  n <- if (balanced) rep(sample(c(3, 5, 8, 15), 1L), cells) else sample(c(3, 4, 6, 10, 20), cells, replace = TRUE)
+  dec <- sample(0:2, 1L)
+  scale <- 10^runif(1L, -0.5, 1)
+  m <- rnorm(cells) * scale * runif(1L, 0, 1)
+  sd <- abs(rnorm(cells)) * scale + 0.3 * scale
+  half <- 0.5 * 10^(-dec)
+  list(n = list(lower = n, upper = n),
+       m = list(lower = round(m, dec) - half, upper = round(m, dec) + half),
+       sd = list(lower = pmax(round(sd, dec) - half, 1e-3), upper = round(sd, dec) + half))
+}
+fact_cases <- list(
+  list(dims = c(2L, 2L), effect = "A"), list(dims = c(2L, 2L), effect = "B"),
+  list(dims = c(2L, 2L), effect = "AB"), list(dims = c(2L, 3L), effect = "A"),
+  list(dims = c(2L, 4L), effect = "A"), list(dims = c(3L, 2L), effect = "B"),
+  list(dims = c(2L, 3L), effect = "B"), list(dims = c(3L, 3L), effect = "A"),
+  list(dims = c(3L, 4L), effect = "B"))
+fact_rows <- list()
+fact_unbounded_ok <- TRUE
+for (case in fact_cases) {
+  for (balanced in c(TRUE, FALSE)) {
+    for (type in c("III", "II", "I")) {
+      if (balanced && type != "III") next
+      rels <- relations_at(get_handler("anova_factorial"),
+                           list(dims = case$dims, effect = case$effect, balanced = balanced))
+      rel_f <- Filter(function(r) r$name == "f_from_descriptives", rels)[[1L]]
+      rel_p <- Filter(function(r) r$name == "p_from_descriptives", rels)[[1L]]
+      df1 <- c(A = case$dims[1L] - 1, B = case$dims[2L] - 1,
+               AB = prod(case$dims - 1))[[case$effect]]
+      exact_case <- df1 == 1 || (balanced && case$effect != "AB")
+      variant <- if (is.null(rel_f$variants)) NULL else type
+      escaped <- 0L; boxes <- 0L; skipped <- 0L; attained <- TRUE; lo_gap <- 0; hi_gap <- 0
+      for (b in seq_len(60L)) {
+        box <- factorial_box(case$dims, balanced)
+        rng <- relation_range(rel_f, box, variant)
+        rng_p <- relation_range(rel_p, box, variant)
+        if (!all(is.finite(rng))) {
+          skipped <- skipped + 1L
+          if (exact_case) fact_unbounded_ok <- FALSE
+          next
+        }
+        if (!exact_case) fact_unbounded_ok <- FALSE
+        boxes <- boxes + 1L
+        draws <- vapply(seq_len(2000L), function(i) {
+          pt <- lapply(box[c("n", "m", "sd")], function(x) x$lower + runif(length(x$lower)) * (x$upper - x$lower))
+          c(rel_f$fn(pt, variant), rel_p$fn(pt, variant))
+        }, numeric(2))
+        fv <- draws[1L, ]; pv <- draws[2L, ]
+        slack <- 1e-9 * max(1, abs(rng))
+        slack_p <- 1e-9
+        escaped <- escaped + sum(fv < rng[["lower"]] - slack | fv > rng[["upper"]] + slack) +
+          sum(pv < rng_p[["lower"]] - slack_p | pv > rng_p[["upper"]] + slack_p)
+        # The upper bound is a vertex: the means at their corners, the SDs at their minimum.
+        if (exact_case) {
+          corners <- as.matrix(expand.grid(Map(function(lo, hi) c(lo, hi), box$m$lower, box$m$upper)))
+          top <- max(apply(corners, 1L, function(mm) {
+            rel_f$fn(list(n = box$n$lower, m = mm, sd = pmax(box$sd$lower, 0)), variant)
+          }))
+          if (abs(top - rng[["upper"]]) > 1e-8 * max(1, top)) attained <- FALSE
+        }
+        width <- rng[["upper"]] - rng[["lower"]]
+        lo_gap <- max(lo_gap, (min(fv) - rng[["lower"]]) / width)
+        hi_gap <- max(hi_gap, (rng[["upper"]] - max(fv)) / width)
+      }
+      fact_rows[[length(fact_rows) + 1L]] <- data.frame(
+        design = paste(case$dims, collapse = "x"), effect = case$effect, df1 = df1,
+        balanced = balanced, type = if (is.null(variant)) "-" else type, boxes = boxes,
+        skipped = skipped, escaped = escaped, upper_attained = attained,
+        worst_lower_gap = round(lo_gap, 3L), worst_upper_gap = round(hi_gap, 3L))
+    }
+  }
+}
+fact_table <- do.call(rbind, fact_rows)
+# no-exact-range cases must be unbounded
+unbounded <- vapply(list(list(c(3L, 3L), "AB", TRUE), list(c(2L, 3L), "B", FALSE),
+                         list(c(3L, 4L), "AB", FALSE)), function(z) {
+  rels <- relations_at(get_handler("anova_factorial"), list(dims = z[[1L]], effect = z[[2L]], balanced = z[[3L]]))
+  rel_f <- Filter(function(r) r$name == "f_from_descriptives", rels)[[1L]]
+  !any(is.finite(relation_range(rel_f, factorial_box(z[[1L]], z[[3L]]), if (z[[3L]]) NULL else "III")))
+}, logical(1))
+cat("\n== Factorial ANOVA F and p ranges ==\n")
+print(fact_table[fact_table$boxes > 0L | fact_table$skipped > 0L, ], row.names = FALSE)
+cat("no-exact-range cases (interaction with df1 > 1, unbalanced df1 > 1) unbounded: ",
+    all(unbounded), "\n", sep = "")
+fact_pass <- all(fact_table$escaped == 0L) && all(fact_table$upper_attained) &&
+  sum(fact_table$boxes) > 0L && all(fact_table$worst_lower_gap < 0.5) && fact_unbounded_ok && all(unbounded)
+cat(if (fact_pass) "\nPASS" else "\nFAIL", ": factorial ranges, escaped samples = ",
+    sum(fact_table$escaped), ", F upper bound attained at a vertex = ", all(fact_table$upper_attained),
+    ", sampled minimum within 50% of the width of the lower bound = ",
+    all(fact_table$worst_lower_gap < 0.5),
+    ", others unbounded = ", all(unbounded), "\n", sep = "")
