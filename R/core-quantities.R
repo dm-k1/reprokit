@@ -16,7 +16,7 @@
 #' quantity_names()
 quantity_names <- function() {
   c("n", "m", "sd", "r", "t", "f", "chisq", "df", "df1", "df2", "p", "eta2", "ci_lower",
-    "ci_upper", "d")
+    "ci_upper", "d", "n_total", "v", "p0")
 }
 
 # Why a quantity that determines the analysis may be missing from what APA asks a
@@ -24,7 +24,8 @@ quantity_names <- function() {
 # (ADR 0013 decision 2).
 missing_reasons <- function() {
   c(r = paste("the SD of the differences depends on the correlation between conditions;",
-              "per-condition M and SD do not determine it"))
+              "per-condition M and SD do not determine it"),
+    p0 = "the expected counts depend on them; not needed when they are equal")
 }
 
 # Quantities that are descriptives: they come from the data, not from another
@@ -37,38 +38,47 @@ per_cell_quantities <- function() c("m", "sd")
 
 # The values a quantity can take, as c(lower, upper). A rounding interval is
 # intersected with this, so r = "1.00" means [0.995, 1], not [0.995, 1.005].
-quantity_domain <- function(quantity) {
+# `overrides` is a handler's own named list of domains (`domains` in
+# register_handler()): chi-squared counts can be 0 where a group size cannot, and
+# Cohen's w can exceed 1 where Cramer's V cannot.
+quantity_domain <- function(quantity, overrides = NULL) {
+  if (!is.null(overrides[[quantity]])) return(overrides[[quantity]])
   switch(quantity,
          r = c(-1, 1),
-         p = c(0, 1),
-         n = c(1, Inf),
+         p = , p0 = c(0, 1),
+         n = , n_total = c(1, Inf),
          sd = , df = , df1 = , df2 = , f = , chisq = c(0, Inf),
-         eta2 = c(0, 1),
+         eta2 = , v = c(0, 1),
          c(-Inf, Inf))
 }
 
-domain_words <- function(quantity) {
-  switch(quantity,
-         n = "a whole number of at least 1",
-         r = "between -1 and 1",
-         p = , eta2 = "between 0 and 1",
-         "at least 0")
+# Quantities that are whole numbers: their rounding interval is snapped inward to
+# the integers inside it.
+whole_quantities <- function() c("n", "n_total")
+
+domain_words <- function(quantity, domain = quantity_domain(quantity)) {
+  if (quantity %in% whole_quantities()) {
+    return(paste("a whole number of at least", domain[1L]))
+  }
+  if (domain[1L] == 0 && domain[2L] == 1) return("between 0 and 1")
+  if (domain[1L] == -1 && domain[2L] == 1) return("between -1 and 1")
+  "at least 0"
 }
 
 # Intersect the interval bounds of a reported quantity with its domain. A
 # reported number with no value in the domain (r = "1.50") is an input error.
-restrict_to_domain <- function(bounds, quantity, text) {
-  domain <- quantity_domain(quantity)
+restrict_to_domain <- function(bounds, quantity, text, overrides = NULL) {
+  domain <- quantity_domain(quantity, overrides)
   lower <- pmax(bounds$lower, domain[1L])
   upper <- pmin(bounds$upper, domain[2L])
-  if (quantity == "n") {
+  if (quantity %in% whole_quantities()) {
     lower <- ceiling(lower)
     upper <- floor(upper)
   }
   if (any(lower > upper)) {
     stop("`", quantity, "` = ", paste0("\"", text, "\"", collapse = ", "),
-         " is not a value ", quantity, " can take; it must be ", domain_words(quantity), ".",
-         call. = FALSE)
+         " is not a value ", quantity, " can take; it must be ",
+         domain_words(quantity, domain), ".", call. = FALSE)
   }
   list(lower = lower, upper = upper)
 }

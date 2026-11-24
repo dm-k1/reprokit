@@ -115,7 +115,8 @@ appendix_values <- function(h, s, answers) {
   vals <- stats[intersect(names(stats), quantity_names())]
   reproduced <- as.list(h$reproduce(s))
   for (q in setdiff(names(reproduced), names(vals))) vals[[q]] <- reproduced[[q]]
-  relations <- if (is.null(h$relations_at)) h$relations else h$relations_at(s$meta$mu)
+  args <- s$meta[intersect(h$test_args, names(s$meta))]
+  relations <- relations_at(h, Filter(Negate(is.null), args))
   for (rel in relations) {
     if (!is.null(vals[[rel$output]]) || !all(rel$inputs %in% names(vals))) next
     variant <- appendix_variant(rel, answers)

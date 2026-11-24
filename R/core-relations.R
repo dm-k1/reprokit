@@ -114,7 +114,9 @@ variant_labels <- function() {
     cohen = "Cohen's d",
     d_z = "d_z (SD of the differences)", d_rm = "d_rm (repeated measures)",
     d_av = "d_av (average SD)", g_av = "g_av (average SD, Hedges' correction)",
-    eta2 = "eta squared", omega2 = "omega squared")
+    eta2 = "eta squared", omega2 = "omega squared",
+    pearson = "Pearson chi-squared", yates = "Yates' continuity correction",
+    v = "Cram\u00e9r's V", w = "Cohen's w")
 }
 
 variant_label <- function(codes) {

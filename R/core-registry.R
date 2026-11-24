@@ -54,9 +54,22 @@
 #'   reproduce the analysis (names from `quantity_names()`), or `NULL`.
 #' @param relations List of `relation()`s between quantities, used by
 #'   `check_reported()`, or `NULL`. A handler whose relations depend on the test
-#'   value `mu` passes `function(mu)` instead, returning that list; the
-#'   registry keeps the list for `mu = 0` and the function (`relations_at`),
-#'   and `check_reported(mu = )` builds the relations at check time.
+#'   value `mu`, or on the table shape `dims` and the H0 proportions `p0`, passes a
+#'   function of those test arguments instead (each with a default), returning
+#'   that list; the registry keeps the list at the defaults and the function
+#'   (`relations_at`), and `check_reported()` builds the relations at check time.
+#' @param test_args Character vector of the test arguments the handler's
+#'   `relations` function takes (`"mu"`, `"dims"`, `"p0"`), or `NULL` for the
+#'   names of its formals. Each is a plain number or numeric vector; a test
+#'   argument the handler does not declare is an error (`relations_at()`).
+#' @param domains Named list of quantity domains that replace the default
+#'   `quantity_domain()` for this handler (`n = c(0, Inf)` for counts that may
+#'   be 0), or `NULL`.
+#' @param labels Named character vector, quantity name to the words the coverage
+#'   table and the appendix use for it (`n = "the contingency table"`), or `NULL`.
+#' @param appendix_table `function(s)` returning the markdown lines of the
+#'   counts table that replaces the n, M and SD table in block A of the
+#'   appendix, or `NULL`.
 #' @param per_cell Character vector of the quantities that have one value per
 #'   condition (`cells` of them), or `NULL` for the default, `m` and `sd`. A
 #'   handler whose n differs between conditions (independent groups) adds `n`.
@@ -68,12 +81,14 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                              reported = NULL, disclosure = NULL, choices = NULL,
                              formula_tests = NULL, example = NULL, design = NULL,
                              sufficient = NULL, relations = NULL, per_cell = NULL,
-                             not_checkable = NULL) {
+                             not_checkable = NULL, test_args = NULL, domains = NULL,
+                             labels = NULL, appendix_table = NULL) {
   check_verdict(verdict)
   relations_at <- NULL
   if (is.function(relations)) {
     relations_at <- relations
-    relations <- relations_at(0)
+    if (is.null(test_args)) test_args <- names(formals(relations_at))
+    relations <- relations_at()
   }
   stopifnot(
     is.character(name), length(name) == 1L, nzchar(name),
@@ -92,16 +107,28 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(design) || is_apa_design(design),
     is.null(sufficient) || is.character(sufficient),
     is.null(relations) || (is.list(relations) && all(vapply(relations, is_relation, logical(1)))),
-    is.null(per_cell) || is.character(per_cell)
+    is.null(per_cell) || is.character(per_cell),
+    is.null(test_args) || (is.character(test_args) && all(test_args %in% test_arg_names())),
+    is.null(domains) || (is.list(domains) && !is.null(names(domains)) &&
+                           all(vapply(domains, function(d) is.numeric(d) && length(d) == 2L,
+                                      logical(1)))),
+    is.null(labels) || (is.character(labels) && !is.null(names(labels))),
+    is.null(appendix_table) || is.function(appendix_table)
   )
+  if (length(test_args) > 0L && is.null(relations_at)) {
+    stop("Handler '", name, "' declares test arguments but its `relations` is not a function.",
+         call. = FALSE)
+  }
   if (!is.null(design)) {
-    check_quantity_names(c(design$statistic, design$effect_size), "quantity name in `design`")
+    check_quantity_names(c(design$statistic, design$effect_size, design$descriptives,
+                           design$extra), "quantity name in `design`")
   }
   if (!is.null(sufficient)) check_quantity_names(sufficient, "quantity name in `sufficient`")
   if (!is.null(not_checkable)) {
     check_quantity_names(names(not_checkable), "quantity name in `not_checkable`")
   }
   if (!is.null(per_cell)) check_quantity_names(per_cell, "quantity name in `per_cell`")
+  if (!is.null(domains)) check_quantity_names(names(domains), "quantity name in `domains`")
   exact_parts <- list(summarise = summarise, reproduce = reproduce, reported = reported,
                       example = example)
   missing_parts <- names(exact_parts)[vapply(exact_parts, is.null, logical(1))]
@@ -117,7 +144,8 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     formula_tests = formula_tests, example = example,
     design = design, apa = if (is.null(design)) NULL else apa_quantities(design),
     cells = design$cells, sufficient = sufficient, relations = relations,
-    relations_at = relations_at,
+    relations_at = relations_at, test_args = test_args, domains = domains,
+    labels = labels, appendix_table = appendix_table,
     per_cell = if (is.null(per_cell)) per_cell_quantities() else per_cell
   ), envir = .registry)
   invisible(name)
@@ -125,23 +153,31 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
 
 # What a handler declares about its design: the test statistic, the effect size
 # (the same quantity when the statistic is the effect size, as r is for a
-# correlation), `cells`, how many conditions or variables have their own n, M and
+# correlation; NULL when APA style asks for none, as for a goodness-of-fit
+# chi-squared), `cells`, how many conditions or variables have their own n, M and
 # SD (NULL for none; NA for a variable number of groups, as in a one-way ANOVA, where
 # the count is read from what a paper reports), and `ci`, whether APA style asks for a
 # confidence interval of the effect size (FALSE for eta squared, whose CI is rarely
-# reported). The arity of m and sd follows from `cells`.
-apa_design <- function(statistic, effect_size, cells = NULL, ci = TRUE) {
+# reported). The arity of m and sd follows from `cells`. `descriptives` are the
+# quantities reported per cell (a chi-squared table reports only n) and `extra`
+# further quantities APA asks for after p (N for chi-squared).
+apa_design <- function(statistic, effect_size, cells = NULL, ci = TRUE,
+                       descriptives = c("n", "m", "sd"), extra = NULL) {
   stopifnot(is.character(statistic), length(statistic) == 1L,
-            is.character(effect_size), length(effect_size) == 1L,
+            is.null(effect_size) || (is.character(effect_size) && length(effect_size) == 1L),
             is.null(cells) || (is.numeric(cells) && length(cells) == 1L &&
                                  (is.na(cells) || cells >= 1)),
-            is.logical(ci), length(ci) == 1L, !is.na(ci))
+            is.logical(ci), length(ci) == 1L, !is.na(ci),
+            is.character(descriptives), length(descriptives) >= 1L,
+            is.null(extra) || is.character(extra))
   list(statistic = statistic, effect_size = effect_size,
-       cells = if (is.null(cells)) NULL else as.integer(cells), ci = ci)
+       cells = if (is.null(cells)) NULL else as.integer(cells), ci = ci,
+       descriptives = descriptives, extra = extra)
 }
 
 is_apa_design <- function(x) {
-  is.list(x) && identical(names(x), c("statistic", "effect_size", "cells", "ci"))
+  is.list(x) && identical(names(x), c("statistic", "effect_size", "cells", "ci",
+                                      "descriptives", "extra"))
 }
 
 # The one rule for what APA style asks a paper to report: the test statistic, its
@@ -151,8 +187,8 @@ is_apa_design <- function(x) {
 # `ci` leaves the interval out.
 apa_quantities <- function(design) {
   df <- if (identical(design$statistic, "f")) c("df1", "df2") else "df"
-  unique(c(if (!is.null(design$cells)) c("n", "m", "sd"),
-           design$statistic, df, "p", design$effect_size,
+  unique(c(if (!is.null(design$cells)) design$descriptives,
+           design$statistic, df, "p", design$extra, design$effect_size,
            if (isTRUE(design$ci)) c("ci_lower", "ci_upper")))
 }
 
@@ -227,6 +263,9 @@ handler_choices <- function(h) {
   c(from_relations, h$choices)
 }
 
+# The test arguments a handler's relations can take (`test_args`).
+test_arg_names <- function() c("mu", "dims", "p0")
+
 # Display ---------------------------------------------------------------------
 
 # Quantities as a reader writes them: "M, SD per condition" for the ones with
@@ -234,10 +273,12 @@ handler_choices <- function(h) {
 display_quantities <- function(h, quantities) {
   if (length(quantities) == 0L) return(character())
   unit <- if (identical(h$design$effect_size, "r")) "variable" else "condition"
-  labels <- c(m = "M", sd = "SD", f = "F", chisq = "chisq", eta2 = "eta2")
+  labels <- c(m = "M", sd = "SD", f = "F", chisq = "chisq", eta2 = "eta2", n_total = "N",
+              v = "V", p0 = "H0 proportions")
+  labels[names(h$labels)] <- h$labels
   label <- function(q) if (q %in% names(labels)) labels[[q]] else q
   grouped <- if (is.null(h$cells) || (!is.na(h$cells) && h$cells < 2L)) character() else
-    intersect(quantities, h$per_cell)
+    setdiff(intersect(quantities, h$per_cell), names(h$labels))
   items <- character()
   for (q in quantities) {
     if (q %in% grouped) {

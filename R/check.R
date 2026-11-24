@@ -78,13 +78,13 @@
 #' @export
 #' @examples
 #' check_reported("t_paired", n = "20", t = "2.85", df = "19", p = ".010")
-check_reported <- function(handler, ..., variants = NULL, mu = 0) {
+check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL) {
   if (missing(handler)) {
     stop("Name the handler first: check_reported(\"t_paired\", t = ...). Handlers that can ",
          "check: ", paste(handlers_with_relations(), collapse = ", "), ".", call. = FALSE)
   }
   entry <- get_handler(handler)
-  entry$relations <- relations_at_mu(entry, mu)
+  entry$relations <- relations_at(entry, test_arguments(mu = mu, dims = dims, p0 = p0))
   dots <- list(...)
   if (length(entry$relations) == 0L) {
     stop("Handler '", handler, "' has no relations to check against. Handlers that do: ",
@@ -98,14 +98,17 @@ check_reported <- function(handler, ..., variants = NULL, mu = 0) {
   check_quantity_names(names(reported), "reported quantity")
   check_arity(reported, entry$cells, entry$per_cell)
   intervals <- Map(function(x, quantity) {
-    as_count <- quantity %in% c("n", "df", "df1", "df2")
-    restrict_to_domain(interval_bounds(reported_value(x, as_count = as_count)), quantity, x)
+    as_count <- quantity %in% c("n", "df", "df1", "df2", "n_total")
+    restrict_to_domain(interval_bounds(reported_value(x, as_count = as_count)), quantity, x,
+                       entry$domains)
   }, reported, names(reported))
   implied_inputs <- derive_implied_inputs(entry$relations, intervals)
   evaluations <- evaluate_relations(entry$relations, intervals, variants, implied_inputs)
 
   number_status <- number_statuses(reported, evaluations, entry$relations, implied_inputs)
-  known <- c(names(reported), names(implied_inputs))
+  # An H0 proportions vector the user gave is as good as a reported one for the
+  # level; the uniform default is not (ADR 0016 point 7).
+  known <- c(names(reported), names(implied_inputs), if (!is.null(p0)) "p0")
   level <- coverage_level(entry, known, unique(evaluations$relation))
   implied <- implied_ranges(entry, intervals, evaluations)
   structure(list(
@@ -118,6 +121,7 @@ check_reported <- function(handler, ..., variants = NULL, mu = 0) {
     implied = implied,
     implied_inputs = implied_inputs,
     checked = any(evaluations$checked & evaluations$falsifies),
+    notes = character(),
     consistent = !any(number_status$status == "inconsistent")
   ), class = "reprokit_check")
 }
@@ -140,18 +144,41 @@ check_F <- function(..., handler = "anova_oneway", variants = NULL) { # nolint: 
   check_reported(handler = handler, ..., variants = variants)
 }
 
-# The handler's relations at the test value `mu`. A handler registered with
-# `relations = function(mu)` builds them here; one with a fixed list has no test
-# value, so any mu but 0 is an error rather than silently ignored.
-relations_at_mu <- function(entry, mu) {
-  if (!is.numeric(mu) || length(mu) != 1L || !is.finite(mu)) {
-    stop("`mu` must be one finite number.", call. = FALSE)
+# The test arguments the user gave, as a named list: `mu` only when it is not its
+# default 0 (so a handler without a test value still accepts mu = 0), `dims` and
+# `p0` when not NULL. What a handler does not declare is rejected by relations_at().
+test_arguments <- function(mu = 0, dims = NULL, p0 = NULL) {
+  args <- list()
+  if (!(is.numeric(mu) && length(mu) == 1L && isTRUE(mu == 0))) args$mu <- mu
+  if (!is.null(dims)) args$dims <- dims
+  if (!is.null(p0)) args$p0 <- p0
+  args
+}
+
+# The handler's relations at the test arguments `args` (a named list of plain
+# numbers: `mu` for the t handlers, `dims` and `p0` for the chi-squared handlers).
+# A handler registered with `relations = function(<its test arguments>)` builds
+# them here; one with a fixed list has no test arguments. An argument the handler
+# does not declare is an error rather than silently ignored.
+relations_at <- function(entry, args = list()) {
+  for (name in names(args)) {
+    value <- args[[name]]
+    if (!is.numeric(value) || length(value) < 1L || any(!is.finite(value))) {
+      stop("`", name, "` must be ", if (name == "mu") "one finite number" else
+             "finite numbers", ".", call. = FALSE)
+    }
+    if (name == "mu" && length(value) != 1L) stop("`mu` must be one finite number.", call. = FALSE)
+    if (!name %in% entry$test_args) {
+      stop("Handler '", entry$name, "' has no test argument `", name, "`",
+           if (length(entry$test_args) > 0L) {
+             paste0("; it takes ", paste0("`", entry$test_args, "`", collapse = ", "))
+           } else {
+             " (it takes none)"
+           }, ".", call. = FALSE)
+    }
   }
-  if (!is.null(entry$relations_at)) return(entry$relations_at(mu))
-  if (mu != 0) {
-    stop("Handler '", entry$name, "' has no test value, so `mu` must be 0.", call. = FALSE)
-  }
-  entry$relations
+  if (is.null(entry$relations_at)) return(entry$relations)
+  do.call(entry$relations_at, args)
 }
 
 handlers_with_relations <- function() {
@@ -696,6 +723,7 @@ print.reprokit_check <- function(x, ...) {
     cat("\n")
     print(x$numbers, row.names = FALSE, na.print = "-")
   }
+  for (note in x$notes) cat("\nNote: ", note, "\n", sep = "")
   if (length(x$implied) > 0L) {
     cat("\nImplied ranges for numbers that were not reported:\n")
     for (quantity in names(x$implied)) {
