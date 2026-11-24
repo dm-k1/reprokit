@@ -34,8 +34,12 @@
 # extrema that move with it (the CI's, with the level). A third formal, `memo`,
 # receives an environment that check_reported() creates for one call, so a
 # stationary search that several variants share is done once (see sd_stationary()).
+# `range(intervals, variant)` is optional: a function returning c(lower =, upper =), the
+# exact range of the output over the box. When given, relation_range() uses it instead of
+# corners and `stationary`, for relations whose extremes have no corner structure or whose
+# inputs have too many values for 2^k corners (the one-way F over k groups).
 relation <- function(name, inputs, output, fn, variants = NULL, variant_kind = "tail",
-                     stationary = NULL, falsifies = TRUE, inverse = NULL) {
+                     stationary = NULL, falsifies = TRUE, inverse = NULL, range = NULL) {
   stopifnot(is.character(name), length(name) == 1L, nzchar(name),
             is.character(inputs), length(inputs) >= 1L,
             is.character(output), length(output) == 1L,
@@ -44,11 +48,13 @@ relation <- function(name, inputs, output, fn, variants = NULL, variant_kind = "
               (is.function(stationary) && length(formals(stationary)) %in% 1:3),
             is.logical(falsifies), length(falsifies) == 1L, !is.na(falsifies),
             is.null(inverse) || (is.function(inverse) && length(formals(inverse)) == 1L &&
-                                   length(inputs) == 1L))
+                                   length(inputs) == 1L),
+            is.null(range) ||
+              (is.function(range) && identical(names(formals(range)), c("intervals", "variant"))))
   variants <- normalise_variants(variants, variant_kind)
   check_quantity_names(c(inputs, output), "quantity name in relation")
   list(name = name, inputs = inputs, output = output, fn = fn, variants = variants,
-       stationary = stationary, falsifies = falsifies, inverse = inverse)
+       stationary = stationary, falsifies = falsifies, inverse = inverse, range = range)
 }
 
 # `variants` as a named list, one character vector per kind (or NULL).
@@ -107,7 +113,8 @@ variant_labels <- function() {
     glass_sd2 = "Glass's \u0394 (SD of the second group)",
     cohen = "Cohen's d",
     d_z = "d_z (SD of the differences)", d_rm = "d_rm (repeated measures)",
-    d_av = "d_av (average SD)", g_av = "g_av (average SD, Hedges' correction)")
+    d_av = "d_av (average SD)", g_av = "g_av (average SD, Hedges' correction)",
+    eta2 = "eta squared", omega2 = "omega squared")
 }
 
 variant_label <- function(codes) {
@@ -122,7 +129,7 @@ variant_label <- function(codes) {
 
 is_relation <- function(x) {
   is.list(x) && identical(names(x), c("name", "inputs", "output", "fn", "variants",
-                                      "stationary", "falsifies", "inverse"))
+                                      "stationary", "falsifies", "inverse", "range"))
 }
 
 # Slack for floating-point error only (1e-9 of the magnitude); the rounding
@@ -175,11 +182,16 @@ corner_points <- function(intervals, inputs, what = "relation") {
 # a smooth `fn` the extremes over a box lie at corners or at interior
 # stationary points of `fn` restricted to a face of the box, so the range is
 # exact once `stationary` lists those points. Without `stationary` the corners
-# alone are exact only if `fn` is monotone in each input over the box.
+# alone are exact only if `fn` is monotone in each input over the box. A relation
+# with its own `range` skips all of that (and the corner cap).
 relation_range <- function(rel, intervals, variant = NULL, memo = NULL) {
   absent <- setdiff(rel$inputs, names(intervals))
   if (length(absent) > 0L) {
     stop("Relation '", rel$name, "' needs ", paste(absent, collapse = ", "), ".", call. = FALSE)
+  }
+  if (!is.null(rel$range)) {
+    out <- rel$range(intervals, variant)
+    return(c(lower = out[["lower"]], upper = out[["upper"]]))
   }
   points <- corner_points(intervals, rel$inputs, rel$name)
   if (!is.null(rel$stationary)) {
@@ -303,10 +315,27 @@ solvable_bounds <- function() list(r = c(-1, 1))
 
 # Relations shared by the t-based handlers ------------------------------------
 
-# p from t and df, one variant per tail. Reuses t_p() (handler-t_independent.R).
-# The two-sided p peaks at t = 0 (p = 1), which lies inside the box, not at a
-# corner, when the interval of t straddles 0.
-relation_p_from_t <- function() {
+# p from a test statistic and its df: "t" (inputs t, df; a variant per tail),
+# "F" (inputs f, df1, df2) or "chisq" (inputs chisq, df); F and chisq have one
+# upper tail and no variants. Reuses t_p() (handler-t_independent.R).
+# The two-sided p from t peaks at t = 0 (p = 1), which lies inside the box, not at a
+# corner, when the interval of t straddles 0. For F and chisq the p-value is
+# decreasing in the statistic; the df are counts, exact in practice, so the corners
+# of the df box are exact then.
+relation_p_from_statistic <- function(statistic = c("t", "F", "chisq")) {
+  statistic <- match.arg(statistic)
+  if (statistic == "F") {
+    return(relation("p_from_f", inputs = c("f", "df1", "df2"), output = "p",
+                    fn = function(vals, variant) {
+                      stats::pf(vals$f, vals$df1, vals$df2, lower.tail = FALSE)
+                    }))
+  }
+  if (statistic == "chisq") {
+    return(relation("p_from_chisq", inputs = c("chisq", "df"), output = "p",
+                    fn = function(vals, variant) {
+                      stats::pchisq(vals$chisq, vals$df, lower.tail = FALSE)
+                    }))
+  }
   at_zero <- function(intervals) {
     t_bounds <- interval_bounds(intervals$t)
     straddles_zero <- isTRUE(t_bounds$lower < 0 && t_bounds$upper > 0)

@@ -5,10 +5,13 @@
 # is never flagged inconsistent (a false positive), and check_reported() never errors
 # on it. Independent-groups designs have unequal n and SDs, a Welch df printed with 1
 # or 2 decimals, and sometimes a pooled Cohen's d.
-# CIs are printed at 90, 95 or 99% (a quarter of the papers each at 90 and 99, ADR 0014) and
+# CIs are printed at 90, 95 or 99% (a quarter of the papers each at 90 and 99) and
 # must fit one of the three levels; a paired paper also prints d in 30% of the papers, in
 # one of the conventions d_z, d_rm or d_av (Lakens 2013), and a separate paired-d run forces d
 # into every paper: those must be 100% not inconsistent, in every subset that includes d.
+# One-way ANOVA: oneway.test(var.equal = TRUE) output for k = 2..6 groups, balanced
+# and unbalanced, printed as F 2 dp, p 3 dp or "< .001", M and SD 2 dp, eta2 or omega2 2 dp
+# (half each; a negative omega2 is printed 0.00), on subsets of every kind.
 # Rounding as printed: 2 decimals for t, M and SD (0 decimals in the "coarse"
 # designs), 3 for p and r, "< .001" below .001, CI at the decimals of M.
 # Each design is checked on several reported subsets (all numbers, no CI,
@@ -18,7 +21,8 @@
 # rounding to 1.000, small n (3 to 6) and SD reported to zero decimals.
 # PASS criterion: false positives == 0 AND errors == 0. A false positive is a
 # release blocker.
-# Size: 300 designs per handler (t_paired, t_paired with d, cor_pearson, t_independent Student
+# Size: 300 designs per handler (anova_oneway,
+# t_paired, t_paired with d, cor_pearson, t_independent Student
 # and Welch, t_one_sample), about 4 to 6 subsets each (the paired "no r" subset takes about
 # 3 s, so it is run on every 15th design only).
 # Run (from the package root):
@@ -125,9 +129,18 @@ welch <- tally("t_independent", n_designs, function() independent_paper(FALSE),
                generic_subsets)
 one_sample <- tally("t_one_sample", n_designs, one_sample_paper, generic_subsets)
 
+oneway_subsets <- function(paper, i) {
+  keys <- names(paper)
+  list(keys, setdiff(keys, "eta2"), c("n", "m", "sd", "f", "p"), c("f", "df1", "df2", "p"),
+       c("n", "df1", "df2", "f"), c("n", "m", "sd", "df1", "df2"),
+       c("n", "m", "sd", "f", "eta2"), c("f", "df1", "df2", "eta2"),
+       sample(keys, sample(2:length(keys), 1L)))
+}
+oneway <- tally("anova_oneway", n_designs, function() oneway_paper(), oneway_subsets)
+
 results <- list(t_paired = paired, t_paired_d = paired_d, cor_pearson = pearson,
                 t_independent_student = student, t_independent_welch = welch,
-                t_one_sample = one_sample)
+                t_one_sample = one_sample, anova_oneway = oneway)
 table_out <- do.call(rbind, lapply(names(results), function(h) {
   r <- results[[h]]
   data.frame(handler = h, designs = r$designs, checks = r$checks,

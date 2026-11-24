@@ -141,7 +141,10 @@ appendix_variant <- function(rel, answers) {
 appendix_cell_labels <- function(h, s) {
   if (is.null(h$cells)) return(character())
   labels <- names(s$stats$mean)
-  if (is.null(labels)) labels <- as.character(seq_len(h$cells))
+  if (is.null(labels)) {
+    groups <- if (is.na(h$cells)) length(s$stats$mean) else h$cells
+    labels <- as.character(seq_len(groups))
+  }
   # Bare numeric levels ("1" - "2") read as arithmetic in the output, so name them.
   if (!anyNA(suppressWarnings(as.numeric(labels)))) labels <- paste("group", labels)
   labels
@@ -168,20 +171,29 @@ appendix_block_a <- function(h, s, vals, answers, labels, digits) {
     c(es, "not computed: declare the effect-size convention (block C)")
   } else {
     c(paste0(es, ", ", variant_label(answers$convention)),
-      appendix_number(vals[[es]], digits))
+      appendix_number(vals[[es]], digits, leading_zero = es != "eta2"))
   }
   level <- if (is.null(s$meta$conf_level)) "" else
     paste0(variant_label(sprintf("%.2f", s$meta$conf_level)), " ")
   lz <- statistic != "r"
-  ci <- paste0("[", appendix_number(vals$ci_lower, digits, lz), ", ",
-               appendix_number(vals$ci_upper, digits, lz), "]")
+  ci <- if (isTRUE(h$design$ci)) {
+    paste0("[", appendix_number(vals$ci_lower, digits, lz), ", ",
+           appendix_number(vals$ci_upper, digits, lz), "]")
+  }
+  df_text <- if (identical(statistic, "f")) {
+    paste0(appendix_df(vals$df1, digits), ", ", appendix_df(vals$df2, digits))
+  } else {
+    appendix_df(vals$df, digits)
+  }
   c(out,
     appendix_row(c("Result", "Value")), appendix_row(c("---", "---")),
-    appendix_row(c(paste0(stat_label, "(", appendix_df(vals$df, digits), ")"),
+    appendix_row(c(paste0(stat_label, "(", df_text, ")"),
                    appendix_number(vals[[statistic]], digits, leading_zero = statistic != "r"))),
     appendix_row(c("p", appendix_p(vals$p))),
     if (!is.null(es_row)) appendix_row(es_row),
-    appendix_row(c(paste0(level, "CI", appendix_ci_of(h, s, labels)), ci)),
+    if (isTRUE(h$design$ci)) {
+      appendix_row(c(paste0(level, "CI", appendix_ci_of(h, s, labels)), ci))
+    },
     "")
 }
 

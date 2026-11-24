@@ -47,7 +47,7 @@ cor_pearson_relations <- function() {
     relation("t_from_r", c("r", "n"), "t", function(vals, variant) {
       vals$r * sqrt(vals$n - 2) / sqrt(1 - vals$r^2)
     }),
-    relation_p_from_t(),
+    relation_p_from_statistic("t"),
     relation("ci_lower_from_r", c("r", "n"), "ci_lower", fisher_bound(-1),
              variants = confidence_levels(), variant_kind = "level"),
     relation("ci_upper_from_r", c("r", "n"), "ci_upper", fisher_bound(1),

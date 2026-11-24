@@ -49,7 +49,7 @@ t_one_sample_relations <- function(mu = 0) {
     relation("t_from_descriptives", from, "t", function(vals, variant) {
       (vals$m - mu) / se(vals)
     }),
-    relation_p_from_t(),
+    relation_p_from_statistic("t"),
     relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L),
              variants = confidence_levels(), variant_kind = "level"),
     relation("ci_upper_from_descriptives", from, "ci_upper", ci_bound(2L),

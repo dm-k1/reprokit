@@ -1,6 +1,6 @@
 # Round-trip simulation: for each exact handler, random designs ->
 # sufficient_stats() -> reproduce() and compare with the base-R result on the raw data.
-# PASS criterion (ADR 0005), worst over all designs and all reported numbers:
+# PASS criterion, worst over all designs and all reported numbers:
 #   scaled difference |original - reproduced| / max(1, |original|) < 1e-8
 #   (= absolute for numbers up to 1, relative for larger ones such as a big F).
 # The worst absolute difference is shown for information only.
@@ -96,11 +96,23 @@ cor_pearson_design <- function() {
                                 conf_level = random_conf_level()))
 }
 
+# One random one-way design: k = 2..6 groups, balanced or unbalanced, unequal SDs and means.
+oneway_design <- function(balanced) {
+  k <- sample(2:6, 1L)
+  n <- if (balanced) rep(sample(5:60, 1L), k) else sample(5:60, k, replace = TRUE)
+  d <- data.frame(y = unlist(lapply(n, function(m) rnorm(m, runif(1, -2, 2), runif(1, 0.5, 3)))),
+                  g = factor(rep(paste0("g", seq_len(k)), n)))
+  list(x = y ~ g, args = list(data = d, test = "oneway"))
+}
+
 designs <- list(t_independent = t_design, t_one_sample = t_one_sample_design,
-                t_paired = t_paired_design, cor_pearson = cor_pearson_design, lm = lm_design)
+                t_paired = t_paired_design, cor_pearson = cor_pearson_design, lm = lm_design,
+                anova_oneway_balanced = function() oneway_design(TRUE),
+                anova_oneway_unbalanced = function() oneway_design(FALSE))
+handler_of <- function(name) sub("_(un)?balanced$", "", name)
 
 rows <- lapply(names(designs), function(name) {
-  h <- get_handler(name)
+  h <- get_handler(handler_of(name))
   diffs <- vapply(seq_len(n_designs), function(i) {
     ex <- designs[[name]]()
     s <- do.call(sufficient_stats, c(list(ex$x), ex$args, list(sharing_reason = "simulation")))

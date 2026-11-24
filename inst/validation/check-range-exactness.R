@@ -15,6 +15,12 @@
 # Size: 300 random boxes per handler x every relation x every variant, 400 uniform
 # + 400 slice draws each. Boxes where the range is not finite are skipped and counted
 # (check_reported() treats those as "not evaluable").
+# One-way ANOVA F, a second section with its own PASS line: (a) the F range of
+# 300 random boxes (k = 2..5 groups, per-group n exact or a range, M and SD rounded) against
+# 20000 uniform draws of the box each (none may escape); (b) the exact smallest SSb
+# (oneway_ssb_min) against stats::optimize() over the shared point, on 1000 random boxes
+# (agreement within 1e-6 relative); (c) named case: three overlapping mean intervals, where
+# the corner-only minimum F is above 0 and the exact minimum is 0 (printed side by side).
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-range-exactness.R")'
 
@@ -191,3 +197,78 @@ named_ok <- all(named$corner_only_upper < named$true_upper - 1e-3) &&
 pass <- escaped == 0L && named_ok
 cat(if (pass) "\nPASS" else "\nFAIL", ": escaped samples = ", escaped,
     ", named cases show corner-only < true = ", named_ok, "\n", sep = "")
+
+# One-way ANOVA F range -----------------------------------------------------------
+set.seed(20261123)
+rel_f <- get_handler("anova_oneway")$relations[[3L]]
+stopifnot(identical(rel_f$name, "f_from_descriptives"))
+
+random_oneway_box <- function() {
+  k <- sample(2:5, 1L)
+  n <- sample(c(3, 5, 8, 15, 40), k, replace = TRUE)
+  dec <- sample(0:2, 1L)
+  scale <- 10^runif(1L, -0.5, 1)
+  m <- rnorm(k) * scale * runif(1L, 0, 1)
+  sd <- abs(rnorm(k)) * scale + 0.3 * scale
+  half <- 0.5 * 10^(-dec)
+  list(n = list(lower = n, upper = n),
+       m = list(lower = round(m, dec) - half, upper = round(m, dec) + half),
+       sd = list(lower = pmax(round(sd, dec) - half, 1e-3), upper = round(sd, dec) + half))
+}
+f_escaped <- 0L
+f_boxes <- 0L
+f_skipped <- 0L
+for (b in seq_len(300L)) {
+  box <- random_oneway_box()
+  range <- relation_range(rel_f, box, NULL)
+  if (!all(is.finite(range))) {
+    f_skipped <- f_skipped + 1L
+    next
+  }
+  f_boxes <- f_boxes + 1L
+  vals <- vapply(seq_len(20000L), function(i) {
+    pt <- lapply(box[c("n", "m", "sd")], function(x) {
+      x$lower + runif(length(x$lower)) * (x$upper - x$lower)
+    })
+    rel_f$fn(pt, NULL)
+  }, numeric(1))
+  vals <- vals[is.finite(vals)]
+  slack <- 1e-9 * max(1, abs(range))
+  f_escaped <- f_escaped + sum(vals < range[["lower"]] - slack | vals > range[["upper"]] + slack)
+}
+
+# (b) exact SSb minimum against optimize() over the shared point c.
+ssb_gap <- vapply(seq_len(1000L), function(i) {
+  k <- sample(2:6, 1L)
+  n <- sample(3:40, k, replace = TRUE)
+  centre <- rnorm(k)
+  half <- runif(k, 0.001, 0.8)
+  lo <- centre - half
+  hi <- centre + half
+  g <- function(c) sum(n * pmax(lo - c, 0, c - hi)^2)
+  opt <- optimize(g, range(c(lo, hi)), tol = 1e-12)$objective
+  exact <- oneway_ssb_min(n, lo, hi)
+  abs(exact - opt) / max(1, opt)
+}, numeric(1))
+
+# (c) overlapping mean intervals: the minimum F is 0, the corners alone say more.
+box_o <- list(n = list(lower = rep(10, 3), upper = rep(10, 3)),
+              m = list(lower = c(4.995, 5.295, 5.305), upper = c(5.005, 5.305, 5.315)),
+              sd = list(lower = rep(0.995, 3), upper = rep(1.005, 3)))
+box_o$m$lower[3L] <- 5.295
+box_o$m$upper[1L] <- 5.305
+corner_only <- rel_f
+corner_only$range <- NULL
+corner_min <- relation_range(corner_only, box_o, NULL)[["lower"]]
+exact_min <- relation_range(rel_f, box_o, NULL)[["lower"]]
+cat("\n== One-way F range ==\n")
+print(data.frame(check = c("random boxes with a finite range", "boxes skipped (not evaluable)",
+                           "samples outside the range", "max |exact - optimize()| SSb min",
+                           "corner-only minimum F, overlapping means",
+                           "exact minimum F, overlapping means"),
+                 value = signif(c(f_boxes, f_skipped, f_escaped, max(ssb_gap), corner_min,
+                                  exact_min), 4L)), row.names = FALSE)
+one_pass <- f_escaped == 0L && max(ssb_gap) < 1e-6 && corner_min > 0 && exact_min == 0
+cat(if (one_pass) "\nPASS" else "\nFAIL", ": one-way F, escaped samples = ", f_escaped,
+    ", SSb min agrees with optimize() = ", max(ssb_gap) < 1e-6,
+    ", corner-only min > 0 and exact min = 0: ", corner_min > 0 && exact_min == 0, "\n", sep = "")

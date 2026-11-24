@@ -21,6 +21,15 @@
 #   ci_change   one CI bound off by 5 to 20 units of its last printed digit (small = 5-9, large
 #               = 10-20); the papers print the CI at 90%, 95% or 99% (a quarter, a half, a
 #               quarter), so a CI relation that assumed 95% would flag the correct papers
+# One-way ANOVA, group anova_oneway: papers from oneway_paper() (k = 2..6, balanced
+# or not, eta2 or omega2 printed). Types f_digit (last digit of F off by 1-9 units; small = 1-2),
+# p_digit, df_wrong_n (df2 = N or N - k + 1 instead of N - k), decision, m_change (one group M
+# off by 5-20 units). Subsets: all, f/df/p, desc+f+p (n, M, SD, F, p; df is derived from n).
+# Oracle (independent of the package): the F implied by the descriptives is taken over the box
+# of M and SD (largest F: means at the corners of their box, SDs at their lower ends; smallest F:
+# SDs at their upper ends and SSb minimised over a shared point with stats::optimize()), the p
+# implied by F over its interval (a grid of 101 values) with df1 = k - 1, df2 = N - k; f/df/p uses
+# the printed df. Detectable iff every path misses, as for the t papers.
 # An error is planted only in a number that is in the reported subset; d is never planted
 # (its relation cannot falsify). Subsets: all (every number the paper prints), t/df/p, and
 # desc+t+p (n, M, SD, for a paired t also r, for Pearson n and r; plus t and p; no df),
@@ -58,11 +67,11 @@
 # Not a criterion, printed for information: the rate at which large errors are found where
 # nothing hides them (decision errors on every subset, df_wrong_n on all, M changed by 10 or more
 # units on all), lowest per handler. It was a >= 90% criterion until the papers printed 90/95/99%
-# CIs (ADR 0014): with r unknown and three levels to choose from, a shifted M can still fit, so
+# CIs: with r unknown and three levels to choose from, a shifted M can still fit, so
 # some large paired m_change errors became undetectable and the rate fell below 90%. The oracle
 # agrees those cases are undetectable, so criterion 2 (oracle-detectable not flagged = 0) is the
 # hard test; a raw rate cannot tell a regression from a genuinely undetectable error.
-# Seed 20261124. Size: 1000 papers per handler group, 5 groups. Runtime about 4 minutes
+# Seed 20261124. Size: 1000 papers per handler group, 6 groups. Runtime about 4 minutes
 # (6 cores via parallel::mclapply).
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-planted-errors.R")'
@@ -171,7 +180,7 @@ oracle_desc <- function(handler, paper) {
       v2 <- g$s2^2 / n[2L]
       welch_df <- (v1 + v2)^2 / (v1^2 / (n[1L] - 1) + v2^2 / (n[2L] - 1))
       # df is not reported: check_reported() carries the widest df range over both tests
-      # into p (ADR 0010: "no variant is ruled out"), so p is judged against that hull.
+      # into p, so p is judged against that hull.
       all_df <- c(sum(n) - 2, welch_df)
       hull <- if (all(is.finite(all_df))) seq(min(all_df), max(all_df), length.out = 11L) else NA_real_
       list(variant((g$m1 - g$m2) / (pooled * sqrt(1 / n[1L] + 1 / n[2L])), hull),
@@ -190,6 +199,36 @@ oracle_desc <- function(handler, paper) {
     return(if (all(joint)) "joint-only" else "undetectable")
   }
   "edge"
+}
+
+oracle_oneway <- function(paper, subset) {
+  fi <- interval(paper$f)
+  pi <- pmin(pmax(interval(paper$p), 0), 1)
+  n <- as.numeric(paper$n)
+  k <- length(n)
+  df1 <- if (subset == "f/df/p") as.numeric(paper$df1) else k - 1
+  df2 <- if (subset == "f/df/p") as.numeric(paper$df2) else sum(n) - k
+  fg <- seq(max(fi[1L], 0), fi[2L], length.out = 101L)
+  paths <- verdict(overlap(range(pf(fg, df1, df2, lower.tail = FALSE)), pi))
+  if (subset == "desc+f+p") {
+    m <- lapply(paper$m, interval)
+    lo <- vapply(m, `[`, 0, 1L)
+    hi <- vapply(m, `[`, 0, 2L)
+    s <- lapply(paper$sd, interval)
+    slo <- pmax(vapply(s, `[`, 0, 1L), 1e-9)
+    shi <- vapply(s, `[`, 0, 2L)
+    ssb <- function(x) {
+      sum(n * (x - sum(n * x) / sum(n))^2)
+    }
+    corners <- as.matrix(expand.grid(Map(c, lo, hi)))
+    f_max <- max(apply(corners, 1L, ssb)) / (k - 1) / (sum((n - 1) * slo^2) / (sum(n) - k))
+    g <- function(c) sum(n * pmax(lo - c, 0, c - hi)^2)
+    f_min <- optimize(g, range(c(lo, hi)), tol = 1e-12)$objective / (k - 1) /
+      (sum((n - 1) * shi^2) / (sum(n) - k))
+    paths <- c(paths, verdict(overlap(c(f_min, f_max), fi)))
+  }
+  if ("detectable" %in% paths) return("detectable")
+  if (all(paths == "undetectable")) "undetectable" else "edge"
 }
 
 # Jobs: one per planted paper x subset that contains the planted number ---------------------
@@ -221,6 +260,13 @@ oracle_job <- function(job) {
   if (job$subset == "desc+t+p" && job$type %in% c("t_digit", "m_change", "r_digit")) {
     return(oracle_desc(job$handler, job$paper))
   }
+  if (job$handler == "anova_oneway" && job$subset == "f/df/p") {
+    return(oracle_oneway(job$paper, job$subset))
+  }
+  if (job$handler == "anova_oneway" && job$subset == "desc+f+p" &&
+        job$type %in% c("f_digit", "m_change")) {
+    return(oracle_oneway(job$paper, job$subset))
+  }
   NA_character_
 }
 outcome <- unlist(parallel::mclapply(jobs, run_job, mc.cores = 6L))
@@ -230,8 +276,13 @@ results <- data.frame(
   case = vapply(jobs, `[[`, "", "case"), group = vapply(jobs, `[[`, "", "group"),
   type = vapply(jobs, `[[`, "", "type"), size = vapply(jobs, `[[`, "", "size"),
   subset = vapply(jobs, `[[`, "", "subset"), outcome = outcome, oracle = oracle,
-  df_decimals = vapply(jobs, function(j) n_decimals(j$paper$df), 0L),
-  level = vapply(jobs, function(j) attr(j$paper, "level"), 0),
+  df_decimals = vapply(jobs, function(j) {
+    if (is.null(j$paper$df)) 0L else n_decimals(j$paper$df)
+  }, 0L),
+  level = vapply(jobs, function(j) {
+    level <- attr(j$paper, "level")
+    if (is.null(level)) NA_real_ else level
+  }, 0),
   stringsAsFactors = FALSE)
 # nolint end
 

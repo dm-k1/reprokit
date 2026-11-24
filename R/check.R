@@ -22,10 +22,24 @@
 #'   `"two.sided"`, `"0.95"` or `"welch"`), or `NULL` for all. Each value
 #'   restricts only its own kind of variant (tail, confidence level, test,
 #'   convention): `c("welch", "0.95")` fixes the test and the level. A kind
-#'   that no value names keeps all its variants.
+#'   that no value names keeps all its variants. The accepted values are the
+#'   codes below; the printed output shows a readable label instead. A value
+#'   the handler does not have is an error that lists the ones it has.
+#'
+#'   * Tail: `"two.sided"`, `"less"`, `"greater"` (shown as two-sided,
+#'     one-sided (less), one-sided (greater)).
+#'   * Level: `"0.90"`, `"0.95"`, `"0.99"` (shown as 90%, 95%, 99%).
+#'   * Test: `"student"`, `"welch"` (shown as Student's t, Welch's t).
+#'   * Effect-size convention: `"pooled"` (Cohen's d, pooled SD), `"hedges_g"`,
+#'     `"average"` (Cohen's d, root mean square of the SDs), `"glass_sd1"`,
+#'     `"glass_sd2"` (Glass's delta), `"cohen"`, `"d_z"`, `"d_rm"`, `"d_av"`,
+#'     `"g_av"`, `"eta2"` (eta squared), `"omega2"` (omega squared). Which of
+#'     them a handler has depends on the test.
 #' @param mu The test value the mean (or mean difference) is compared with, for
-#'   handlers whose t depends on it (`t_one_sample`, `t_paired`). Default 0. A
-#'   handler without a test value errors on `mu` other than 0.
+#'   handlers whose t depends on it (`t_one_sample`, `t_paired`). A plain
+#'   number, not a string (`mu = 20`, not `mu = "20"`), unlike the reported
+#'   numbers. Default 0. A handler without a test value errors on `mu` other
+#'   than 0.
 #' @return A `reprokit_check` object: `$numbers` (status of each reported
 #'   number), `$level` (coverage, 0 to 3), `$missing` (what would raise the
 #'   level, and the range implied for it), `$variants` (a list with one data
@@ -84,7 +98,7 @@ check_reported <- function(handler, ..., variants = NULL, mu = 0) {
   check_quantity_names(names(reported), "reported quantity")
   check_arity(reported, entry$cells, entry$per_cell)
   intervals <- Map(function(x, quantity) {
-    as_count <- quantity %in% c("n", "df")
+    as_count <- quantity %in% c("n", "df", "df1", "df2")
     restrict_to_domain(interval_bounds(reported_value(x, as_count = as_count)), quantity, x)
   }, reported, names(reported))
   implied_inputs <- derive_implied_inputs(entry$relations, intervals)
@@ -117,6 +131,12 @@ check_t <- function(..., handler = "t_paired", variants = NULL, mu = 0) {
 #' @rdname check_reported
 #' @export
 check_r <- function(..., handler = "cor_pearson", variants = NULL) {
+  check_reported(handler = handler, ..., variants = variants)
+}
+
+#' @rdname check_reported
+#' @export
+check_F <- function(..., handler = "anova_oneway", variants = NULL) { # nolint: object_name_linter
   check_reported(handler = handler, ..., variants = variants)
 }
 
@@ -329,6 +349,11 @@ relation_outcomes <- function(evaluations) {
 #                   is reported and which could not be evaluated because another
 #                   input is missing; `checked_against` says which
 #   not checkable - no relation reaches it
+# A number also counts as involved in a checked relation when it feeds that
+# relation through unchecked ones: with r, df and p reported, t is derived from
+# r and df (t_from_r, not checked since t is not reported) and then compared
+# with p (p_from_t). r reaches p through that chain, so it is coherent, not
+# "not checkable". Such relations are named in `checked_against`.
 number_statuses <- function(reported, evaluations, relations, implied = list()) {
   outcomes <- relation_outcomes(evaluations)
   # Relations of a component with no fitting joint choice: each holds alone, but
@@ -345,10 +370,33 @@ number_statuses <- function(reported, evaluations, relations, implied = list()) 
     !rel$name %in% evaluations$relation && rel$output %in% names(reported) &&
       !uses_own_output(rel, implied)
   }, relations)
+  # Unchecked relations that were evaluated: their outputs are derived numbers.
+  bridges <- unique(evaluations[!evaluations$checked, c("relation", "output", "inputs")])
+  bridges <- bridges[!bridges$relation %in% detail$relation, , drop = FALSE]
+  # Inputs of a checked relation, followed back through unchecked relations
+  # whose output feeds it. `seen` guards against cycles.
+  expand_inputs <- function(inputs) {
+    via <- character()
+    repeat {
+      feeding <- bridges[bridges$output %in% inputs & !bridges$relation %in% via, ,
+                         drop = FALSE]
+      if (nrow(feeding) == 0L) break
+      via <- c(via, feeding$relation)
+      inputs <- union(inputs, unlist(strsplit(feeding$inputs, ", ")))
+    }
+    list(inputs = inputs, via = via)
+  }
+  detail$inputs_all <- detail$inputs
+  detail$via <- rep("", nrow(detail))
+  for (i in seq_len(nrow(detail))) {
+    expanded <- expand_inputs(strsplit(detail$inputs[i], ", ")[[1L]])
+    detail$inputs_all[i] <- paste(expanded$inputs, collapse = ", ")
+    detail$via[i] <- paste(expanded$via, collapse = ", ")
+  }
   per_quantity <- lapply(names(reported), function(quantity) {
     involved <- detail[detail$output == quantity |
-                         vapply(strsplit(detail$inputs, ", "), function(i) quantity %in% i,
-                                logical(1)), , drop = FALSE]
+                         vapply(strsplit(detail$inputs_all, ", "),
+                                function(i) quantity %in% i, logical(1)), , drop = FALSE]
     holds <- outcomes$holds[match(involved$relation, outcomes$relation)] &
       !involved$relation %in% jointly_failing
     # A failing relation that cannot falsify is set aside: it neither accuses
@@ -367,7 +415,9 @@ number_statuses <- function(reported, evaluations, relations, implied = list()) 
       } else {
         "coherent"
       }
-      list(status = status, against = paste(involved$relation, collapse = "; "))
+      shown <- ifelse(nzchar(involved$via) & involved$output != quantity,
+                      paste0(involved$relation, " (via ", involved$via, ")"), involved$relation)
+      list(status = status, against = paste(shown, collapse = "; "))
     } else if (nrow(unreproduced) > 0L) {
       list(status = "not reproducible",
            against = paste0("no ", variant_kind_noun(unreproduced$relation, relations),

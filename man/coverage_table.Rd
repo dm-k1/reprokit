@@ -22,7 +22,7 @@ An empty cell shows an em dash. Handlers without a design are left out.
 }
 \description{
 One row per registered test that has an APA design, generated from the
-registry so it always matches what the package does (ADR 0013). Missing,
+registry so it always matches what the package does. Missing,
 checkable and the choices from relations are computed; only the reasons and
 extra choices are declared by each handler.
 }

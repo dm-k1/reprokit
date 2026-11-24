@@ -14,8 +14,8 @@ object a handler recognises.}
 \item{...}{Passed to the handler (e.g. \code{data}, \code{test}).}
 
 \item{threshold}{Smallest group or cell size whose summaries are clearly
-less identifying than the raw data (ADR 0004 condition 3). Default 5.
-The total sample size must also be at least \code{2 * threshold} (ADR 0006).}
+less identifying than the raw data. Default 5. The total sample size
+must also be at least \code{2 * threshold}.}
 }
 \value{
 An object of class \code{reprokit_triage}: a list with \code{verdict},

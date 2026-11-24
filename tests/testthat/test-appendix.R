@@ -100,11 +100,11 @@ fmt_r <- function(x) sub("^(-?)0\\.", "\\1.", fmt2(x))
 fmt_df <- function(df) if (abs(df - round(df)) < 1e-8) fmt2(df, 0L) else fmt2(df)
 
 expect_t_printed <- function(text, r) {
-  expect_match(text, paste0("t(", fmt_df(r$parameter), ") | ", fmt2(r$statistic), " |"),
-               fixed = TRUE)
-  expect_match(text, paste0("| p | ", fmt_p(r$p.value), " |"), fixed = TRUE)
-  expect_match(text, paste0("[", fmt2(r$conf.int[1]), ", ", fmt2(r$conf.int[2]), "] |"),
-               fixed = TRUE)
+  testthat::expect_match(text, paste0("t(", fmt_df(r$parameter), ") | ", fmt2(r$statistic), " |"),
+                         fixed = TRUE)
+  testthat::expect_match(text, paste0("| p | ", fmt_p(r$p.value), " |"), fixed = TRUE)
+  testthat::expect_match(text, paste0("[", fmt2(r$conf.int[1]), ", ", fmt2(r$conf.int[2]), "] |"),
+                         fixed = TRUE)
 }
 
 test_that("Welch numbers equal t.test(extra ~ group), with fractional df", {
@@ -139,4 +139,11 @@ test_that("Pearson numbers equal cor.test(mpg, wt)", {
   expect_match(text, paste0("| p | ", fmt_p(r$p.value), " |"), fixed = TRUE)
   expect_match(text, paste0("[", fmt_r(r$conf.int[1]), ", ", fmt_r(r$conf.int[2]), "] |"),
                fixed = TRUE)
+})
+
+test_that("the one-way appendix is stable", {
+  s <- sufficient_stats(weight ~ group, data = PlantGrowth, test = "oneway",
+                        sharing_reason = sharing)
+  expect_snapshot(print(appendix(s, choices = list(convention = "eta2"))),
+                  transform = ascii_safe)
 })

@@ -122,7 +122,7 @@ t_independent_relations <- function() {
       d <- parts(vals, variant)
       d$diff / d$se
     }, variants = tests, variant_kind = "test"),
-    relation_p_from_t(),
+    relation_p_from_statistic("t"),
     relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L), variants = crossed,
              stationary = sd_stationary(from, "ci_lower_from_descriptives",
                                         welch_extrema(ci_bound(1L)))),

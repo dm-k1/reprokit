@@ -81,7 +81,7 @@ t_paired_relations <- function(mu = 0) {
       d <- from_descriptives(vals)
       (d$mean_diff - mu) / d$se
     }, stationary = at_sd_minimum),
-    relation_p_from_t(),
+    relation_p_from_statistic("t"),
     relation("ci_lower_from_descriptives", from, "ci_lower", ci_bound(1L),
              variants = confidence_levels(), variant_kind = "level",
              stationary = at_sd_minimum),

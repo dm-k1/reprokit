@@ -108,7 +108,8 @@ test_that("input errors are clear", {
   expect_error(check_reported("t_paired", tstat = "2.85"), "Unknown reported quantity")
   expect_error(check_reported("nope", t = "2.85"), "No handler registered")
   expect_error(check_reported("lm", t = "2.85"),
-               "no relations.*Handlers that do: cor_pearson, t_independent, t_one_sample, t_paired")
+               paste0("no relations.*Handlers that do: anova_oneway, cor_pearson, ",
+                      "t_independent, t_one_sample, t_paired"))
 })
 
 test_that("a confidence level is reported apart from the tails", {
@@ -131,4 +132,16 @@ test_that("a confidence level is reported apart from the tails", {
 test_that("a number with no relation reaching it is not checkable", {
   checked <- check_t(n = "20", m = c("5.10", "4.20"), sd = c("1.80", "2.00"))
   expect_equal(status_of(checked, "m"), "not checkable")
+})
+
+test_that("r that reaches p only through an unreported t is coherent, not 'not checkable'", {
+  ok <- check_r(r = ".41", df = "28", p = ".024")
+  expect_equal(status_of(ok, "r"), "coherent")
+  expect_equal(status_of(ok, "p"), "verified")
+  expect_false("not checkable" %in% ok$numbers$status)
+  bad <- check_r(r = ".41", df = "28", p = ".5")
+  expect_equal(status_of(bad, "r"), "inconsistent")
+  expect_equal(status_of(check_r(r = ".41", df = "28"), "r"), "not checkable")
+  full <- check_r(r = ".41", n = "30", t = "2.39", df = "28", p = ".024")
+  expect_equal(status_of(full, "r"), status_of(ok, "r"))
 })

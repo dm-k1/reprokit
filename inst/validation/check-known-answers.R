@@ -36,6 +36,15 @@
 #   6. the paired d_z = -1.28 verifies, and d = +1.28 (wrong sign) is "not reproducible",
 #      never inconsistent.
 #   PASS: claims 5 and 6 hold.
+#
+# Case 3 (POSITIVE FIXTURE, one-way ANOVA): R's PlantGrowth (3 groups of 10),
+#   reported rounded as a paper prints it (M and SD 2 dp, F 2 dp, p 3 dp, eta2 2 dp), with
+#   the true F and eta2 computed by stats::aov from the raw data (not by reprokit). Claims:
+#   7. the true F and eta2 lie inside the ranges computed from the rounded M and SD;
+#   8. check_F() on the rounded APA report (with descriptives) is consistent and no number
+#      is inconsistent; the same with only f, df1, df2, p;
+#   9. a planted wrong df2 (29, N instead of N - k) is flagged.
+#   PASS: claims 7 to 9 hold.
 # Run: Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-known-answers.R")'
 
 n1 <- 24
@@ -174,3 +183,40 @@ checks2 <- c(all(level_rows$independent_fits), all(level_rows$independent_consis
 cat(if (all(checks2)) "\nPASS" else "\nFAIL",
     ": sleep CIs fit their levels (", sum(checks2[1:4]), "/4 groups of claims), paired d ",
     "verified and sign-flipped d not reproducible (", sum(checks2[5:8]), "/4)\n", sep = "")
+
+# Case 3: PlantGrowth one-way ANOVA -------------------------------------------------------
+pg <- datasets::PlantGrowth
+fit <- summary(aov(weight ~ group, data = pg))[[1L]]
+true_f <- fit[["F value"]][1L]
+true_eta2 <- fit[["Sum Sq"]][1L] / sum(fit[["Sum Sq"]])
+pg_m <- tapply(pg$weight, pg$group, mean)
+pg_sd <- tapply(pg$weight, pg$group, sd)
+paper <- list(n = c("10", "10", "10"), m = two(pg_m), sd = two(pg_sd),
+              f = two(true_f), df1 = "2", df2 = "27",
+              p = formatC(fit[["Pr(>F)"]][1L], format = "f", digits = 3L), eta2 = two(true_eta2))
+pg_box <- list(n = list(lower = rep(10, 3), upper = rep(10, 3)),
+               m = list(lower = as.numeric(two(pg_m)) - 0.005,
+                        upper = as.numeric(two(pg_m)) + 0.005),
+               sd = list(lower = as.numeric(two(pg_sd)) - 0.005,
+                         upper = as.numeric(two(pg_sd)) + 0.005))
+f_range <- relation_range(get_handler("anova_oneway")$relations[[3L]], pg_box, NULL)
+eta_range <- f_range * 2 / (f_range * 2 + 27)
+full <- check_F(f = paper$f, df1 = paper$df1, df2 = paper$df2, p = paper$p, eta2 = paper$eta2,
+                n = paper$n, m = paper$m, sd = paper$sd)
+slim <- check_F(f = paper$f, df1 = paper$df1, df2 = paper$df2, p = paper$p)
+bad <- check_F(f = paper$f, df1 = paper$df1, df2 = "29", p = paper$p)
+cat("\n== Case 3: PlantGrowth one-way ANOVA ==\n")
+print(data.frame(quantity = c("F", "eta2"), true = round(c(true_f, true_eta2), 4L),
+                 range_lower = round(c(f_range[[1L]], eta_range[[1L]]), 4L),
+                 range_upper = round(c(f_range[[2L]], eta_range[[2L]]), 4L)), row.names = FALSE)
+checks3 <- c(true_f >= f_range[[1L]] && true_f <= f_range[[2L]],
+             true_eta2 >= eta_range[[1L]] && true_eta2 <= eta_range[[2L]],
+             full$consistent, !any(full$numbers$status == "inconsistent"),
+             slim$consistent, !bad$consistent)
+names(checks3) <- c("true F inside range", "true eta2 inside range", "full report consistent",
+                    "no number inconsistent", "f/df/p only is consistent",
+                    "planted df2 = 29 flagged")
+print(data.frame(assertion = names(checks3), holds = unname(checks3)), row.names = FALSE)
+cat(if (all(checks3)) "\nPASS" else "\nFAIL",
+    ": PlantGrowth F and eta2 inside their ranges, correct report consistent, ",
+    "planted df2 flagged (", sum(checks3), "/6)\n", sep = "")

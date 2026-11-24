@@ -9,6 +9,7 @@ register_builtin_handlers <- function() {
   register_t_one_sample()
   register_t_paired()
   register_cor_pearson()
+  register_anova_oneway()
   register_lm()
 }
 

@@ -8,15 +8,43 @@
 \description{
 Sharing raw data remains the standard. When sharing is genuinely
 impossible, reprokit says what the minimum is that authors owe their
-readers, and what those readers lose.
+readers, and what those readers lose. It also lets readers check whether the
+numbers a paper reports are consistent with each other.
 }
 \details{
-Two directions use the same statistics:
+Two directions use the same statistics.
+
+\strong{Share} (you cannot share the raw data):
 \itemize{
-\item \strong{share} -- \code{\link[=triage]{triage()}}, \code{\link[=sufficient_stats]{sufficient_stats()}}, \code{\link[=reproduce]{reproduce()}}, \code{\link[=appendix]{appendix()}}
-\item \strong{check} -- \verb{check_*()} consistency checks (planned)
+\item \code{\link[=triage]{triage()}} says whether summary statistics suffice. It never errors.
+\item \code{\link[=sufficient_stats]{sufficient_stats()}} stores them, with a required reason for not sharing
+and a list of what readers lose.
+\item \code{\link[=reproduce]{reproduce()}} recomputes the result from the stored statistics alone.
+\item \code{\link[=appendix]{appendix()}} writes the appendix for the paper.
+}
+
+\strong{Check} (you are reading a paper):
+\itemize{
+\item \code{\link[=check_t]{check_t()}}, \code{\link[=check_r]{check_r()}} and \code{\link[=check_F]{check_F()}} test whether reported numbers are
+consistent with each other, allowing for rounding. They call
+\code{\link[=check_reported]{check_reported()}}.
+}
+
+An inconsistency means the numbers cannot all be correct as reported. It does
+not say which number is wrong or why.
+
+Which tests are covered, and what each needs, is in \code{\link[=coverage_table]{coverage_table()}}. See
+also \code{\link[=handlers]{handlers()}}, \code{\link[=quantity_names]{quantity_names()}} and \code{\link[=verdicts]{verdicts()}}.
+}
+\section{Vignettes}{
+
+\itemize{
+\item \code{vignette("reprokit")}: getting started, one example for each direction.
+\item \code{vignette("concepts")}: what the terms mean.
+\item \code{vignette("validation")}: the evidence behind the claims.
 }
 }
+
 \seealso{
 Useful links:
 \itemize{

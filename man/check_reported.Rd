@@ -4,6 +4,7 @@
 \alias{check_reported}
 \alias{check_t}
 \alias{check_r}
+\alias{check_F}
 \title{Check reported statistics against each other}
 \usage{
 check_reported(handler, ..., variants = NULL, mu = 0)
@@ -11,6 +12,8 @@ check_reported(handler, ..., variants = NULL, mu = 0)
 check_t(..., handler = "t_paired", variants = NULL, mu = 0)
 
 check_r(..., handler = "cor_pearson", variants = NULL)
+
+check_F(..., handler = "anova_oneway", variants = NULL)
 }
 \arguments{
 \item{handler}{Name of a registered handler, such as \code{"t_paired"}.}
@@ -25,11 +28,26 @@ as exact.}
 \code{"two.sided"}, \code{"0.95"} or \code{"welch"}), or \code{NULL} for all. Each value
 restricts only its own kind of variant (tail, confidence level, test,
 convention): \code{c("welch", "0.95")} fixes the test and the level. A kind
-that no value names keeps all its variants.}
+that no value names keeps all its variants. The accepted values are the
+codes below; the printed output shows a readable label instead. A value
+the handler does not have is an error that lists the ones it has.
+\itemize{
+\item Tail: \code{"two.sided"}, \code{"less"}, \code{"greater"} (shown as two-sided,
+one-sided (less), one-sided (greater)).
+\item Level: \code{"0.90"}, \code{"0.95"}, \code{"0.99"} (shown as 90\%, 95\%, 99\%).
+\item Test: \code{"student"}, \code{"welch"} (shown as Student's t, Welch's t).
+\item Effect-size convention: \code{"pooled"} (Cohen's d, pooled SD), \code{"hedges_g"},
+\code{"average"} (Cohen's d, root mean square of the SDs), \code{"glass_sd1"},
+\code{"glass_sd2"} (Glass's delta), \code{"cohen"}, \code{"d_z"}, \code{"d_rm"}, \code{"d_av"},
+\code{"g_av"}, \code{"eta2"} (eta squared), \code{"omega2"} (omega squared). Which of
+them a handler has depends on the test.
+}}
 
 \item{mu}{The test value the mean (or mean difference) is compared with, for
-handlers whose t depends on it (\code{t_one_sample}, \code{t_paired}). Default 0. A
-handler without a test value errors on \code{mu} other than 0.}
+handlers whose t depends on it (\code{t_one_sample}, \code{t_paired}). A plain
+number, not a string (\code{mu = 20}, not \code{mu = "20"}), unlike the reported
+numbers. Default 0. A handler without a test value errors on \code{mu} other
+than 0.}
 }
 \value{
 A \code{reprokit_check} object: \verb{$numbers} (status of each reported

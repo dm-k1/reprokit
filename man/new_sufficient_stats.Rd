@@ -46,7 +46,7 @@ the raw data.}
 An object of class \code{reprokit_sufficient_stats}.
 }
 \description{
-The central object of the share direction (ADR 0008). Users get one from
+The central object of the share direction. Users get one from
 \code{\link[=sufficient_stats]{sufficient_stats()}}; \code{new_sufficient_stats()} is the low-level constructor.
 The check functions do not use it: they work from reported numbers.
 }

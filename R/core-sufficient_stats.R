@@ -1,6 +1,6 @@
 #' Store the sufficient statistics of one analysis
 #'
-#' The central object of the share direction (ADR 0008). Users get one from
+#' The central object of the share direction. Users get one from
 #' [sufficient_stats()]; `new_sufficient_stats()` is the low-level constructor.
 #' The check functions do not use it: they work from reported numbers.
 #'

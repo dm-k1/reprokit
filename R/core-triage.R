@@ -9,8 +9,8 @@
 #'   object a handler recognises.
 #' @param ... Passed to the handler (e.g. `data`, `test`).
 #' @param threshold Smallest group or cell size whose summaries are clearly
-#'   less identifying than the raw data (ADR 0004 condition 3). Default 5.
-#'   The total sample size must also be at least `2 * threshold` (ADR 0006).
+#'   less identifying than the raw data. Default 5. The total sample size
+#'   must also be at least `2 * threshold`.
 #' @return An object of class `reprokit_triage`: a list with `verdict`,
 #'   `reason`, `handler` (or `NA`) and `lost`.
 #' @export
@@ -54,9 +54,9 @@ triage_with <- function(handler, x, ..., threshold) {
   } else {
     handler$triage(x, ..., threshold = threshold)
   }
-  # ADR 0004 condition 3, decided per dataset: summaries of tiny samples or
+  # Decided per dataset: summaries of tiny samples or
   # tiny groups are close to the raw data, so they protect no one and the
-  # verdict drops. First the general minimum n (every handler, ADR 0006), then
+  # verdict drops. First the general minimum n (every handler), then
   # the handler's own check of its groups or cells.
   if (res$verdict == "summaries_suffice" && !is.null(handler$summarise)) {
     summary <- handler$summarise(x, ...)
@@ -68,9 +68,9 @@ triage_with <- function(handler, x, ..., threshold) {
       res <- list(
         verdict = "needs_raw_data",
         reason = paste0(
-          "The summaries would be close to the raw data (ADR 0004 condition 3 fails: ",
-          paste(problems, collapse = "; "),
-          "), so they give no real privacy gain, only less information."
+          "The summaries would be close to the raw data, so they give no real privacy ",
+          "gain, only less information: ",
+          paste(problems, collapse = "; "), "."
         )
       )
     }
@@ -78,7 +78,7 @@ triage_with <- function(handler, x, ..., threshold) {
   res
 }
 
-# General minimum sample size, for every handler (ADR 0006): n >= 2 * threshold.
+# General minimum sample size, for every handler: n >= 2 * threshold.
 # With n close to the number of stored statistics, the summaries pin down the
 # rows (n = 2: mean and SD give both values exactly).
 minimum_n <- function(threshold) 2 * threshold

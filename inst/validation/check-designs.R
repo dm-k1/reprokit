@@ -3,11 +3,14 @@
 # data, runs the real t.test() / cor.test(), and returns the numbers rounded as a paper prints
 # them (2 decimals for t, 3 for p and r, "< .001" below .001). Sourced, not run: it draws nothing
 # until a generator is called, so the caller owns the seed.
+# One-way ANOVA: oneway_raw() draws k = 2..6 groups, balanced or not, and
+# oneway_paper() prints classical oneway.test(var.equal = TRUE) output as a paper does
+# (F 2 dp, p 3 dp or "< .001", M and SD 2 dp, eta2 or omega2 2 dp).
 
 fmt <- function(x, d) formatC(x, format = "f", digits = d)
 fmt_p <- function(p) if (p < 0.001) "< .001" else fmt(p, 3L)
 # Confidence level of the CI a paper prints: 95% mostly, 90% and 99% in a quarter of the papers
-# each (ADR 0014). The generators draw it with the global RNG.
+# each. The generators draw it with the global RNG.
 draw_level <- function() sample(c(0.90, 0.95, 0.99), 1L, prob = c(0.25, 0.5, 0.25))
 sizes <- c(3, 3, 4, 4, 5, 6, 8, 10, 15, 20, 30, 60, 150)
 rhos <- c(0, 0.3, 0.7, 0.95, 0.99, 0.995, 0.999, 0.9999, -0.5, -0.9, -0.999)
@@ -111,6 +114,45 @@ one_sample_paper <- function() {
   paper
 }
 
+# One-way ANOVA ------------------------------------------------------------------------------
+# Raw data of k groups (k drawn from 2..6 unless given), equal sizes if `balanced`, otherwise
+# sizes drawn independently; group means and SDs differ. Returns list(y, g, k, n).
+oneway_raw <- function(k = sample(2:6, 1L), balanced = runif(1L) < 0.5) {
+  pool <- sizes[sizes >= 3]
+  n <- if (balanced) rep(sample(pool, 1L), k) else sample(pool, k, replace = TRUE)
+  scale <- 10^runif(1L, -1, 2)
+  effect <- runif(1L, 0, 1.5) * scale
+  y <- unlist(lapply(seq_len(k), function(i) {
+    rnorm(n[i]) * scale * runif(1L, 0.5, 2) + rnorm(1L) * effect
+  }))
+  list(y = y, g = factor(rep(letters[seq_len(k)], n)), k = k, n = n)
+}
+
+# The classical one-way results of a raw design: list(f, df1, df2, p, eta2, omega2).
+oneway_truth <- function(d) {
+  fit <- summary(stats::aov(y ~ g, data = data.frame(y = d$y, g = d$g)))[[1L]]
+  ss <- fit[["Sum Sq"]]
+  f <- fit[["F value"]][1L]
+  df1 <- fit[["Df"]][1L]
+  df2 <- fit[["Df"]][2L]
+  list(f = f, df1 = df1, df2 = df2, p = fit[["Pr(>F)"]][1L], eta2 = ss[1L] / sum(ss),
+       omega2 = df1 * (f - 1) / (df1 * f + df2 + 1))
+}
+
+# A correctly reported one-way ANOVA; NULL when the draw is degenerate. eta2 is printed as
+# eta squared or, half of the time, as omega squared (a paper reports a negative omega
+# squared as 0.00 here: a negative value is outside the [0, 1] domain of eta2 and would be
+# an input error).
+oneway_paper <- function(d = oneway_raw()) {
+  truth <- oneway_truth(d)
+  sds <- tapply(d$y, d$g, sd)
+  if (!is.finite(truth$f) || any(!is.finite(sds)) || any(sds == 0)) return(NULL)
+  effect <- if (runif(1L) < 0.5) truth$eta2 else max(truth$omega2, 0)
+  list(n = as.character(d$n), m = fmt(tapply(d$y, d$g, mean), 2L), sd = fmt(sds, 2L),
+       f = fmt(truth$f, 2L), df1 = as.character(truth$df1), df2 = as.character(truth$df2),
+       p = fmt_p(truth$p), eta2 = fmt(effect, 2L))
+}
+
 # Planted errors ----------------------------------------------------------------
 # Each planter takes a correct paper (named list of printed strings) and returns
 # list(paper, quantity, size) with ONE number changed, or NULL when the paper cannot take
@@ -198,12 +240,34 @@ plant_decision <- function(paper) {
   list(paper = paper, quantity = "p", size = "large")
 }
 
+plant_f_digit <- function(paper) {
+  f0 <- as.numeric(paper$f)
+  units <- sample(1:9, 1L)
+  step <- sample(c(-1, 1), 1L) * units / 100
+  if (f0 + step <= 0) step <- abs(step)
+  paper$f <- fmt(f0 + step, 2L)
+  list(paper = paper, quantity = "f", size = if (units <= 2) "small" else "large")
+}
+
+# df2 from the wrong n: N (not N - k) or N - k + 1. Size is the total n.
+plant_oneway_df <- function(paper) {
+  n <- as.numeric(paper$n)
+  paper$df2 <- as.character(sum(n) - length(n) + sample(c(1, length(n)), 1L))
+  list(paper = paper, quantity = "df2", size = if (sum(n) <= 10) "n<=10" else "n>10")
+}
+
 planted_types <- function(handler) {
+  if (handler == "anova_oneway") {
+    return(c("f_digit", "p_digit", "df_wrong_n", "decision", "m_change"))
+  }
   c("t_digit", "p_digit", "df_wrong_n", "decision",
     if (handler == "cor_pearson") "r_digit" else "m_change", "ci_change")
 }
 
 plant_error <- function(paper, handler, type) {
+  if (handler == "anova_oneway" && type %in% c("f_digit", "df_wrong_n")) {
+    return(if (type == "f_digit") plant_f_digit(paper) else plant_oneway_df(paper))
+  }
   switch(type, t_digit = plant_t_digit(paper), p_digit = plant_p_digit(paper),
          df_wrong_n = plant_df_wrong_n(paper, handler), decision = plant_decision(paper),
          r_digit = plant_r_digit(paper), m_change = plant_m_change(paper),
@@ -221,7 +285,8 @@ planted_groups <- list(
   t_independent_welch = list(handler = "t_independent",
                              make = function() independent_paper(FALSE)),
   t_one_sample = list(handler = "t_one_sample", make = one_sample_paper),
-  cor_pearson = list(handler = "cor_pearson", make = pearson_paper)
+  cor_pearson = list(handler = "cor_pearson", make = pearson_paper),
+  anova_oneway = list(handler = "anova_oneway", make = function() oneway_paper())
 )
 
 draw_cases <- function(group, n_papers) {
@@ -241,6 +306,10 @@ draw_cases <- function(group, n_papers) {
 
 # The reported subsets the planted-error and statcheck scripts use.
 report_subsets <- function(handler, paper) {
+  if (handler == "anova_oneway") {
+    return(list(all = names(paper), `f/df/p` = c("f", "df1", "df2", "p"),
+                `desc+f+p` = c("n", "m", "sd", "f", "p")))
+  }
   desc <- switch(handler, t_paired = c("n", "m", "sd", "r", "t", "p"),
                  cor_pearson = c("n", "r", "t", "p"), c("n", "m", "sd", "t", "p"))
   subsets <- list(all = names(paper), `t/df/p` = c("t", "df", "p"), `desc+t+p` = desc)

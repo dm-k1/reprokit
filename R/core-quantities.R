@@ -15,7 +15,8 @@
 #' @examples
 #' quantity_names()
 quantity_names <- function() {
-  c("n", "m", "sd", "r", "t", "f", "chisq", "df", "p", "ci_lower", "ci_upper", "d")
+  c("n", "m", "sd", "r", "t", "f", "chisq", "df", "df1", "df2", "p", "eta2", "ci_lower",
+    "ci_upper", "d")
 }
 
 # Why a quantity that determines the analysis may be missing from what APA asks a
@@ -41,7 +42,8 @@ quantity_domain <- function(quantity) {
          r = c(-1, 1),
          p = c(0, 1),
          n = c(1, Inf),
-         sd = , df = , f = , chisq = c(0, Inf),
+         sd = , df = , df1 = , df2 = , f = , chisq = c(0, Inf),
+         eta2 = c(0, 1),
          c(-Inf, Inf))
 }
 
@@ -49,7 +51,7 @@ domain_words <- function(quantity) {
   switch(quantity,
          n = "a whole number of at least 1",
          r = "between -1 and 1",
-         p = "between 0 and 1",
+         p = , eta2 = "between 0 and 1",
          "at least 0")
 }
 
@@ -73,16 +75,28 @@ restrict_to_domain <- function(bounds, quantity, text) {
 
 # A quantity is one number or, for m and sd (and for n when the handler's
 # groups differ in size: its `per_cell`), one value per condition; the handler
-# says how many conditions (`cells`).
+# says how many conditions (`cells`). `cells = NA` means a variable number of
+# groups (one-way ANOVA): the reported per-group vectors need at least two values
+# and the same length.
 check_arity <- function(reported, cells, per_cell_names = per_cell_quantities()) {
+  variable <- length(cells) == 1L && is.na(cells)
   for (quantity in names(reported)) {
     per_cell <- quantity %in% per_cell_names && !is.null(cells)
+    if (per_cell && variable) next
     expected <- if (per_cell) cells else 1L
     got <- length(reported[[quantity]])
     if (got != expected) {
       stop("`", quantity, "` needs ", expected, if (expected == 1L) " value" else " values",
            if (per_cell) " (one per condition)" else " (one number for the whole analysis)",
            ", but got ", got, ".", call. = FALSE)
+    }
+  }
+  if (variable) {
+    sizes <- vapply(reported[intersect(names(reported), per_cell_names)], length, integer(1))
+    if (length(sizes) > 0L && (any(sizes < 2L) || length(unique(sizes)) > 1L)) {
+      stop("The per-group quantities (", paste0("`", names(sizes), "`", collapse = ", "),
+           ") need the same number of values, at least 2 (one per group); got ",
+           paste0(names(sizes), " = ", sizes, collapse = ", "), ".", call. = FALSE)
     }
   }
   invisible(reported)

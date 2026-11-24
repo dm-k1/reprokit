@@ -17,10 +17,11 @@
 #'   on the declared `test`.
 #' @param triage `function(x, ..., threshold)` returning a list with `verdict`
 #'   and `reason`; `NULL` means "always `verdict`". A `summaries_suffice`
-#'   verdict is then still checked against `disclosure` (ADR 0004 condition 3).
+#'   verdict is then still checked against `disclosure`, so that summaries of tiny
+#'   groups do not count as sufficient.
 #' @param summarise `function(x, ...)` returning `list(stats = , meta = )`: the
 #'   sufficient statistics at full precision. `meta$n` must be the total sample
-#'   size (used by the general minimum-n check, ADR 0006). It may also return
+#'   size (used by the general minimum-n check). It may also return
 #'   `check`, information for `disclosure` only, which is not stored.
 #'   `NULL` for triage-only handlers.
 #' @param reproduce `function(s)` returning the named numeric vector that
@@ -124,27 +125,35 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
 
 # What a handler declares about its design: the test statistic, the effect size
 # (the same quantity when the statistic is the effect size, as r is for a
-# correlation), and `cells`, how many conditions or variables have their own n,
-# M and SD (NULL for none). The arity of m and sd follows from `cells`.
-apa_design <- function(statistic, effect_size, cells = NULL) {
+# correlation), `cells`, how many conditions or variables have their own n, M and
+# SD (NULL for none; NA for a variable number of groups, as in a one-way ANOVA, where
+# the count is read from what a paper reports), and `ci`, whether APA style asks for a
+# confidence interval of the effect size (FALSE for eta squared, whose CI is rarely
+# reported). The arity of m and sd follows from `cells`.
+apa_design <- function(statistic, effect_size, cells = NULL, ci = TRUE) {
   stopifnot(is.character(statistic), length(statistic) == 1L,
             is.character(effect_size), length(effect_size) == 1L,
-            is.null(cells) || (is.numeric(cells) && length(cells) == 1L && cells >= 1))
+            is.null(cells) || (is.numeric(cells) && length(cells) == 1L &&
+                                 (is.na(cells) || cells >= 1)),
+            is.logical(ci), length(ci) == 1L, !is.na(ci))
   list(statistic = statistic, effect_size = effect_size,
-       cells = if (is.null(cells)) NULL else as.integer(cells))
+       cells = if (is.null(cells)) NULL else as.integer(cells), ci = ci)
 }
 
 is_apa_design <- function(x) {
-  is.list(x) && identical(names(x), c("statistic", "effect_size", "cells"))
+  is.list(x) && identical(names(x), c("statistic", "effect_size", "cells", "ci"))
 }
 
 # The one rule for what APA style asks a paper to report: the test statistic, its
 # degrees of freedom and p, the effect size with its confidence interval, and n,
 # M and SD for each condition when the design has them (APA Publication Manual,
-# 7th ed.; ADR 0010 decision 1).
+# 7th ed.; ADR 0010 decision 1). F has two degrees of freedom; a design without
+# `ci` leaves the interval out.
 apa_quantities <- function(design) {
+  df <- if (identical(design$statistic, "f")) c("df1", "df2") else "df"
   unique(c(if (!is.null(design$cells)) c("n", "m", "sd"),
-           design$statistic, "df", "p", design$effect_size, "ci_lower", "ci_upper"))
+           design$statistic, df, "p", design$effect_size,
+           if (isTRUE(design$ci)) c("ci_lower", "ci_upper")))
 }
 
 unregister_handler <- function(name) {
@@ -225,9 +234,9 @@ handler_choices <- function(h) {
 display_quantities <- function(h, quantities) {
   if (length(quantities) == 0L) return(character())
   unit <- if (identical(h$design$effect_size, "r")) "variable" else "condition"
-  labels <- c(m = "M", sd = "SD", f = "F", chisq = "chisq")
+  labels <- c(m = "M", sd = "SD", f = "F", chisq = "chisq", eta2 = "eta2")
   label <- function(q) if (q %in% names(labels)) labels[[q]] else q
-  grouped <- if (is.null(h$cells) || h$cells < 2L) character() else
+  grouped <- if (is.null(h$cells) || (!is.na(h$cells) && h$cells < 2L)) character() else
     intersect(quantities, h$per_cell)
   items <- character()
   for (q in quantities) {
@@ -260,7 +269,7 @@ list_or_dash <- function(x, sep = ", ") if (length(x) == 0L) "\u2014" else paste
 #' Coverage table generated from the handler registry
 #'
 #' One row per registered test that has an APA design, generated from the
-#' registry so it always matches what the package does (ADR 0013). Missing,
+#' registry so it always matches what the package does. Missing,
 #' checkable and the choices from relations are computed; only the reasons and
 #' extra choices are declared by each handler.
 #'
