@@ -284,7 +284,18 @@ check_F(n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
         f = "4.85", df1 = "2", df2 = "27", eta2 = "0.26", p = ".016")
 ```
 
-`check_t()`, `check_r()` and `check_F()` are shortcuts for `check_reported()`
+### A chi-squared test
+
+`check_chisq()` takes the table as a matrix (a vector for goodness of fit, with
+`p0` if the H0 proportions are not equal) and the reported chi-squared, df, p
+and V. A 2 x 2 table has Yates' correction as a variant; V is a convention.
+
+```{r}
+check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
+            p = ".0001", v = ".41")
+```
+
+`check_t()`, `check_r()`, `check_F()` and `check_chisq()` are shortcuts for `check_reported()`
 with a default handler. `quantity_names()` lists the names you can pass.
 
 ## Limits
@@ -292,7 +303,8 @@ with a default handler. `quantity_names()` lists the names you can pass.
 * The check tests agreement between reported numbers, not whether the analysis
   was appropriate or the data plausible. Agreeing numbers can still be wrong.
 * Only the tests in `coverage_table()` are covered, including a one-way
-  between-subjects ANOVA. Factorial ANOVA and chi-square are planned.
+  between-subjects ANOVA and chi-squared tests of independence and goodness of fit. Factorial
+  ANOVA is planned.
 * The check is conservative: ambiguity resolves towards silence, because
   flagging a correct paper would be a false accusation.
 * The share half records a reason and a list of losses; it cannot judge whether

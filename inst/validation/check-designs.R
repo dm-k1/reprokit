@@ -327,3 +327,78 @@ run_check <- function(handler, paper, keys) {
   args <- c(list(handler), paper[keys], if (!is.null(mu)) list(mu = mu))
   tryCatch(suppressWarnings(do.call(check_reported, args)), error = function(e) e)
 }
+
+# Chi-squared (ADR 0016) -------------------------------------------------------------------
+# chisq_independence_paper() draws an r x c table (2..4 by 2..5) of counts, with empty cells in
+# the small-N draws, and prints chisq.test() output as a paper does: chi-squared 2 dp, df, p 3 dp
+# or "< .001", N, V (or phi, signed, for a 2 x 2 table) 2 dp. A 2 x 2 table is analysed with or
+# without Yates' correction (half each; V is always from the Pearson chi-squared, as in the
+# literature). chisq_gof_paper() draws k = 2..8 counts against uniform or given H0 proportions
+# and prints w, which is not bounded by 1: half the draws put nearly all the counts in one
+# category (w up to sqrt(k - 1)). Both return the paper as a list and set the attributes
+# `dims` and `p0` the checker needs; `handler` names the handler. A paper never has an empty
+# row or column (chisq.test() would give NaN).
+chisq_paper_attrs <- function(paper, handler, dims = NULL, p0 = NULL, truth = NULL) {
+  attr(paper, "handler") <- handler
+  attr(paper, "dims") <- dims
+  attr(paper, "p0") <- p0
+  attr(paper, "truth") <- truth
+  paper
+}
+
+chisq_independence_paper <- function(force_2x2 = FALSE) {
+  r <- if (force_2x2) 2L else sample(2:4, 1L)
+  c_ <- if (force_2x2) 2L else sample(2:5, 1L)
+  total <- sample(c(12, 20, 40, 100, 400, 3000), 1L)
+  p <- rexp(r * c_)
+  if (runif(1L) < 0.3) p[sample(r * c_, 1L)] <- 0
+  tab <- matrix(rmultinom(1L, total, p / sum(p)), r, c_)
+  if (any(rowSums(tab) == 0) || any(colSums(tab) == 0)) return(NULL)
+  yates <- r == 2L && c_ == 2L && runif(1L) < 0.5
+  test <- suppressWarnings(chisq.test(tab, correct = yates))
+  pearson <- suppressWarnings(chisq.test(tab, correct = FALSE))$statistic
+  v <- sqrt(pearson / (sum(tab) * (min(r, c_) - 1)))
+  if (r == 2L && c_ == 2L && runif(1L) < 0.5) {
+    phi <- (tab[1, 1] * tab[2, 2] - tab[1, 2] * tab[2, 1]) / sqrt(prod(rowSums(tab), colSums(tab)))
+    v <- phi
+    if (runif(1L) < 0.5) v <- -abs(v)
+  }
+  paper <- list(n = matrix(as.character(tab), r, c_), chisq = fmt(unname(test$statistic), 2L),
+                df = as.character(r * c_ - r - c_ + 1L), p = fmt_p(test$p.value),
+                n_total = as.character(sum(tab)),
+                v = sub("^-0\\.", "-.", sub("^0\\.", ".", fmt(unname(v), 2L))))
+  chisq_paper_attrs(paper, "chisq_independence", c(r, c_), NULL,
+                    list(chisq = unname(test$statistic), p = test$p.value, yates = yates))
+}
+
+chisq_gof_paper <- function(high_w = runif(1L) < 0.5, k = sample(2:8, 1L)) {
+  total <- sample(c(10, 25, 60, 200, 1000), 1L)
+  given <- runif(1L) < 0.5
+  p0 <- if (given) { q <- rexp(k) + 0.05; q / sum(q) } else rep(1 / k, k)
+  prob <- if (high_w) c(0.97, rep(0.03 / (k - 1), k - 1))[sample(k)] else { q <- rexp(k); q / sum(q) }
+  n <- as.vector(rmultinom(1L, total, prob))
+  expected <- sum(n) * p0
+  chisq <- sum((n - expected)^2 / expected)
+  df <- k - 1L
+  paper <- list(n = as.character(n), chisq = fmt(chisq, 2L), df = as.character(df),
+                p = fmt_p(pchisq(chisq, df, lower.tail = FALSE)), n_total = as.character(sum(n)),
+                v = sub("^0\\.", ".", fmt(sqrt(chisq / sum(n)), 2L)))
+  if (sqrt(chisq / sum(n)) >= 1) paper$v <- fmt(sqrt(chisq / sum(n)), 2L)
+  chisq_paper_attrs(paper, "chisq_gof", k, if (given || runif(1L) < 0.3) p0,
+                    list(chisq = chisq, p = pchisq(chisq, df, lower.tail = FALSE),
+                         w = sqrt(chisq / sum(n)), given = given))
+}
+
+# check_chisq() on the named numbers of a chi-squared paper.
+run_chisq_check <- function(paper, keys, ...) {
+  args <- c(paper[keys], list(handler = attr(paper, "handler"), dims = attr(paper, "dims"),
+                              p0 = attr(paper, "p0")), list(...))
+  tryCatch(suppressWarnings(do.call(check_chisq, args)), error = function(e) e)
+}
+
+chisq_subsets <- function(paper) {
+  keys <- names(paper)
+  list(keys, c("n", "chisq", "df", "p"), c("chisq", "df", "p"), c("n", "chisq"), c("n", "p"),
+       c("n", "v"), c("chisq", "n_total", "v"), c("n", "chisq", "df", "v"),
+       sample(keys, sample(2:length(keys), 1L)))
+}

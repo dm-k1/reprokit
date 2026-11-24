@@ -37,6 +37,16 @@
 #      never inconsistent.
 #   PASS: claims 5 and 6 hold.
 #
+# Case 4 (POSITIVE FIXTURE, chi-squared, ADR 0016): R's HairEyeColor (Hair x Eye, 4 x 4, N = 592),
+#   UCBAdmissions (Admit x Gender, 2 x 2, N = 4526, with and without Yates' correction) and
+#   table(mtcars$cyl) (goodness of fit, uniform and with p0 = .3, .2, .5). chi-squared, df, p
+#   and V (w) are taken from stats::chisq.test() and printed as a paper does. Claims:
+#   7. every correct report (all numbers, with the table) is consistent and no row inconsistent;
+#   8. the 2 x 2 report fits the test variant that produced it and not the other (a Yates
+#      chi-squared is not explained by Pearson, and the reverse); the 4 x 4 table has no variant;
+#   9. a wrong df (the 4 x 4 table with df = 12, the 2 x 2 table with df = 2) is flagged.
+#   PASS: claims 7 to 9 hold.
+#
 # Case 3 (POSITIVE FIXTURE, one-way ANOVA): R's PlantGrowth (3 groups of 10),
 #   reported rounded as a paper prints it (M and SD 2 dp, F 2 dp, p 3 dp, eta2 2 dp), with
 #   the true F and eta2 computed by stats::aov from the raw data (not by reprokit). Claims:
@@ -220,3 +230,50 @@ print(data.frame(assertion = names(checks3), holds = unname(checks3)), row.names
 cat(if (all(checks3)) "\nPASS" else "\nFAIL",
     ": PlantGrowth F and eta2 inside their ranges, correct report consistent, ",
     "planted df2 flagged (", sum(checks3), "/6)\n", sep = "")
+
+# Case 4: chi-squared -----------------------------------------------------------------------
+pc <- function(p) if (p < 0.001) "< .001" else formatC(p, format = "f", digits = 3L)
+vtxt <- function(x) sub("^0\\.", ".", two(x))
+chisq_paper <- function(tab, correct = TRUE, p0 = NULL) {
+  gof <- is.null(dim(tab)) || length(dim(tab)) == 1L
+  r <- if (gof) suppressWarnings(chisq.test(tab, p = if (is.null(p0)) rep(1 / length(tab), length(tab)) else p0))
+       else suppressWarnings(chisq.test(tab, correct = correct))
+  pearson <- if (gof) r$statistic else suppressWarnings(chisq.test(tab, correct = FALSE))$statistic
+  v <- sqrt(pearson / (sum(tab) * (if (gof) 1 else min(dim(tab)) - 1)))
+  list(n = if (gof) as.character(as.vector(tab)) else matrix(as.character(tab), nrow(tab)),
+       chisq = two(unname(r$statistic)), df = as.character(unname(r$parameter)),
+       p = pc(r$p.value), v = vtxt(unname(v)))
+}
+fixtures <- list(
+  list(name = "HairEyeColor Hair x Eye", tab = unclass(margin.table(HairEyeColor, c(1, 2))),
+       correct = FALSE, wrong_df = "12"),
+  list(name = "UCBAdmissions Admit x Gender, Yates", tab = unclass(margin.table(UCBAdmissions, c(1, 2))),
+       correct = TRUE, wrong_df = "2"),
+  list(name = "UCBAdmissions Admit x Gender, Pearson", tab = unclass(margin.table(UCBAdmissions, c(1, 2))),
+       correct = FALSE, wrong_df = "2"),
+  list(name = "cyl uniform", tab = table(mtcars$cyl), correct = NA, wrong_df = "3"),
+  list(name = "cyl p0 = .3/.2/.5", tab = table(mtcars$cyl), correct = NA, wrong_df = "3",
+       p0 = c(0.3, 0.2, 0.5)))
+rows4 <- do.call(rbind, lapply(fixtures, function(f) {
+  paper <- chisq_paper(f$tab, isTRUE(f$correct), f$p0)
+  gof <- is.null(dim(paper$n))
+  run <- function(p, ...) do.call(check_chisq, c(p, list(p0 = f$p0), list(...)))
+  ok <- run(paper)
+  bad <- run(replace(paper, "df", f$wrong_df), dims = if (gof) length(f$tab) else dim(f$tab))
+  fits <- if (!is.null(ok$variants$test)) setNames(ok$variants$test$fits, ok$variants$test$variant)
+  expect_variant <- if (is.na(f$correct)) NA else if (!is.null(fits)) {
+    fits[[if (f$correct) "yates" else "pearson"]] && !fits[[if (f$correct) "pearson" else "yates"]]
+  } else {
+    !(f$correct) || FALSE
+  }
+  data.frame(case = f$name, chisq = paper$chisq, df = paper$df, p = paper$p, v = paper$v,
+             consistent = ok$consistent, none_inconsistent = !any(ok$numbers$status == "inconsistent"),
+             variant_right = expect_variant, wrong_df_flagged = !bad$consistent)
+}))
+cat("\n== Case 4: chi-squared from stats::chisq.test() ==\n")
+print(rows4, row.names = FALSE)
+checks4 <- c(all(rows4$consistent), all(rows4$none_inconsistent),
+             all(rows4$variant_right, na.rm = TRUE), all(rows4$wrong_df_flagged))
+cat(if (all(checks4)) "\nPASS" else "\nFAIL",
+    ": correct chi-squared reports consistent, test variant identified, wrong df flagged (",
+    sum(checks4), "/4)\n", sep = "")

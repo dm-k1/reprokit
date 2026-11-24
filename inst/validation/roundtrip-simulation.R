@@ -4,6 +4,8 @@
 #   scaled difference |original - reproduced| / max(1, |original|) < 1e-8
 #   (= absolute for numbers up to 1, relative for larger ones such as a big F).
 # The worst absolute difference is shown for information only.
+# Chi-squared (ADR 0016): independence tables 2 x 2 to 4 x 5 (Yates or Pearson in a 2 x 2) and
+# goodness of fit with k = 2..8 (uniform or given p0), both with empty cells.
 # Run: Rscript inst/validation/roundtrip-simulation.R   (after devtools::load_all())
 
 n_designs <- 200L
@@ -105,7 +107,36 @@ oneway_design <- function(balanced) {
   list(x = y ~ g, args = list(data = d, test = "oneway"))
 }
 
-designs <- list(t_independent = t_design, t_one_sample = t_one_sample_design,
+# One random chi-squared independence design: 2 x 2 to 4 x 5, Yates or Pearson in a 2 x 2,
+# some cells empty (small N). `threshold = 1` lets sparse tables through the disclosure check.
+chisq_independence_design <- function() {
+  r <- sample(2:4, 1L)
+  cc <- sample(2:5, 1L)
+  p <- rexp(r * cc)
+  if (runif(1L) < 0.4) p[sample(r * cc, 1L)] <- 0
+  total <- sample(c(15, 40, 150, 1000), 1L)
+  idx <- sample(r * cc, total, replace = TRUE, prob = p / sum(p))
+  d <- data.frame(a = factor(((idx - 1L) %% r) + 1L), b = factor(((idx - 1L) %/% r) + 1L))
+  if (nlevels(d$a) < 2L || nlevels(d$b) < 2L) return(chisq_independence_design())
+  list(x = ~ a + b, args = list(data = d, test = "chisq", correct = runif(1L) < 0.5,
+                                threshold = 1))
+}
+
+# One random goodness-of-fit design: k = 2..8 categories, uniform or given p0, empty cells.
+chisq_gof_design <- function() {
+  k <- sample(2:8, 1L)
+  q <- rexp(k) + 0.05
+  prob <- rexp(k)
+  if (runif(1L) < 0.3) prob[sample(k, 1L)] <- 0
+  d <- data.frame(a = factor(sample(seq_len(k), sample(c(15, 60, 400), 1L), replace = TRUE,
+                                    prob = prob), levels = seq_len(k)))
+  if (sum(table(d$a) > 0) < 2L) return(chisq_gof_design())
+  list(x = ~ a, args = c(list(data = d, test = "gof", threshold = 1),
+                         if (runif(1L) < 0.5) list(p0 = q / sum(q))))
+}
+
+designs <- list(chisq_independence = chisq_independence_design, chisq_gof = chisq_gof_design,
+                t_independent = t_design, t_one_sample = t_one_sample_design,
                 t_paired = t_paired_design, cor_pearson = cor_pearson_design, lm = lm_design,
                 anova_oneway_balanced = function() oneway_design(TRUE),
                 anova_oneway_unbalanced = function() oneway_design(FALSE))

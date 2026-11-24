@@ -54,6 +54,20 @@
 #               df between Student's and Welch's: the oracle does the same.
 #               "joint-only" = no path alone, but every variant fails on one of its paths
 #               (needs the variants tied across relations): reported, not counted as a miss.
+# Chi-squared (ADR 0016), a second section at the end with its own PASS line: papers from
+# chisq_independence_paper() and chisq_gof_paper() (check-designs.R), one planted error each,
+# the type rotating: count_change (one count +-1..3, the other numbers as printed for the
+# original table), chisq_digit (last digits of chi-squared off by 1-9 or 10-60 units of .01),
+# p_digit, df_wrong (rc - 1 for independence, k for goodness of fit) and, 2 x 2 only,
+# yates_pearson (a Yates chi-squared with the p of the Pearson chi-squared). Subsets: n/chisq/
+# df/p, chisq/df/p (the shape is known from `dims`) and n/chisq/p (df derived from the shape).
+# Oracle (base R, independent of the package): the planted paper is consistent iff one test
+# variant (Pearson or Yates in a 2 x 2) puts the table's chi-squared inside the printed
+# chi-squared interval (+-.005), the table's p inside the printed p interval (+-.0005, "< .001"
+# is (0, .001); independence only, goodness of fit goes from the table to chi-squared and from
+# chi-squared to p), the printed df equal to the shape's, and the p implied by the chi-squared
+# interval and that df overlaps the printed p interval. Criteria: no error; oracle-detectable
+# and not flagged = 0; oracle-undetectable and flagged = 0; every type x subset flags something.
 # PASS criterion (all of):
 #   1. errors == 0 (check_reported() never throws on a paper with a planted error);
 #   2. every cell the oracle covers: oracle-detectable and not flagged = 0, and
@@ -393,3 +407,134 @@ cat(if (ok) "PASS" else "FAIL", ": errors = ", errors, ", oracle-detectable not 
     ", flagged on a subset but not on all = ", hidden_by_more, ", cells never flagged = ",
     dead_cells, " (lowest large-error rate, informational = ", round(by_group_min, 1), "%)\n",
     sep = "")
+
+# Chi-squared planted errors -------------------------------------------------------------------
+set.seed(20261124)
+chisq_types <- list(chisq_independence = c("count_change", "chisq_digit", "p_digit", "df_wrong",
+                                           "yates_pearson"),
+                    chisq_gof = c("count_change", "chisq_digit", "p_digit", "df_wrong"))
+chisq_interval <- function(text, dec) {
+  if (grepl("<", text, fixed = TRUE)) return(c(0, 0.001))
+  x <- as.numeric(text)
+  c(max(x - 0.5 * 10^-dec, 0), x + 0.5 * 10^-dec)
+}
+chisq_stat_of <- function(n, dims, yates) {
+  if (length(dims) == 1L) {
+    return(sum((n - sum(n) / dims)^2 / (sum(n) / dims)))
+  }
+  suppressWarnings(unname(chisq.test(matrix(n, dims[1L]), correct = yates)$statistic))
+}
+chisq_oracle <- function(paper, keys) {
+  dims <- attr(paper, "dims")
+  p0 <- attr(paper, "p0")
+  n <- as.numeric(paper$n)
+  true_df <- if (length(dims) == 1L) dims - 1 else prod(dims - 1)
+  variants <- if (length(dims) == 2L && all(dims == 2L)) c(FALSE, TRUE) else FALSE
+  has <- function(k) k %in% keys
+  ci <- if (has("chisq")) chisq_interval(paper$chisq, 2L)
+  pi <- if (has("p")) chisq_interval(paper$p, 3L)
+  df <- if (has("df")) as.numeric(paper$df) else true_df
+  fits <- vapply(variants, function(y) {
+    stat <- function() {
+      if (length(dims) == 1L) {
+        e <- sum(n) * (if (is.null(p0)) rep(1 / dims, dims) else p0)
+        sum((n - e)^2 / e)
+      } else chisq_stat_of(n, dims, y)
+    }
+    tab <- if (has("n")) stat()
+    ok <- TRUE
+    if (has("n") && has("chisq")) ok <- ok && tab >= ci[1L] - 1e-12 && tab <= ci[2L] + 1e-12
+    # Goodness of fit has no table-to-p path (only chi-squared to p), as in the handler.
+    if (has("n") && has("p") && length(dims) == 2L) {
+      ptab <- pchisq(tab, true_df, lower.tail = FALSE)
+      ok <- ok && ptab >= pi[1L] - 1e-12 && ptab <= pi[2L] + 1e-12
+    }
+    if (has("df")) ok <- ok && df == true_df
+    if (has("chisq") && has("p")) {
+      pr <- pchisq(rev(ci), df, lower.tail = FALSE)
+      ok <- ok && pr[1L] <= pi[2L] + 1e-12 && pr[2L] >= pi[1L] - 1e-12
+    }
+    ok
+  }, logical(1))
+  !any(fits)
+}
+chisq_plant <- function(paper, handler, type) {
+  dims <- attr(paper, "dims")
+  p <- paper
+  size <- "small"
+  if (type == "count_change") {
+    i <- sample(length(p$n), 1L)
+    delta <- sample(1:3, 1L) * (if (as.numeric(p$n[i]) > 3 && runif(1L) < 0.5) -1 else 1)
+    p$n[i] <- as.character(as.numeric(p$n[i]) + delta)
+    p$n_total <- NULL
+  } else if (type == "chisq_digit") {
+    size <- if (runif(1L) < 0.5) "small" else "large"
+    units <- if (size == "small") sample(1:9, 1L) else sample(10:60, 1L)
+    new <- as.numeric(p$chisq) + sample(c(-1, 1), 1L) * units * 0.01
+    if (new <= 0) return(NULL)
+    p$chisq <- fmt(new, 2L)
+  } else if (type == "p_digit") {
+    if (grepl("<", p$p, fixed = TRUE)) return(NULL)
+    pos <- sample(3:5, 1L)
+    chars <- strsplit(p$p, "")[[1L]]
+    chars[pos] <- sample(setdiff(as.character(0:9), chars[pos]), 1L)
+    p$p <- paste(chars, collapse = "")
+    size <- if (pos == 5L) "small" else "large"
+  } else if (type == "df_wrong") {
+    p$df <- as.character(if (length(dims) == 1L) dims else prod(dims) - 1L)
+    size <- "large"
+  } else if (type == "yates_pearson") {
+    if (length(dims) != 2L || !all(dims == 2L) || !isTRUE(attr(paper, "truth")$yates)) return(NULL)
+    pearson <- chisq_stat_of(as.numeric(p$n), dims, FALSE)
+    p$p <- fmt_p(pchisq(pearson, 1, lower.tail = FALSE))
+  }
+  if (identical(p[names(p)], paper[names(paper)])) return(NULL)
+  attributes(p) <- c(attributes(p)[c("names")], attributes(paper)[c("handler", "dims", "p0", "truth")])
+  p
+}
+chisq_subsets_planted <- list(`n/chisq/df/p` = c("n", "chisq", "df", "p"),
+                              `chisq/df/p` = c("chisq", "df", "p"),
+                              `n/chisq/p` = c("n", "chisq", "p"))
+chisq_rows <- list()
+for (handler in names(chisq_types)) {
+  make <- if (handler == "chisq_gof") chisq_gof_paper else chisq_independence_paper
+  for (i in seq_len(500L)) {
+    type <- chisq_types[[handler]][(i - 1L) %% length(chisq_types[[handler]]) + 1L]
+    for (attempt in 1:200) {
+      paper <- make()
+      planted <- if (is.null(paper)) NULL else chisq_plant(paper, handler, type)
+      if (!is.null(planted)) break
+    }
+    if (is.null(planted)) next
+    for (sub in names(chisq_subsets_planted)) {
+      keys <- chisq_subsets_planted[[sub]]
+      if (!all(keys %in% names(planted))) next
+      # The planted number must be in the subset (a changed count needs n, a df needs df).
+      if ((type == "count_change" && !"n" %in% keys) ||
+            (type == "df_wrong" && !"df" %in% keys)) next
+      res <- run_chisq_check(planted, keys)
+      outcome <- if (inherits(res, "error")) "error" else if (!res$consistent) "flagged" else "missed"
+      chisq_rows[[length(chisq_rows) + 1L]] <- data.frame(
+        handler = handler, type = type, subset = sub, outcome = outcome,
+        oracle = if (chisq_oracle(planted, keys)) "detectable" else "undetectable")
+    }
+  }
+}
+chisq_results <- do.call(rbind, chisq_rows)
+chisq_cells <- aggregate(outcome ~ handler + type + subset, chisq_results,
+                         function(x) c(n = length(x), flagged = sum(x == "flagged")))
+chisq_cells <- cbind(chisq_cells[1:3], as.data.frame(chisq_cells$outcome))
+chisq_cells$`% flagged` <- round(100 * chisq_cells$flagged / chisq_cells$n, 1)
+cat("\n== Chi-squared planted errors: detection by handler x type x subset ==\n")
+print(chisq_cells, row.names = FALSE)
+cat("\nOracle check\n")
+print(as.data.frame(table(oracle = chisq_results$oracle, outcome = chisq_results$outcome)),
+      row.names = FALSE)
+chisq_errors <- sum(chisq_results$outcome == "error")
+chisq_missed <- sum(chisq_results$oracle == "detectable" & chisq_results$outcome != "flagged")
+chisq_false <- sum(chisq_results$oracle == "undetectable" & chisq_results$outcome == "flagged")
+chisq_dead <- sum(chisq_cells$flagged == 0)
+chisq_ok <- chisq_errors == 0 && chisq_missed == 0 && chisq_false == 0 && chisq_dead == 0
+cat(if (chisq_ok) "\nPASS" else "\nFAIL", ": chi-squared planted errors, errors = ", chisq_errors,
+    ", oracle-detectable not flagged = ", chisq_missed, ", oracle-undetectable flagged = ",
+    chisq_false, ", cells never flagged = ", chisq_dead, "\n", sep = "")

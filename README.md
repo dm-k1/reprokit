@@ -153,8 +153,8 @@ Pearson correlation, and `check_reported()` is the general function behind both.
 ## What it covers
 
 Independent-samples t (Student and Welch), paired-samples t, one-sample t and
-Pearson correlation, and a one-way between-subjects ANOVA (check direction;
-factorial ANOVA and chi-square are planned). For each test, `coverage_table()` lists the numbers APA style reports, the sufficient
+Pearson correlation, and a one-way between-subjects ANOVA (check direction),
+and chi-squared tests of independence and goodness of fit (factorial ANOVA is planned). For each test, `coverage_table()` lists the numbers APA style reports, the sufficient
 set, what is missing from the APA set, what can be checked and what cannot (with
 the reason), and the choices you have to declare. The table is generated from
 what the package does, so it is the reference:
@@ -174,6 +174,15 @@ check_F(n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
 #> Level 3: the sufficient set is reported (...)
 #> Effect-size conventions that fit: eta squared
 #> # ... (table elided)
+```
+
+A chi-squared test is checked with `check_chisq()`: pass the table as a matrix
+(a vector for goodness of fit) and the reported numbers. Yates' correction is a
+variant, Cramer's V a convention.
+
+```r
+check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
+            p = ".0001", v = ".41")
 ```
 
 ## Documentation

@@ -272,3 +272,70 @@ one_pass <- f_escaped == 0L && max(ssb_gap) < 1e-6 && corner_min > 0 && exact_mi
 cat(if (one_pass) "\nPASS" else "\nFAIL", ": one-way F, escaped samples = ", f_escaped,
     ", SSb min agrees with optimize() = ", max(ssb_gap) < 1e-6,
     ", corner-only min > 0 and exact min = 0: ", corner_min > 0 && exact_min == 0, "\n", sep = "")
+
+# Cramer's V and Cohen's w (ADR 0016), a third section with its own PASS line ------------
+# (a) v_from_table: counts are exact, so the range of V over the box is a point and equals V from
+# stats::chisq.test() (200 random tables, 2 x 2 to 4 x 5; and w for 200 goodness-of-fit
+# vectors). (b) v_from_chisq (chi-squared rounded to 2 dp, N exact or a range): 300 random boxes
+# per handler against 5000 uniform draws each; none may escape the range, and V stays in [0, 1]
+# for independence after clamping to the domain (it may exceed 1 for w).
+set.seed(20261123)
+indep_rels <- relations_at(get_handler("chisq_independence"), list(dims = c(3L, 4L)))
+rel_v_table <- Filter(function(r) r$name == "v_from_table", indep_rels)[[1L]]
+rel_v_chisq <- Filter(function(r) r$name == "v_from_chisq", indep_rels)[[1L]]
+gof_rels <- relations_at(get_handler("chisq_gof"), list(dims = 5L))
+rel_w_chisq <- Filter(function(r) r$name == "w_from_chisq", gof_rels)[[1L]]
+point <- function(x) list(lower = x, upper = x)
+
+table_gap <- vapply(seq_len(200L), function(i) {
+  r <- sample(2:4, 1L)
+  c_ <- sample(2:5, 1L)
+  tab <- matrix(rpois(r * c_, 15) + 1L, r, c_)
+  rels <- relations_at(get_handler("chisq_independence"), list(dims = c(r, c_)))
+  rel <- Filter(function(x) x$name == "v_from_table", rels)[[1L]]
+  box <- list(n = point(as.vector(tab)))
+  rng <- relation_range(rel, box, NULL)
+  truth <- sqrt(unname(chisq.test(tab, correct = FALSE)$statistic) / (sum(tab) * (min(r, c_) - 1)))
+  max(abs(rng - truth)) / max(1, truth)
+}, numeric(1))
+w_gap <- vapply(seq_len(200L), function(i) {
+  k <- sample(2:8, 1L)
+  n <- rpois(k, 12) + 1L
+  rel <- Filter(function(x) x$name == "w_from_counts",
+                relations_at(get_handler("chisq_gof"), list(dims = k)))[[1L]]
+  rng <- relation_range(rel, list(n = point(n)), NULL)
+  truth <- sqrt(unname(chisq.test(n)$statistic) / sum(n))
+  max(abs(rng - truth)) / max(1, truth)
+}, numeric(1))
+
+v_box <- function() {
+  chisq <- round(10^runif(1L, -1, 2.5), 2)
+  total <- sample(c(20, 60, 200, 1000), 1L)
+  list(chisq = list(lower = max(chisq - 0.005, 0), upper = chisq + 0.005),
+       n_total = if (runif(1L) < 0.5) point(total) else list(lower = total, upper = total + 5))
+}
+v_escaped <- 0L
+v_boxes <- 0L
+for (rel in list(rel_v_chisq, rel_w_chisq)) {
+  for (b in seq_len(300L)) {
+    box <- v_box()
+    range <- relation_range(rel, box, NULL)
+    if (!all(is.finite(range))) next
+    v_boxes <- v_boxes + 1L
+    vals <- vapply(seq_len(5000L), function(i) {
+      pt <- lapply(box, function(x) x$lower + runif(1L) * (x$upper - x$lower))
+      rel$fn(pt, NULL)
+    }, numeric(1))
+    slack <- 1e-9 * max(1, abs(range))
+    v_escaped <- v_escaped + sum(vals < range[["lower"]] - slack | vals > range[["upper"]] + slack)
+  }
+}
+cat("\n== Cramer's V and Cohen's w ==\n")
+print(data.frame(check = c("max |range - chisq.test() V|, 200 tables",
+                           "max |range - chisq.test() w|, 200 vectors",
+                           "random chi-squared boxes", "samples outside the range"),
+                 value = signif(c(max(table_gap), max(w_gap), v_boxes, v_escaped), 4L)),
+      row.names = FALSE)
+v_pass <- max(table_gap) < 1e-9 && max(w_gap) < 1e-9 && v_escaped == 0L && v_boxes > 0L
+cat(if (v_pass) "\nPASS" else "\nFAIL", ": V and w ranges, point from counts equals chisq.test() = ",
+    max(c(table_gap, w_gap)) < 1e-9, ", escaped samples = ", v_escaped, "\n", sep = "")

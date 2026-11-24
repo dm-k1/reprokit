@@ -19,9 +19,13 @@
 # and r/df/p/CI, where n is not reported and is implied by df).
 # The draws deliberately include the cases that once broke it: |r| >= .995 with r
 # rounding to 1.000, small n (3 to 6) and SD reported to zero decimals.
+# Chi-squared (ADR 0016): chisq.test() output for independence tables (2 x 2 to 4 x 5, Pearson
+# or Yates in a 2 x 2, empty cells, V or signed phi) and goodness of fit (k = 2..8, uniform or
+# given p0, w reported); one more group is forced to Cohen's w > 1 (k = 4, 97% of the counts in
+# one category, uniform p0), which must not be flagged: w is not bounded by 1 (ADR 0021).
 # PASS criterion: false positives == 0 AND errors == 0. A false positive is a
 # release blocker.
-# Size: 300 designs per handler (anova_oneway,
+# Size: 300 designs per handler (anova_oneway, chisq_independence, chisq_gof, chisq_gof w > 1,
 # t_paired, t_paired with d, cor_pearson, t_independent Student
 # and Welch, t_one_sample), about 4 to 6 subsets each (the paired "no r" subset takes about
 # 3 s, so it is run on every 15th design only).
@@ -138,13 +142,43 @@ oneway_subsets <- function(paper, i) {
 }
 oneway <- tally("anova_oneway", n_designs, function() oneway_paper(), oneway_subsets)
 
-results <- list(t_paired = paired, t_paired_d = paired_d, cor_pearson = pearson,
+chisq_tally <- function(make, n_designs) {
+  total <- list(designs = 0L, checks = 0L, fp = list(), err = list(), yates = 0L, w1 = 0L)
+  for (i in seq_len(n_designs)) {
+    paper <- make()
+    if (is.null(paper)) next
+    total$designs <- total$designs + 1L
+    total$yates <- total$yates + isTRUE(attr(paper, "truth")$yates)
+    total$w1 <- total$w1 + isTRUE(attr(paper, "truth")$w > 1)
+    for (keys in chisq_subsets(paper)) {
+      res <- run_chisq_check(paper, keys)
+      total$checks <- total$checks + 1L
+      if (inherits(res, "error")) {
+        total$err[[length(total$err) + 1L]] <- list(msg = conditionMessage(res))
+      } else if (!res$consistent) {
+        total$fp[[length(total$fp) + 1L]] <- list(keys = keys, paper = paper[keys])
+      }
+    }
+  }
+  total
+}
+chisq_indep <- chisq_tally(chisq_independence_paper, n_designs)
+chisq_indep22 <- chisq_tally(function() chisq_independence_paper(force_2x2 = TRUE), n_designs)
+chisq_gof_all <- chisq_tally(chisq_gof_paper, n_designs)
+chisq_gof_w1 <- chisq_tally(function() chisq_gof_paper(high_w = TRUE, k = 4L), n_designs)
+
+results <- list(chisq_independence = chisq_indep, chisq_independence_2x2 = chisq_indep22,
+                chisq_gof = chisq_gof_all, chisq_gof_w_gt_1 = chisq_gof_w1, t_paired = paired, t_paired_d = paired_d, cor_pearson = pearson,
                 t_independent_student = student, t_independent_welch = welch,
                 t_one_sample = one_sample, anova_oneway = oneway)
 table_out <- do.call(rbind, lapply(names(results), function(h) {
   r <- results[[h]]
   data.frame(handler = h, designs = r$designs, checks = r$checks,
-             `|r|>=.995` = r$r_one, `n<=6` = r$small_n, `sd 0 dec` = r$zero_dec,
+             `|r|>=.995` = if (is.null(r$r_one)) 0L else r$r_one,
+             `n<=6` = if (is.null(r$small_n)) 0L else r$small_n,
+             `sd 0 dec` = if (is.null(r$zero_dec)) 0L else r$zero_dec,
+             yates = if (is.null(r$yates)) 0L else r$yates,
+             `w>1` = if (is.null(r$w1)) 0L else r$w1,
              false_positives = length(r$fp), errors = length(r$err),
              check.names = FALSE)
 }))
@@ -157,5 +191,8 @@ for (h in names(results)) {
   for (f in utils::head(results[[h]]$err, 3L)) cat("\nERROR", h, ":", f$msg, "\n")
 }
 pass <- sum(table_out$false_positives) == 0L && sum(table_out$errors) == 0L
+w1_count <- chisq_gof_w1$w1
+pass <- pass && w1_count > 0L
+cat("goodness-of-fit designs with w > 1 checked and not flagged:", w1_count, "\n")
 cat(if (pass) "\nPASS" else "\nFAIL", ": false positives = ", sum(table_out$false_positives),
     ", errors = ", sum(table_out$errors), "\n", sep = "")
