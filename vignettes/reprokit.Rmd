@@ -1,0 +1,299 @@
+---
+title: "Getting started with reprokit"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with reprokit}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+reprokit has two halves. The first is for authors who cannot share their raw
+data. The second is for readers who want to know whether the numbers in a paper
+are consistent with each other. Both rest on the same fact: for many common
+tests, a small set of summary statistics determines the result exactly.
+
+Sharing raw data remains the standard; reprokit never replaces it.
+
+This vignette walks through one example for each half. The terms it uses
+(sufficient set, coverage level and so on) are defined where they first appear
+and collected in `vignette("concepts")`.
+
+```{r}
+library(reprokit)
+```
+
+## For authors: you cannot share the raw data
+
+The built-in `sleep` data (extra hours of sleep under two drugs, 10 people per
+drug) stand in for data you cannot share.
+
+### Step 1. Triage: do summaries suffice?
+
+```{r}
+triage(extra ~ group, data = sleep, test = "welch")
+```
+
+`triage()` always returns a verdict; it never stops with an error. There are
+three verdicts:
+
+* `summaries_suffice`: the summary statistics determine the reported results
+  exactly, and are not so close to the raw data that sharing them gains nothing.
+* `synthetic_possible`: summaries do not suffice, but synthetic data could.
+* `needs_raw_data`: neither works. The raw data are needed.
+
+`needs_raw_data` is also the verdict when the groups are so small that the
+summaries are almost the data. By default, no group may rest on fewer than 5
+cases and the total must be at least 10 (change this with `threshold`).
+
+```{r}
+verdicts()
+```
+
+### Step 2. Store the sufficient statistics
+
+A **sufficient set** is the smallest set of numbers from which the whole result
+can be recomputed. For an independent-samples t-test it is n, mean and SD per
+group. `sufficient_stats()` stores them at full precision, together with the
+reason you do not share the data. You must give the reason; there is no default.
+
+```{r, error = TRUE}
+sufficient_stats(extra ~ group, data = sleep, test = "welch")
+```
+
+```{r}
+s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
+                      sharing_reason = "Consent did not cover public sharing.")
+s
+```
+
+The "What readers lose" list is not optional either. It states what a reader
+could have done with the raw data and cannot do with these statistics.
+
+If the request is impossible (for example the groups are too small),
+`sufficient_stats()` stops with an error of class `reprokit_impossible` and
+lists the alternatives: share the raw data, share synthetic data, or offer
+federated analysis. The message says in plain words why the request was
+refused:
+
+```{r}
+tiny <- sleep[c(1:3, 11:13), ]
+refused <- tryCatch(
+  sufficient_stats(extra ~ group, data = tiny, test = "welch",
+                   sharing_reason = "Consent did not cover public sharing."),
+  reprokit_impossible = function(e) e
+)
+class(refused)
+conditionMessage(refused)
+```
+
+### Step 3. Reproduce the result from the statistics alone
+
+`reproduce()` recomputes the test using only the stored statistics. If it
+matches your original analysis, readers who have the statistics can get the same
+result.
+
+```{r}
+reproduce(s)
+t.test(extra ~ group, data = sleep)
+```
+
+The values agree to within a scaled difference of 1e-8, which means roughly 8
+significant digits agree. The script `inst/validation/roundtrip-simulation.R`
+checks this over many random designs for every supported test (see
+`vignette("validation")`).
+
+### Step 4. Write the appendix
+
+`appendix()` produces Markdown to paste into your paper's supplement. It has
+labelled blocks:
+
+* **A. The numbers APA style asks for.** The **APA set**: what a paper
+  conventionally reports for this test.
+* **B. Numbers APA does not require that the result needs.** The **missing**
+  numbers: the sufficient set minus the APA set. For the independent t-test
+  there are none; for the paired t-test it is the correlation between the two
+  conditions.
+* **C. Analysis choices.** The things the numbers alone do not tell a reader:
+  one- or two-sided, confidence level, Student or Welch, and which effect-size
+  convention you used.
+* **D. APA numbers a reader cannot check** from these statistics.
+* **Raw data.** Why they are not shared, what readers lose, and a disclosure
+  check.
+
+The convention for the effect size is yours to declare. A **d convention** is the
+formula behind an effect size such as Cohen's d: for example `"pooled"` divides
+the mean difference by the pooled SD, `"d_av"` by the average of the two SDs,
+and `"d_z"` (paired design) by the SD of the differences. The allowed values
+depend on the test. If you give a wrong one, the error lists the allowed values.
+
+```{r, error = TRUE}
+appendix(s, choices = list(convention = "d_av"))
+```
+
+```{r}
+appendix(s, choices = list(convention = "pooled"))
+```
+
+The disclosure check at the end lowers the risk that a small group identifies a
+participant. It does not remove it.
+
+### A test with a missing number: the paired t-test
+
+For a paired design the per-condition means and SDs are not enough: the SD of the
+differences depends on the correlation between the two conditions. That
+correlation is part of the sufficient set (block B of the appendix).
+
+```{r}
+wide <- data.frame(drug1 = sleep$extra[sleep$group == 1],
+                   drug2 = sleep$extra[sleep$group == 2])
+sp <- sufficient_stats(Pair(drug1, drug2) ~ 1, data = wide, test = "paired",
+                       sharing_reason = "Consent did not cover public sharing.")
+sp
+```
+
+```{r}
+appendix(sp, choices = list(convention = "d_z"))
+```
+
+To see which tests are supported, what each needs, and what each leaves
+uncheckable, use the table generated from the package's **registry**, the
+internal list that records, for each supported test, how to store, reproduce
+and check it:
+
+```{r}
+knitr::kable(coverage_table()[, c("test", "sufficient", "missing")])
+```
+
+## For readers: do the reported numbers agree?
+
+Suppose a paper reports an independent-samples t-test: two groups of 10, means
+0.75 and 2.33, SDs 1.79 and 2.00, Welch's *t*(17.8) = -1.86, *p* = .079.
+
+Pass the numbers as **strings**, so the decimals count. A reported "2.85" means
+anything from 2.845 to 2.855, and reprokit checks against that whole
+**rounding interval**, not against the single number 2.85.
+
+```{r}
+check_t(handler = "t_independent",
+        n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
+        t = "-1.86", df = "17.8", p = ".079")
+```
+
+A **handler** is the part of reprokit that knows one test (for example
+`"t_independent"`), and a **relation** is one formula that links reported
+numbers, such as p from t and df. How to read the output:
+
+* The first line is the answer: the numbers are consistent or inconsistent with
+  each other.
+* The **level** (0 to 3) says how much could be checked; `vignette("concepts")`
+  defines each level.
+* "Variants that fit" lists the analysis choices that explain the numbers
+  (tails, confidence level, which test, effect-size convention). A paper rarely
+  declares all of them, so reprokit tries each and keeps those that work. All
+  numbers in one result must share one choice.
+* In the table, each reported number gets a status:
+  * `verified`: it is an output (such as t or df) that was recomputed from more
+    basic numbers (n, means, SDs) and matches.
+  * `coherent`: it fits the others, but only as an input to a check, or through
+    numbers derived from other numbers. For example r, df and p give t, which
+    is compared with p, so r is coherent even though t was not reported.
+  * `inconsistent`: it is involved in a relation that fails under every variant,
+    or in a set of relations that no single choice of test, level and tails
+    satisfies at once.
+  * `unconfirmed`: it belongs to a relation that could not be evaluated because
+    another input is missing; `checked_against` names what is needed.
+  * `not reproducible`: an effect size that no convention reproduces. This is
+    a remark, not a conflict, because the convention is rarely stated.
+  * `not checkable`: no relation of this test reaches the number.
+
+### An inconsistent set
+
+```{r}
+check_t(n = "20", t = "2.85", df = "19", p = ".050")
+```
+
+`check_t()` assumes a paired design unless you give `handler`
+(`"t_independent"` or `"t_one_sample"`). With t(19) = 2.85, the two-sided p is
+about .010, not .050, so no way of rounding makes these numbers agree.
+
+This does not say which number is wrong, or that the paper is. It could be a typo, a one-sided test reported as two-sided, a different df, or a
+different analysis. The check cannot tell which; only the authors or the raw
+data can. If the numbers merely cannot be tested, you get a lower level or a
+status such as `unconfirmed`, never an accusation.
+
+### Missing numbers and implied ranges
+
+If a number is left out, but the others constrain it, reprokit gives the range it
+must have been in.
+
+```{r}
+check_t(n = "10", m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
+        t = "-4.06", df = "9", p = ".003")
+```
+
+Here the paired t-test needs the correlation r between conditions. It was not
+reported, but t and the descriptives imply that it lies between 0.7912 and
+0.7982. The message "Reporting these would raise the level" says what to ask the
+authors for.
+
+### Derived quantities, and correlations
+
+When n is not reported but df is, n is derived from df (for correlations and for
+paired and one-sample t-tests) and shown as such.
+
+```{r}
+check_r(r = ".41", df = "28", p = ".024")
+```
+
+For a one-sample test, give the test value with `mu` if it is not 0. `mu` is a
+plain number, not a string:
+
+```{r}
+check_t(handler = "t_one_sample", n = "32", m = "20.09", sd = "6.03",
+        t = "0.08", df = "31", p = ".94", mu = 20)
+```
+
+### Restricting the variants
+
+If you know the analysis was one-sided, or Welch, say so with `variants`, and the
+check only considers those. Here the one-sample numbers above fit a two-sided
+test only, so restricting to a one-sided test makes them inconsistent:
+
+```{r}
+check_t(handler = "t_one_sample", n = "32", m = "20.09", sd = "6.03",
+        t = "0.08", df = "31", p = ".94", mu = 20, variants = "greater")
+```
+
+The values `variants` accepts are codes such as `"welch"`, `"two.sided"`,
+`"greater"` or `"0.99"`; the output shows readable labels instead ("Welch's t",
+"one-sided (greater)", "99%"). A value the handler does not have is an error that
+lists the ones it has. See `?check_reported`.
+
+### A one-way ANOVA
+
+`check_F()` takes per-group n, mean and SD and the reported F (lowercase `f`),
+both degrees of freedom, eta squared and p. These are the PlantGrowth data:
+
+```{r}
+check_F(n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
+        sd = c("0.58", "0.79", "0.44"),
+        f = "4.85", df1 = "2", df2 = "27", eta2 = "0.26", p = ".016")
+```
+
+`check_t()`, `check_r()` and `check_F()` are shortcuts for `check_reported()`
+with a default handler. `quantity_names()` lists the names you can pass.
+
+## Limits
+
+* The check tests agreement between reported numbers, not whether the analysis
+  was appropriate or the data plausible. Agreeing numbers can still be wrong.
+* Only the tests in `coverage_table()` are covered, including a one-way
+  between-subjects ANOVA. Factorial ANOVA and chi-square are planned.
+* The check is conservative: ambiguity resolves towards silence, because
+  flagging a correct paper would be a false accusation.
+* The share half records a reason and a list of losses; it cannot judge whether
+  the reason is good enough.

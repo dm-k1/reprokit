@@ -1,0 +1,8 @@
+bibentry(
+  "Manual",
+  title = "reprokit: Reproduce and Check Results When Raw Data Cannot Be Shared",
+  author = person("D.M.", "Kloppenburg"),
+  year = "2026",
+  note = "R package version 0.0.0.9000",
+  url = "https://github.com/dm-k1/reprokit"
+)

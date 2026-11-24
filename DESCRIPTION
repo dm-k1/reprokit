@@ -7,8 +7,8 @@ Authors@R:
 Description: Helps authors who cannot share raw data report the sufficient
     statistics that let readers reproduce their results exactly, or decide
     that synthetic data or the raw data are needed. Helps readers check
-    whether reported test statistics are consistent with each other. Every
-    output requires a stated reason for not sharing and lists what readers
+    whether reported test statistics are consistent with each other. Authors
+    must state why the data are not shared, and the output lists what readers
     lose, because sharing raw data remains the standard.
 License: MIT + file LICENSE
 URL: https://github.com/dm-k1/reprokit

@@ -1,0 +1,105 @@
+---
+title: "Concepts and terms"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Concepts and terms}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This is a short glossary of the words reprokit uses in its output. For worked
+examples see `vignette("reprokit")`.
+
+## Why raw data stay the standard
+
+Raw data let a reader do anything the author could do: check distributions and
+outliers, try another analysis, combine studies. Summary statistics allow only
+some of that. reprokit is for the cases where sharing raw data is genuinely not
+possible (for example because of consent or privacy rules). In those cases it
+asks for the reason and lists what readers lose, so that withholding data is
+never silent and never free.
+
+## Terms for authors
+
+**Sufficient set.** The smallest set of numbers from which the whole result of a
+test can be recomputed exactly. For an independent-samples t-test: n, mean and SD
+of each group. For a Pearson correlation: n and r.
+
+**APA set.** The numbers APA style conventionally asks authors to report for a
+test (for the independent t-test: n, M and SD per condition, t, df, p, d and a
+confidence interval).
+
+**Missing.** The numbers in the sufficient set that the APA set does not contain.
+If a test has any, a paper that follows APA style does not give readers enough to
+reproduce the result. For the paired t-test the missing number is the correlation
+between the two conditions. `appendix()` prints these in block B.
+
+**Verdict.** The outcome of `triage()`: `summaries_suffice`,
+`synthetic_possible` or `needs_raw_data` (see `verdicts()`). A verdict is advice
+about what is enough; it is not a judgement on the author.
+
+**Reason and losses.** Every sufficient-statistics object records why the data
+are not shared (`sharing_reason`) and what readers lose (`lost`). Neither may be
+empty.
+
+**Choices.** Decisions that the numbers do not reveal but the result depends on:
+one- or two-sided, confidence level, Student or Welch, and the effect-size
+convention (for example Cohen's d with a pooled SD or Hedges' g). The appendix
+asks you to declare them (block C); `coverage_table()` lists them per test.
+
+**Disclosure check.** A check that no group has fewer than 5 cases and that the
+total is at least 10 (twice the threshold). It lowers the risk that the summaries
+identify someone. It does not remove it.
+
+## Terms for readers
+
+**Rounding interval.** A reported number stands for the range of values that
+round to it: "2.85" means 2.845 to 2.855. reprokit takes reported numbers as
+strings and checks against the whole interval. A reported "< .001" is the range
+0 to .001. An interval is cut to the values the quantity can take (r lies between
+-1 and 1, p between 0 and 1).
+
+**Relation.** A formula that links reported numbers, such as p from t and df. The
+check evaluates each relation whose inputs are reported and asks whether the
+reported output falls in the range the inputs allow.
+
+**Consistent / inconsistent.** The numbers can, or cannot, all be correct as
+reported, after allowing for rounding and for the analysis choices.
+Inconsistent does not say which number is wrong, nor why. It does not say that
+the authors made a mistake.
+
+**Checkable / not checkable.** A number is checkable if some relation connects it
+to other numbers. `coverage_table()` lists, per test, what is checkable and what
+is not, with the reason.
+
+**Coverage level.** How much of the sufficient set the reported numbers cover, 0
+to 3. Level 0: nothing could be checked. Level 1: internal coherence only (test
+statistic, df, p and CI against each other). Level 2: the test statistic was
+recomputed from the descriptives. Level 3: the whole sufficient set is reported.
+Level 3 is not itself a check; the checks are the comparisons in the table.
+
+**Status of a number.** `verified`, `coherent`, `inconsistent`, `unconfirmed`,
+`not reproducible` or `not checkable`. See `vignette("reprokit")` for what
+each means.
+
+**Implied range.** If a number needed by a relation is not reported, but the
+others constrain it, the range it must have been in. It is a derived value, not a
+claim that it was the true value.
+
+**Variant.** One way of making the analysis choices (for instance Welch's t,
+two-sided, 95%). The check tries all variants and keeps those that fit, with one
+shared choice per result. The values you pass to `variants=` are codes (such as
+`"welch"`, `"two.sided"`, `"0.99"`); the output prints readable labels for them
+(see `?check_reported`).
+
+## What a check can and cannot tell you
+
+A check can show that a set of reported numbers cannot all be right. It cannot
+show that they are right, that the analysis was appropriate, or which number is
+at fault. Where the answer is ambiguous, reprokit stays silent rather than
+flagging, because failing to check a correct paper is a limitation while flagging
+one is a false accusation.

@@ -11,9 +11,10 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-This vignette documents, per handler, the evidence that the package does what
-the coverage table claims (plan section 6). It is filled in as handlers are
-added.
+This vignette says what evidence backs the claims the package makes, and where
+to find the scripts that produce it. A number quoted about the package is
+backed by a script in the package's `inst/validation/` directory, which you can
+run yourself.
 
 ## Coverage table (generated from the registry)
 
@@ -22,15 +23,42 @@ library(reprokit)
 knitr::kable(coverage_table())
 ```
 
-## Evidence per handler
+## Evidence
 
-For each handler:
+For each test:
 
-1. **Round-trip**: `reproduce(sufficient_stats(model))` matches the original with a scaled
-   difference `|original - reproduced| / max(1, |original|)` below `1e-8`.
-2. **Reference implementation**: agreement with `lavaan`, `metafor` or
-   `statcheck` where one exists.
+1. **Round-trip** (`roundtrip-simulation.R`): `reproduce(sufficient_stats(model))`
+   matches the original with a scaled difference
+   `|original - reproduced| / max(1, |original|)` below `1e-8`, which means
+   roughly 8 significant digits agree.
+2. **Reference implementation**: agreement with `statcheck` on the results it
+   can parse (`check-statcheck.R`).
 3. **Refusal**: requests that need the raw data stop with class
    `reprokit_impossible`.
 4. **Check rules**: each rule has a test that it fires on a known-bad input
    and stays silent on a known-good input.
+
+## Scripts
+
+The scripts are installed with the package:
+
+```{r}
+list.files(system.file("validation", package = "reprokit"))
+```
+
+To run a script, use a source checkout of the repository (GitHub:
+`dm-k1/reprokit`). The scripts call internal functions, so from the repository
+root run, for example:
+
+```r
+devtools::load_all()
+source("inst/validation/check-false-positives.R")
+```
+
+They do not run from the installed package.
+
+Each script begins with a header that states the claim and the criterion for
+passing, uses a fixed seed, and prints a table. For the check direction the
+headline figure is the false-positive rate: results that are correctly
+reported, rounded as a paper prints them, must never be flagged as
+inconsistent.
