@@ -92,3 +92,7 @@ test_that("empty cells are fine and an empty margin is not evaluable", {
   r <- check_chisq(n = matrix(c("5", "0", "7", "0"), 2), chisq = "9.99")
   expect_true(r$consistent)
 })
+
+test_that("chisq without a table does not partial-match n_total (regression)", {
+  expect_no_error(check_chisq(chisq = "15.04", v = ".41", n_total = "100", dims = c(2, 2)))
+})

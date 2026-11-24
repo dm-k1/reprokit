@@ -160,7 +160,7 @@ check_F <- function(..., handler = "anova_oneway", variants = NULL) { # nolint: 
 #'             p = ".0001", v = ".41")
 check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = NULL) {
   dots <- list(...)
-  n <- dots$n
+  n <- dots[["n"]]
   notes <- character()
   if (!is.null(n)) {
     shape <- dim(n)
@@ -177,7 +177,7 @@ check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = 
       }
       dims <- shape
     }
-    dots$n <- as.vector(unclass(n))
+    dots[["n"]] <- as.vector(unclass(n))
   }
   if (is.null(handler)) {
     handler <- if (length(dims) == 1L || (is.null(dims) && !is.null(n) && is.null(shape))) {
@@ -189,21 +189,21 @@ check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = 
   if (!handler %in% c("chisq_independence", "chisq_gof")) {
     stop("`handler` must be \"chisq_independence\" or \"chisq_gof\".", call. = FALSE)
   }
-  if (handler == "chisq_gof" && is.null(dims) && !is.null(dots$n)) dims <- length(dots$n)
+  if (handler == "chisq_gof" && is.null(dims) && !is.null(dots[["n"]])) dims <- length(dots[["n"]])
   if (handler == "chisq_independence" && !is.null(p0)) {
     stop("`p0` is for goodness of fit; a test of independence has no H0 proportions.",
          call. = FALSE)
   }
   if (!is.null(p0)) check_p0(p0, if (handler == "chisq_gof") dims else NULL)
   if (!is.null(dims)) check_table_dims(dims, if (handler == "chisq_gof") "gof" else "independence")
-  if (handler == "chisq_independence" && !is.null(dots$v) && is.character(dots$v)) {
-    stripped <- sub("^\\s*[-\u2212]\\s*", "", dots$v)
-    if (!identical(stripped, dots$v)) {
-      dots$v <- stripped
+  if (handler == "chisq_independence" && !is.null(dots[["v"]]) && is.character(dots[["v"]])) {
+    stripped <- sub("^\\s*[-\u2212]\\s*", "", dots[["v"]])
+    if (!identical(stripped, dots[["v"]])) {
+      dots[["v"]] <- stripped
       notes <- "A negative V (phi) is compared by absolute value; V is not signed."
     }
-  } else if (handler == "chisq_independence" && is.numeric(dots$v) && any(dots$v < 0)) {
-    dots$v <- abs(dots$v)
+  } else if (handler == "chisq_independence" && is.numeric(dots[["v"]]) && any(dots[["v"]] < 0)) {
+    dots[["v"]] <- abs(dots[["v"]])
     notes <- "A negative V (phi) is compared by absolute value; V is not signed."
   }
   out <- do.call(check_reported, c(list(handler = handler), dots,
