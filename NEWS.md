@@ -17,6 +17,11 @@ First development version. Not yet on CRAN; names and output may change.
   `chisq_gof` (`~ a`, `test = "gof"`, optional `p0`) store the counts and
   reproduce chi-squared, df, p, N and V (w). Low expected counts are listed as
   lost, not checked.
+* New handler `anova_factorial` (`y ~ a * b`, `test = "factorial"`) for
+  two-factor between-subjects designs: stores n, mean and SD per cell and
+  reproduces F, df, p and partial eta squared for A, B and AB. The pooled error
+  term (equal variances) is listed as lost. The sums of squares type is a
+  declared choice in unbalanced designs; `appendix()` asks for it.
 * `appendix()` writes a Markdown appendix: the numbers APA style asks for, the
   numbers it does not but the result needs, the analysis choices, the numbers a
   reader cannot check, why the data are not shared, what readers lose, and a
@@ -42,14 +47,20 @@ First development version. Not yet on CRAN; names and output may change.
   never make a report inconsistent, and a reported phi is compared by absolute
   value. An expected count of 0 is not evaluable.
 * `check_reported()` takes the test arguments `dims` and `p0` next to `mu`; a
-  handler rejects one it does not declare.
+  handler rejects one it does not declare. It also takes `effect` (`"A"`, `"B"`
+  or `"AB"`) for factorial designs.
+* `check_F()` checks a factorial effect from the cell matrices. The sums of
+  squares type (III, II, I) is a variant shared by F, p and partial eta squared;
+  a balanced design has none. Partial eta squared and partial omega squared are
+  conventions. Exact F ranges are used for one-df effects and balanced main
+  effects; other effects are checked for coherence only.
 
 ## Coverage
 
 * Independent-samples t-test (Student and Welch), paired-samples t-test,
-  one-sample t-test, Pearson correlation, one-way between-subjects ANOVA
-  (`check_F()`), and chi-squared tests of independence and goodness of fit
-  (`check_chisq()`). Factorial ANOVA and the regression family are planned.
+  one-sample t-test, Pearson correlation, one-way and two-factor
+  between-subjects ANOVA (`check_F()`), and chi-squared tests of independence and
+  goodness of fit (`check_chisq()`). The regression family is planned.
 * `coverage_table()` lists, per test, what APA style asks to report, what the
   result needs, what is missing and why, what can be checked, and which choices
   must be declared. It is generated from the registry.

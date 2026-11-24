@@ -154,7 +154,8 @@ Pearson correlation, and `check_reported()` is the general function behind both.
 
 Independent-samples t (Student and Welch), paired-samples t, one-sample t and
 Pearson correlation, and a one-way between-subjects ANOVA (check direction),
-and chi-squared tests of independence and goodness of fit (factorial ANOVA is planned). For each test, `coverage_table()` lists the numbers APA style reports, the sufficient
+chi-squared tests of independence and goodness of fit, and a two-factor
+between-subjects factorial ANOVA. For each test, `coverage_table()` lists the numbers APA style reports, the sufficient
 set, what is missing from the APA set, what can be checked and what cannot (with
 the reason), and the choices you have to declare. The table is generated from
 what the package does, so it is the reference:
@@ -173,6 +174,23 @@ check_F(n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
 #> The analysis is consistent with the reported statistics.
 #> Level 3: the sufficient set is reported (...)
 #> Effect-size conventions that fit: eta squared
+#> # ... (table elided)
+```
+
+A two-factor between-subjects ANOVA is checked with `check_F()` too, one effect
+at a time: pass the cell n, M and SD as a x b matrices (rows are the levels of A,
+columns the levels of B) and name the `effect` (`"A"`, `"B"` or `"AB"`). In an
+unbalanced design the sums of squares type (III, II or I) is a choice the report
+must settle; the output lists the types that fit. Partial eta squared and partial
+omega squared are conventions.
+
+```r
+cells <- matrix(rep("10", 4), 2)
+check_F(n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
+        sd = matrix(rep("1.50", 4), 2), effect = "A",
+        f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
+#> The analysis is consistent with the reported statistics.
+#> Level 3: the sufficient set is reported (...)
 #> # ... (table elided)
 ```
 
