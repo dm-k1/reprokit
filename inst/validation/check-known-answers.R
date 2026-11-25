@@ -73,6 +73,21 @@
 #   13. a planted wrong df2 (N - 1 instead of N - cells) is flagged.
 #   PASS: claims 10 to 13 hold.
 # Run: Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-known-answers.R")'
+#
+# Case 6 (POSITIVE FIXTURE, regression family, ADR 0020): mtcars (n = 32). The expected values
+#   are NOT taken from reprokit: they are summary(lm()) on the raw data, for simple (mpg ~ wt),
+#   multiple (mpg ~ wt + hp + factor(am)) and moderation (mpg ~ wt * hp), and for a simple
+#   mediation (X = wt, M = hp, Y = mpg) the four paths from three separate lm() fits (M ~ X,
+#   Y ~ X, Y ~ X + M). Claims:
+#   12. reproduce() of the stored sufficient statistics equals summary(lm) for every b, SE, t,
+#       p, R2, adjusted R2 and F of the three lm rows, and pf() of the reproduced F, df1, df2
+#       equals the model p (1e-8 scaled);
+#   13. the mediation paths a, b, c and c' (b, SE, t, p, df) equal the three lm() fits;
+#   14. the table of each correct report, printed to the decimals a paper uses, is consistent
+#       and has no inconsistent row;
+#   15. mediation: a*b and its CI are "not checkable" even when they are exactly right, and an
+#       absurd a*b changes nothing.
+#   PASS: claims 12 to 15 hold.
 
 n1 <- 24
 n2 <- 18
@@ -419,3 +434,97 @@ names(checks5) <- c("ToothGrowth matches published values and aov (all types)",
 print(data.frame(assertion = names(checks5), holds = unname(checks5)), row.names = FALSE)
 cat(if (all(checks5)) "\nPASS" else "\nFAIL",
     ": factorial known answers (", sum(checks5), "/", length(checks5), ")\n", sep = "")
+
+# Case 6: regression family ----------------------------------------------------------------
+mt6 <- datasets::mtcars
+mt6$am <- factor(mt6$am)
+d2 <- function(x, d = 2L) formatC(x, format = "f", digits = d)
+dp <- function(p) if (p < 0.001) "< .001" else sub("^0", "", d2(p, 3L))
+scaled <- function(a, b) max(abs(a - b) / pmax(1, abs(a)))
+reg_fits <- list(simple = lm(mpg ~ wt, mt6), multiple = lm(mpg ~ wt + hp + am, mt6),
+                 moderation = lm(mpg ~ wt * hp, mt6))
+reg_rows <- do.call(rbind, lapply(names(reg_fits), function(nm) {
+  f <- reg_fits[[nm]]
+  sm <- summary(f)
+  s <- sufficient_stats(f, sharing_reason = "known answer")
+  r <- reproduce(s)
+  cf <- sm$coefficients
+  terms <- rownames(cf)
+  coef_diff <- max(vapply(seq_along(terms), function(i) {
+    scaled(c(cf[i, 1L], cf[i, 2L], cf[i, 3L], cf[i, 4L]),
+           unname(c(r[[paste0("estimate:", terms[i])]], r[[paste0("se:", terms[i])]],
+                    r[[paste0("t:", terms[i])]], r[[paste0("p:", terms[i])]])))
+  }, numeric(1)))
+  model_diff <- scaled(c(sm$r.squared, sm$adj.r.squared, sm$fstatistic[["value"]]),
+                       unname(c(r[["r.squared"]], r[["adj.r.squared"]], r[["F"]])))
+  pm <- pf(sm$fstatistic[[1L]], sm$fstatistic[[2L]], sm$fstatistic[[3L]], lower.tail = FALSE)
+  # a correct report of the non-intercept terms, printed as a paper does
+  keep <- terms[terms != "(Intercept)"]
+  rep <- list(b = setNames(d2(cf[keep, 1L]), keep), se = setNames(d2(cf[keep, 2L]), keep),
+              t = setNames(d2(cf[keep, 3L]), keep),
+              p = setNames(vapply(cf[keep, 4L], dp, ""), keep),
+              r2 = sub("^0", "", d2(sm$r.squared)), f = d2(sm$fstatistic[["value"]]),
+              df1 = as.character(sm$fstatistic[["numdf"]]),
+              df2 = as.character(sm$fstatistic[["dendf"]]), n = as.character(nobs(f)))
+  ck <- do.call(check_lm, c(rep, list(handler = paste0("lm_", nm))))
+  data.frame(row = nm, coef_diff = signif(coef_diff, 3L), model_diff = signif(model_diff, 3L),
+             p_model_diff = signif(abs(pm - pf(r[["F"]], r[["numdf"]], r[["dendf"]], lower.tail = FALSE)), 3L),
+             report_consistent = ck$consistent,
+             no_inconsistent_row = !any(ck$numbers$status == "inconsistent"))
+}))
+cat("
+== Case 6: regression family against summary(lm) on mtcars ==
+")
+print(reg_rows, row.names = FALSE)
+
+# mediation: X = wt, M = hp, Y = mpg
+med_s <- sufficient_stats(mpg ~ wt, data = mt6, test = "mediation", mediator = "hp",
+                          sharing_reason = "known answer")
+med_r <- reproduce(med_s)
+fa <- summary(lm(hp ~ wt, mt6))$coefficients
+fc <- summary(lm(mpg ~ wt, mt6))$coefficients
+fb <- summary(lm(mpg ~ wt + hp, mt6))$coefficients
+med_expect <- list(a = c(fa["wt", ], df = 30), c = c(fc["wt", ], df = 30),
+                   b = c(fb["hp", ], df = 29), c_prime = c(fb["wt", ], df = 29))
+med_rows <- do.call(rbind, lapply(names(med_expect), function(path) {
+  e <- med_expect[[path]]
+  got <- unname(c(med_r[[paste0("estimate:", path)]], med_r[[paste0("se:", path)]],
+                  med_r[[paste0("t:", path)]], med_r[[paste0("p:", path)]],
+                  med_r[[paste0("df:", path)]]))
+  data.frame(path = path, estimate = signif(got[1L], 5L), scaled_diff = signif(scaled(e, got), 3L))
+}))
+cat("
+-- mediation paths against three lm() fits --
+")
+print(med_rows, row.names = FALSE)
+med_ck <- check_mediation(
+  b = c(a = d2(fa["wt", 1L]), b = d2(fb["hp", 1L]), c = d2(fc["wt", 1L]), c_prime = d2(fb["wt", 1L])),
+  se = c(a = d2(fa["wt", 2L]), b = d2(fb["hp", 2L]), c = d2(fc["wt", 2L]), c_prime = d2(fb["wt", 2L])),
+  t = c(a = d2(fa["wt", 3L]), b = d2(fb["hp", 3L]), c = d2(fc["wt", 3L]), c_prime = d2(fb["wt", 3L])),
+  n = "32", indirect = d2(fa["wt", 1L] * fb["hp", 1L]),
+  indirect_ci_lower = "-5.00", indirect_ci_upper = "-1.00")
+med_odd <- check_mediation(b = c(a = "1.00"), se = c(a = "0.20"), t = c(a = "5.00"),
+                           indirect = "99", indirect_ci_lower = "-7", indirect_ci_upper = "-6")
+ind_status <- function(ck) ck$numbers$status[grepl("^indirect", ck$numbers$quantity)]
+cat("
+-- mediation report with a*b and a bootstrap CI --
+")
+print(med_ck$numbers, row.names = FALSE)
+
+checks6 <- c(all(reg_rows$coef_diff < 1e-8), all(reg_rows$model_diff < 1e-8),
+             all(reg_rows$p_model_diff < 1e-8),
+             all(reg_rows$report_consistent), all(reg_rows$no_inconsistent_row),
+             all(med_rows$scaled_diff < 1e-8), med_ck$consistent,
+             all(ind_status(med_ck) == "not checkable"), all(ind_status(med_odd) == "not checkable"),
+             med_odd$consistent)
+names(checks6) <- c("b, SE, t, p equal summary(lm) (3 rows)", "R2, adjusted R2, F equal summary(lm)",
+                    "model p equals pf()", "each correct report consistent",
+                    "no inconsistent row in a correct report",
+                    "mediation paths equal the three lm() fits", "mediation report consistent",
+                    "a*b and its CI not checkable (right values)",
+                    "a*b and its CI not checkable (absurd values)", "absurd a*b does not make it inconsistent")
+cat("
+")
+print(data.frame(assertion = names(checks6), holds = unname(checks6)), row.names = FALSE)
+cat(if (all(checks6)) "\nPASS" else "\nFAIL",
+    ": regression known answers (", sum(checks6), "/", length(checks6), ")\n", sep = "")

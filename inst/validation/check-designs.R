@@ -475,3 +475,162 @@ chisq_subsets <- function(paper) {
        c("n", "v"), c("chisq", "n_total", "v"), c("n", "chisq", "df", "v"),
        sample(keys, sample(2:length(keys), 1L)))
 }
+
+# Regression family (ADR 0020). lm_raw() fits a real lm() for one of the three lm rows (simple,
+# multiple with 2..6 predictor columns and sometimes a factor, moderation X * Z with 0..2
+# covariates), unweighted or weighted; lm_paper() prints what a paper would, rounded as printed:
+# b, SE, t and the CI at 2 or 3 decimals (the CI at 90, 95 or 99%), p at 3 decimals or "< .001",
+# R2 at 2, F at 2, n, df1 and df2 exact. Per-term quantities are vectors named by coefficient,
+# which is what check_lm() takes. The paper carries attributes: handler, k (predictor columns),
+# adj (the adjusted R2 as printed), sd_all (SD of every non-intercept column, then the outcome).
+lm_raw <- function(handler = sample(c("lm_simple", "lm_multiple", "lm_moderation"), 1L),
+                   weighted = runif(1L) < 0.3, with_factor = runif(1L) < 0.4, k = NULL) {
+  n <- sample(c(20, 30, 50, 100, 300), 1L)
+  common <- rnorm(n)
+  col <- function() rnorm(n, sd = runif(1L, 0.5, 3)) + 0.5 * common * runif(1L)
+  d <- data.frame(x1 = col())
+  rhs <- "x1"
+  if (handler == "lm_multiple") {
+    nf <- 0L
+    if (with_factor) {
+      d$f <- factor(sample(letters[1:sample(2:4, 1L)], n, replace = TRUE))
+      nf <- nlevels(d$f) - 1L
+    }
+    target <- if (is.null(k)) sample(2:6, 1L) else k
+    nn <- max(target - nf, if (nf == 0L) 2L else 1L)
+    for (j in seq_len(nn)[-1L]) d[[paste0("x", j)]] <- col()
+    rhs <- paste(setdiff(names(d), "y"), collapse = " + ")
+  } else if (handler == "lm_moderation") {
+    d$x2 <- col()
+    cov <- sample(0:2, 1L)
+    for (j in seq_len(cov)) d[[paste0("z", j)]] <- col()
+    rhs <- paste(c("x1 * x2", names(d)[-(1:2)]), collapse = " + ")
+  }
+  num <- vapply(d, is.numeric, logical(1))
+  mm <- stats::model.matrix(~ ., d)[, -1L, drop = FALSE]
+  beta <- rnorm(ncol(mm)) * sample(c(0, 0.3, 1), ncol(mm), replace = TRUE, prob = c(0.2, 0.4, 0.4))
+  d$y <- drop(mm %*% beta) + rnorm(n, sd = runif(1L, 0.5, 5)) * (1 + sum(abs(beta)))
+  d$w <- if (weighted) runif(n, 0.2, 5) else NULL
+  fit <- if (is.null(d$w)) stats::lm(stats::as.formula(paste("y ~", rhs)), data = d) else
+    stats::lm(stats::as.formula(paste("y ~", rhs)), data = d, weights = w)  # nolint
+  stopifnot(identical(find_handler(fit)$name, handler))
+  list(fit = fit, handler = handler, data = d)
+}
+
+lm_paper <- function(raw, intercept = runif(1L) < 0.3) {
+  fit <- raw$fit
+  sm <- summary(fit)
+  cf <- sm$coefficients
+  terms <- rownames(cf)
+  if (!intercept) terms <- setdiff(terms, "(Intercept)")
+  dec <- sample(c(2L, 3L), 1L)
+  level <- draw_level()
+  ci <- stats::confint(fit, level = level)
+  named <- function(x, d) stats::setNames(fmt(x[terms], d), terms)
+  k <- length(stats::coef(fit)) - 1L
+  fst <- sm$fstatistic
+  mm <- stats::model.matrix(fit)[, -1L, drop = FALSE]
+  w <- stats::weights(fit)
+  wsd <- function(x) if (is.null(w)) stats::sd(x) else
+    sqrt(sum(w * (x - sum(w * x) / sum(w))^2) / (sum(w) - 1))
+  paper <- list(
+    b = named(cf[, 1L], dec), se = named(cf[, 2L], dec), t = named(cf[, 3L], 2L),
+    p = stats::setNames(vapply(cf[terms, 4L], fmt_p, ""), terms),
+    ci_lower = named(ci[, 1L], dec), ci_upper = named(ci[, 2L], dec),
+    r2 = fmt(sm$r.squared, 2L), f = fmt(unname(fst[["value"]]), 2L),
+    df1 = as.character(fst[["numdf"]]), df2 = as.character(fst[["dendf"]]),
+    p_model = fmt_p(stats::pf(fst[["value"]], fst[["numdf"]], fst[["dendf"]], lower.tail = FALSE)),
+    n = as.character(stats::nobs(fit)))
+  paper$ci_upper <- paper$ci_upper
+  attr(paper, "handler") <- raw$handler
+  attr(paper, "k") <- k
+  attr(paper, "level") <- level
+  attr(paper, "adj") <- fmt(sm$adj.r.squared, 2L)
+  attr(paper, "sd_all") <- c(stats::setNames(fmt(apply(mm, 2L, wsd)[setdiff(terms, "(Intercept)")], 2L),
+                                              setdiff(terms, "(Intercept)")),
+                             stats::setNames(fmt(wsd(stats::model.response(stats::model.frame(fit))), 2L),
+                                             "(response)"))
+  if (raw$handler == "lm_simple") {
+    # the (weighted) correlation: the slope of a weighted fit is cov_w / var_w, R2 is r_w^2
+    yv <- stats::model.response(stats::model.frame(fit))
+    ww <- if (is.null(w)) rep(1, length(yv)) else w
+    cw <- function(u, v) sum(ww * (u - sum(ww * u) / sum(ww)) * (v - sum(ww * v) / sum(ww)))
+    attr(paper, "r") <- fmt(cw(mm[, 1L], yv) / sqrt(cw(mm[, 1L], mm[, 1L]) * cw(yv, yv)), 2L)
+  }
+  paper
+}
+
+# check_lm() on the named numbers of a regression paper, with keys as in the paper's names.
+# `terms_only` keeps only these terms in the per-term vectors (a subset of the table).
+run_lm_check <- function(paper, keys, terms_only = NULL, k = NULL, ...) {
+  per_term <- c("b", "se", "t", "p", "ci_lower", "ci_upper", "beta")
+  args <- list()
+  for (key in keys) {
+    v <- if (key == "sd") attr(paper, "sd_all") else if (key == "adj_r2") NULL else paper[[key]]
+    if (key %in% per_term && !is.null(terms_only)) v <- v[intersect(names(v), terms_only)]
+    if (key == "adj_r2") { args[["r2"]] <- attr(paper, "adj"); next }
+    if (key == "beta") v <- paper$b
+    if (!is.null(v) && length(v) > 0L) args[[key]] <- v
+  }
+  if (attr(paper, "handler") == "lm_simple") {
+    k <- NULL  # a simple regression fixes k = 1 and takes no k argument
+    # a simple regression's single slope is the one unnamed value; the intercept is not kept
+    for (key in intersect(names(args), per_term)) args[[key]] <- args[[key]][setdiff(names(args[[key]]), "(Intercept)")]
+    if ("r" %in% keys) args[["r"]] <- attr(paper, "r")
+  }
+  tryCatch(suppressWarnings(do.call(check_lm, c(args, list(handler = attr(paper, "handler"), k = k), list(...)))),
+           error = function(e) e)
+}
+
+# Simple mediation (X -> M -> Y): three real lm() fits on raw data, the four paths printed as a
+# paper does (b, SE, t at 2 decimals, p at 3, df exact), and the indirect effect a*b with a
+# percentile bootstrap CI (200 resamples, drawn here), which the checker must never judge.
+mediation_raw <- function(size = sample(c("small", "large", "mixed"), 1L)) {
+  n <- sample(c(30, 50, 100, 300), 1L)
+  x <- rnorm(n, sd = runif(1L, 0.5, 3))
+  a <- switch(size, small = 0.1, large = 1.5, mixed = 0.6) * sample(c(-1, 1), 1L)
+  b <- switch(size, small = 0.1, large = 1.5, mixed = 1.2) * sample(c(-1, 1), 1L)
+  m <- a * x + rnorm(n, sd = runif(1L, 0.5, 2))
+  y <- 0.3 * x + b * m + rnorm(n, sd = runif(1L, 0.5, 2))
+  data.frame(x = x, m = m, y = y)
+}
+
+mediation_paper <- function(d) {
+  fa <- summary(stats::lm(m ~ x, d))
+  fc <- summary(stats::lm(y ~ x, d))
+  fb <- summary(stats::lm(y ~ x + m, d))
+  row <- function(sm, term) sm$coefficients[term, ]
+  paths <- list(a = row(fa, "x"), b = row(fb, "m"), c = row(fc, "x"), c_prime = row(fb, "x"))
+  n <- nrow(d)
+  boot <- vapply(seq_len(200L), function(i) {
+    dd <- d[sample(n, replace = TRUE), ]
+    stats::coef(stats::lm.fit(cbind(1, dd$x), dd$m))[[2L]] *
+      stats::coef(stats::lm.fit(cbind(1, dd$x, dd$m), dd$y))[[3L]]
+  }, numeric(1))
+  q <- stats::quantile(boot, c(0.025, 0.975))
+  get <- function(i, d) stats::setNames(vapply(paths, function(p) fmt(p[[i]], d), ""), names(paths))
+  paper <- list(
+    b = get(1L, 2L), se = get(2L, 2L), t = get(3L, 2L),
+    p = stats::setNames(vapply(paths, function(p) fmt_p(p[[4L]]), ""), names(paths)),
+    df = c(a = as.character(n - 2L), b = as.character(n - 3L), c = as.character(n - 2L),
+           c_prime = as.character(n - 3L)),
+    n = as.character(n), indirect = fmt(paths$a[[1L]] * paths$b[[1L]], 2L),
+    indirect_ci_lower = fmt(q[[1L]], 2L), indirect_ci_upper = fmt(q[[2L]], 2L))
+  paper
+}
+
+run_mediation_check <- function(paper, keys, paths = NULL) {
+  args <- list()
+  for (key in keys) {
+    v <- paper[[key]]
+    if (key %in% c("b", "se", "t", "p", "df") && !is.null(paths)) v <- v[intersect(names(v), paths)]
+    if (length(v) > 0L) args[[key]] <- v
+  }
+  tryCatch(suppressWarnings(do.call(check_mediation, args)), error = function(e) e)
+}
+
+# TRUE when every indirect-effect number came out "not checkable" (never fitting or not fitting).
+indirect_untouched <- function(res) {
+  rows <- res$numbers[grepl("^indirect", res$numbers$quantity), ]
+  all(rows$status == "not checkable")
+}

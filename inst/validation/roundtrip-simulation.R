@@ -8,6 +8,11 @@
 # goodness of fit with k = 2..8 (uniform or given p0), both with empty cells.
 # Factorial ANOVA (ADR 0017): 2 x 2 to 3 x 4 designs, balanced (types agree) and unbalanced with
 # each SS type (III, II, I), unequal SDs and cell means, against anova()/drop1() on the raw data.
+# Regression family (ADR 0020): lm_simple (k = 1), lm_multiple (k = 2..6 predictor columns, a factor
+# in half the designs, weights in half), lm_moderation (X * Z with 0..2 covariates, weights in half)
+# and mediation_simple (small paths, large paths, and a mediator that is nearly X); every design
+# is also checked to reach the intended handler, against summary(lm) on the raw data (for mediation,
+# against the paths of the three lm() fits through the handler's own reported()).
 # Run: Rscript inst/validation/roundtrip-simulation.R   (after devtools::load_all())
 
 n_designs <- 200L
@@ -66,6 +71,54 @@ lm_design <- function() {
     stats::lm(stats::as.formula(paste("y ~", rhs)), data = d, weights = w)  # nolint
   }
   list(x = fit, args = list())
+}
+
+# Regression family designs. Each draws n = 40..300, a response and the predictors, optionally
+# weights; the fit must be routed to the named handler (stopifnot).
+reg_data <- function(n, k_num, with_factor) {
+  d <- as.data.frame(matrix(rnorm(n * k_num, sd = runif(1, 0.1, 10)), n))
+  names(d) <- paste0("x", seq_len(k_num))
+  if (with_factor) d$f <- factor(sample(letters[1:sample(2:4, 1L)], n, replace = TRUE))
+  d
+}
+reg_fit <- function(rhs, d, weighted, handler) {
+  d$y <- 2 + Reduce(`+`, lapply(setdiff(names(d), "y"), function(v) {
+    if (is.numeric(d[[v]])) rnorm(1) * d[[v]] else rnorm(1) * as.integer(d[[v]])
+  }), 0) + rnorm(nrow(d), sd = runif(1, 0.5, 5))
+  d$w <- if (weighted) runif(nrow(d), 0.1, 5) else NULL
+  fit <- if (is.null(d$w)) {
+    stats::lm(stats::as.formula(paste("y ~", rhs)), data = d)
+  } else {
+    stats::lm(stats::as.formula(paste("y ~", rhs)), data = d, weights = w)  # nolint
+  }
+  stopifnot(identical(find_handler(fit)$name, handler))
+  list(x = fit, args = list())
+}
+lm_simple_design <- function() {
+  reg_fit("x1", reg_data(sample(40:300, 1L), 1L, FALSE), runif(1) < 0.5, "lm_simple")
+}
+lm_multiple_design <- function() {
+  k <- sample(2:6, 1L)
+  with_factor <- runif(1) < 0.5 && k >= 3L
+  d <- reg_data(sample(40:300, 1L), if (with_factor) k - 1L else k, with_factor)
+  # a factor with m levels adds m - 1 columns, so k counts columns loosely; k >= 2 holds
+  reg_fit(paste(setdiff(names(d), "y"), collapse = " + "), d, runif(1) < 0.5, "lm_multiple")
+}
+lm_moderation_design <- function() {
+  d <- reg_data(sample(40:300, 1L), 2L + sample(0:2, 1L), FALSE)
+  extra <- setdiff(names(d), c("x1", "x2"))
+  rhs <- paste(c("x1 * x2", extra), collapse = " + ")
+  reg_fit(rhs, d, runif(1) < 0.5, "lm_moderation")
+}
+mediation_design <- function(size) {
+  n <- sample(40:300, 1L)
+  x <- rnorm(n)
+  a <- switch(size, small = 0.1, large = 3, near = 1)
+  m <- a * x + rnorm(n, sd = if (size == "near") 0.01 else 1)
+  b <- switch(size, small = 0.1, large = 3, near = 0.5)
+  y <- 0.3 * x + b * m + rnorm(n)
+  list(x = y ~ x, args = list(data = data.frame(x = x, m = m, y = y), test = "mediation",
+                              mediator = "m"))
 }
 
 random_alternative <- function() sample(c("two.sided", "less", "greater"), 1L)
@@ -154,13 +207,18 @@ factorial_design <- function(balanced, type) {
 designs <- list(chisq_independence = chisq_independence_design, chisq_gof = chisq_gof_design,
                 t_independent = t_design, t_one_sample = t_one_sample_design,
                 t_paired = t_paired_design, cor_pearson = cor_pearson_design, lm = lm_design,
+                lm_simple = lm_simple_design, lm_multiple = lm_multiple_design,
+                lm_moderation = lm_moderation_design,
+                mediation_simple_small = function() mediation_design("small"),
+                mediation_simple_large = function() mediation_design("large"),
+                mediation_simple_near = function() mediation_design("near"),
                 anova_oneway_balanced = function() oneway_design(TRUE),
                 anova_oneway_unbalanced = function() oneway_design(FALSE),
                 anova_factorial_balanced = function() factorial_design(TRUE, "III"),
                 anova_factorial_unbalanced_III = function() factorial_design(FALSE, "III"),
                 anova_factorial_unbalanced_II = function() factorial_design(FALSE, "II"),
                 anova_factorial_unbalanced_I = function() factorial_design(FALSE, "I"))
-handler_of <- function(name) sub("_(un)?balanced(_I+)?$", "", name)
+handler_of <- function(name) sub("_(small|large|near)$", "", sub("_(un)?balanced(_I+)?$", "", name))
 
 rows <- lapply(names(designs), function(name) {
   h <- get_handler(handler_of(name))

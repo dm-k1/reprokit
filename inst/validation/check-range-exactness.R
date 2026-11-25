@@ -446,3 +446,98 @@ cat(if (fact_pass) "\nPASS" else "\nFAIL", ": factorial ranges, escaped samples 
     ", sampled minimum within 50% of the width of the lower bound = ",
     all(fact_table$worst_lower_gap < 0.5),
     ", others unbounded = ", all(unbounded), "\n", sep = "")
+
+# Regression family (ADR 0020), a fifth section with its own PASS line. Relations: t = b / SE,
+# the CI b -/+ t_crit * SE (at 90, 95, 99%, df exact), F from R2 (R2 and adjusted R2 variants),
+# the two-sided p from t (a stationary point at t = 0), and the simple regression's r = b SD_x / SD_y.
+# The ADR claims the first three are monotone in each rounded input, so their corners are exact.
+# That claim is checked at the vertices, which uniform sampling never reaches: the range's lower
+# and upper bounds must EQUAL the smallest and largest value over the 2^m vertices (computed here
+# from rel$fn, not from relation_range), and 2000 uniform draws of the box must stay inside the
+# range. p from t has an interior maximum (p = 1 at t = 0) when the box spans 0: there the upper
+# bound must be 1, while the corner-only upper bound is below 1 (a named case, so the check can
+# fail). Boxes where SE or SD may be zero have no finite range and are skipped and counted.
+# PASS criterion: no escaped draw, bounds equal the vertex extremes (1e-12 relative) for the
+# three monotone relations, p's upper bound is 1 on every box spanning t = 0, and the corner-only
+# upper bound is below 1 in the named case.
+set.seed(20261125)
+reg_rels <- relations_at(get_handler("lm_simple"), list(terms = "x"))
+reg_find <- function(name) Filter(function(r) r$name == name, reg_rels)[[1L]]
+reg_rels_m <- relations_at(get_handler("lm_multiple"), list(terms = "x", k = 2L))
+reg_find_m <- function(name) Filter(function(r) r$name == name, reg_rels_m)[[1L]]
+iv <- function(center, half) list(lower = center - half, upper = center + half)
+vertex_values <- function(rel, box, variant) {
+  grid <- do.call(expand.grid, lapply(rel$inputs, function(i) c(box[[i]]$lower, box[[i]]$upper)))
+  names(grid) <- rel$inputs
+  vapply(seq_len(nrow(grid)), function(i) rel$fn(as.list(grid[i, , drop = FALSE]), variant), numeric(1))
+}
+reg_box <- function(rel) {
+  b <- runif(1L, -5, 5); se <- 10^runif(1L, -1.5, 0.5); dec <- sample(1:3, 1L)
+  h <- 0.5 * 10^-dec
+  box <- list(`b:x` = iv(round(b, dec), h), `se:x` = iv(round(se, dec), h),
+              `t:x` = iv(round(b / se, 2L), 0.005), df2 = point(sample(c(5, 12, 30, 120), 1L)),
+              r2 = iv(round(runif(1L, 0.02, 0.95), 2L), 0.005), df1 = point(sample(1:5, 1L)),
+              `sd:x` = iv(round(runif(1L, 0.3, 3), 2L), 0.005),
+              `sd:(response)` = iv(round(runif(1L, 3, 9), 2L), 0.005))
+  # rounding intervals are intersected with the quantity's domain (SE and SD are >= 0)
+  for (nm in c("se:x", "sd:x", "sd:(response)")) box[[nm]]$lower <- max(box[[nm]]$lower, 0)
+  box[c(rel$inputs)]
+}
+reg_rows <- list()
+reg_escaped <- 0L
+reg_vertex_miss <- 0L
+reg_skipped <- 0L
+for (rname in c("t_from_b_se:x", "ci_lower_from_b_se:x", "ci_upper_from_b_se:x", "f_from_r2",
+                "r_from_b", "p_from_t:x")) {
+  rel <- reg_find(rname)
+  monotone <- rname != "p_from_t:x"
+  for (variant in variant_combinations(rel$variants)) {
+    boxes <- 0L; esc <- 0L; miss <- 0L; skip <- 0L
+    for (b in seq_len(200L)) {
+      box <- reg_box(rel)
+      range <- relation_range(rel, box, variant)
+      if (!all(is.finite(range))) { skip <- skip + 1L; next }
+      boxes <- boxes + 1L
+      draws <- replicate(2000L, lapply(box, function(x) x$lower + runif(1L) * (x$upper - x$lower)),
+                         simplify = FALSE)
+      vals <- vapply(draws, function(pt) rel$fn(pt, variant), numeric(1))
+      slack <- 1e-9 * max(1, abs(range))
+      esc <- esc + sum(vals < range[["lower"]] - slack | vals > range[["upper"]] + slack)
+      if (monotone) {
+        v <- vertex_values(rel, box, variant)
+        scale <- max(1, abs(range))
+        if (abs(min(v) - range[["lower"]]) > 1e-12 * scale ||
+            abs(max(v) - range[["upper"]]) > 1e-12 * scale) miss <- miss + 1L
+      }
+    }
+    reg_escaped <- reg_escaped + esc
+    reg_vertex_miss <- reg_vertex_miss + miss
+    reg_skipped <- reg_skipped + skip
+    reg_rows[[length(reg_rows) + 1L]] <- data.frame(
+      relation = rname, variant = if (is.null(variant)) "-" else paste(unlist(variant), collapse = "+"),
+      boxes = boxes, skipped = skip, escaped = esc, vertex_mismatch = if (monotone) miss else NA)
+  }
+}
+# p from t: a box spanning 0 has maximum exactly 1 at its interior point.
+rel_pt <- reg_find("p_from_t:x")
+span_ok <- vapply(1:50, function(i) {
+  box <- list(`t:x` = iv(runif(1L, -0.02, 0.02), 0.005 + runif(1L, 0, 0.03)), df2 = point(sample(c(5, 30), 1L)))
+  box$`t:x`$lower <- -abs(box$`t:x`$lower) - 0.005
+  box$`t:x`$upper <- abs(box$`t:x`$upper) + 0.005
+  abs(relation_range(rel_pt, box, NULL)[["upper"]] - 1) < 1e-12
+}, logical(1))
+corner_only <- rel_pt
+corner_only$stationary <- NULL
+named_box <- list(`t:x` = list(lower = -0.5, upper = 0.7), df2 = point(20))
+corner_upper_p <- relation_range(corner_only, named_box, NULL)[["upper"]]
+true_upper_p <- relation_range(rel_pt, named_box, NULL)[["upper"]]
+cat("\n== Regression family ranges ==\n")
+print(do.call(rbind, reg_rows), row.names = FALSE)
+cat("p from t on a box spanning t = 0: upper bound is 1 in ", sum(span_ok), " of ", length(span_ok),
+    " boxes; named case t in [-0.5, 0.7], df 20: corner-only upper = ", signif(corner_upper_p, 4L),
+    ", true upper = ", signif(true_upper_p, 4L), "\n", sep = "")
+reg_pass <- reg_escaped == 0L && reg_vertex_miss == 0L && all(span_ok) &&
+  corner_upper_p < 1 - 1e-6 && abs(true_upper_p - 1) < 1e-12 &&
+  sum(vapply(reg_rows, function(r) r$boxes, 0L)) > 0L
+cat(if (reg_pass) "\nPASS" else "\nFAIL", ": regression ranges, escaped draws = ", reg_escaped,
+    ", vertex mismatches = ", reg_vertex_miss, ", skipped boxes = ", reg_skipped, "\n", sep = "")

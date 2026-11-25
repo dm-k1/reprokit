@@ -654,3 +654,172 @@ cat(if (fact_ok) "\nPASS" else "\nFAIL", ": factorial planted errors, errors = "
     ", oracle-detectable not flagged = ", fact_missed, ", oracle-undetectable flagged = ",
     fact_false, ", flagged on f/df/p but not on all = ", fact_hidden, ", cells never flagged = ",
     fact_dead, "\n", sep = "")
+
+# Regression family planted errors (ADR 0020) ---------------------------------------------------
+# Claim: check_lm() and check_mediation() never error on a paper with ONE planted error, flag it
+# inconsistent whenever the error is detectable from the reported numbers, and never flag one that
+# is not. Papers: real lm() fits (lm_raw/lm_paper of check-designs.R) and the three regressions of a
+# simple mediation (mediation_raw/mediation_paper), rounded as printed. Error types:
+#   b_digit, se_digit, t_digit  one term's last printed digits off by 5-20 units (oracle: t = b/SE
+#                               over the rounding box, corners)
+#   p_digit                     one decimal digit of one term's p replaced (oracle: p from the t box
+#                               and df_resid, two-sided)
+#   f_vs_r2                     F off by 5-50 per cent (oracle: F from the R2 box, df1, df2, or from
+#                               R2 read as the adjusted R2: either fitting makes it undetectable)
+#   df_wrong_k                  df2 = n - k or n - k - 2 (k = df1, or declared); always detectable
+#                               since n, df1 and df2 are exact integers
+#   med_df                      one mediation path's df_resid replaced by n - 1, n - 2 or n - 3
+#                               (not its own); the four df share one n, so exact integers decide
+# PASS: no errors; oracle-detectable always flagged; oracle-undetectable never flagged; every
+# type x subset cell flags at least once; nothing flagged on the narrow subset is missed on all.
+set.seed(20261125)
+reg_types <- c("b_digit", "se_digit", "t_digit", "p_digit", "f_vs_r2", "df_wrong_k", "med_df")
+reg_subsets <- list(
+  b_digit = list(all = NULL, `b/se/t` = c("b", "se", "t")),
+  se_digit = list(all = NULL, `b/se/t` = c("b", "se", "t")),
+  t_digit = list(all = NULL, `b/se/t` = c("b", "se", "t")),
+  p_digit = list(all = NULL, `t/df/p` = c("t", "p", "df2")),
+  f_vs_r2 = list(all = NULL, `r2/f/df` = c("r2", "f", "df1", "df2")),
+  df_wrong_k = list(all = NULL, `n/df1/df2` = c("n", "df1", "df2"), `n/df2 + k` = c("n", "df2")),
+  med_df = list(all = NULL, `t/df/p` = c("t", "p", "df")))
+reg_shift <- function(s, units) {
+  d <- n_decimals(s)
+  fmt(as.numeric(s) + units * 10^-d, d)
+}
+reg_paper <- function(type) {
+  if (type == "med_df") {
+    d <- mediation_raw()
+    paper <- mediation_paper(d)
+    path <- sample(names(paper$b), 1L)
+    n <- as.numeric(paper$n)
+    right <- as.numeric(paper$df[[path]])
+    wrong <- sample(setdiff(c(n - 1, n - 2, n - 3), right), 1L)
+    paper$df[[path]] <- as.character(wrong)
+    return(list(paper = paper, path = path, mediation = TRUE))
+  }
+  raw <- lm_raw()
+  paper <- lm_paper(raw)
+  terms <- setdiff(names(paper$b), "(Intercept)")
+  term <- sample(terms, 1L)
+  planted <- switch(type,
+    b_digit = { paper$b[[term]] <- reg_shift(paper$b[[term]], sample(5:20, 1L) * sample(c(-1, 1), 1L)); TRUE },
+    se_digit = {
+      new <- reg_shift(paper$se[[term]], sample(5:20, 1L) * sample(c(-1, 1), 1L))
+      ok <- as.numeric(new) > 0
+      if (ok) paper$se[[term]] <- new
+      ok },
+    t_digit = {
+      t0 <- as.numeric(paper$t[[term]])
+      if (t0 == 0) return(NULL)
+      paper$t[[term]] <- fmt(t0 + sample(c(-1, 1), 1L) * sample(5:90, 1L) / 100, 2L)
+      TRUE },
+    p_digit = {
+      if (is.na(p_value(paper$p[[term]]))) return(NULL)
+      ch <- change_digit(paper$p[[term]])
+      if (is.null(ch)) return(NULL)
+      paper$p[[term]] <- ch$value
+      TRUE },
+    f_vs_r2 = {
+      f0 <- as.numeric(paper$f)
+      paper$f <- fmt(f0 * (1 + sample(c(-1, 1), 1L) * sample(5:50, 1L) / 100), 2L)
+      TRUE },
+    df_wrong_k = {
+      df2 <- as.numeric(paper$df2)
+      paper$df2 <- as.character(sample(c(df2 + 1, df2 - 1), 1L))
+      TRUE })
+  if (!isTRUE(planted)) return(NULL)
+  list(paper = paper, term = term, mediation = FALSE)
+}
+reg_oracle <- function(type, p) {
+  paper <- p$paper
+  if (type == "med_df") {
+    # the four df are n - 2, n - 3, n - 2, n - 3 for one n: exact integers, so a path whose df
+    # is not the right one for its place always contradicts the others
+    n <- as.numeric(paper$n)
+    right <- c(a = n - 2, b = n - 3, c = n - 2, c_prime = n - 3)[[p$path]]
+    return(if (as.numeric(paper$df[[p$path]]) != right) "detectable" else "undetectable")
+  }
+  term <- p$term
+  if (type %in% c("b_digit", "se_digit", "t_digit")) {
+    bi <- interval(paper$b[[term]])
+    si <- interval(paper$se[[term]])
+    if (si[1L] <= 0) return("edge")
+    ratios <- c(bi[1L] / si, bi[2L] / si)
+    return(verdict(overlap(range(ratios), interval(paper$t[[term]]))))
+  }
+  if (type == "p_digit") {
+    ti <- interval(paper$t[[term]])
+    pi <- pmin(pmax(interval(paper$p[[term]]), 0), 1)
+    tg <- seq(ti[1L], ti[2L], length.out = 101L)
+    return(verdict(overlap(range(2 * pt(-abs(tg), as.numeric(paper$df2))), pi)))
+  }
+  if (type == "f_vs_r2") {
+    ri <- pmin(pmax(interval(paper$r2), 0), 0.999999)
+    d1 <- as.numeric(paper$df1)
+    d2 <- as.numeric(paper$df2)
+    fr <- (ri / d1) / ((1 - ri) / d2)
+    # R2 may also be the adjusted R2 (a convention variant): R2 = 1 - (1 - adj) d2 / (d1 + d2)
+    ra <- pmin(pmax(1 - (1 - ri) * d2 / (d1 + d2), 0), 0.999999)
+    fa <- (ra / d1) / ((1 - ra) / d2)
+    return(verdict(c(overlap(range(fr), interval(paper$f)), overlap(range(fa), interval(paper$f)))))
+  }
+  # df_wrong_k: n, df1 and df2 are exact integers
+  if (as.numeric(paper$n) - as.numeric(paper$df1) - 1 != as.numeric(paper$df2)) "detectable" else "undetectable"
+}
+reg_check <- function(type, p, sub) {
+  keys <- reg_subsets[[type]][[sub]]
+  if (p$mediation) {
+    keys <- if (is.null(keys)) names(p$paper) else keys
+    return(run_mediation_check(p$paper, keys))
+  }
+  paper <- p$paper
+  if (is.null(keys)) keys <- setdiff(names(paper), c("n"))
+  # a simple regression fixes k = 1 and takes no k argument
+  kk <- if (attr(paper, "handler") == "lm_simple") NULL else attr(paper, "k")
+  if (sub == "n/df2 + k") return(run_lm_check(paper, keys, k = kk))
+  if (sub == "all" && type == "df_wrong_k") keys <- names(paper)
+  run_lm_check(paper, keys)
+}
+reg_rows <- list()
+n_reg <- 700L
+for (i in seq_len(n_reg)) {
+  type <- reg_types[(i - 1L) %% length(reg_types) + 1L]
+  planted <- NULL
+  for (attempt in 1:200) {
+    planted <- reg_paper(type)
+    if (!is.null(planted)) break
+  }
+  if (is.null(planted)) next
+  oracle <- reg_oracle(type, planted)
+  for (sub in names(reg_subsets[[type]])) {
+    res <- reg_check(type, planted, sub)
+    outcome <- if (inherits(res, "error")) "error" else if (!res$consistent) "flagged" else "not flagged"
+    reg_rows[[length(reg_rows) + 1L]] <- data.frame(
+      case = i, type = type, subset = sub, outcome = outcome,
+      oracle = if (sub != "all") oracle else NA_character_)
+  }
+}
+reg_results <- do.call(rbind, reg_rows)
+reg_cells <- aggregate(outcome ~ type + subset, reg_results,
+                       function(o) c(n = length(o), flagged = sum(o == "flagged")))
+reg_cells <- cbind(reg_cells[1:2], as.data.frame(reg_cells$outcome))
+reg_cells$`% flagged` <- round(100 * reg_cells$flagged / reg_cells$n, 1)
+cat("\n== Regression family planted errors ==\n")
+print(reg_cells, row.names = FALSE)
+rcov <- reg_results[!is.na(reg_results$oracle) & reg_results$oracle != "edge", ]
+print(as.data.frame(table(oracle = rcov$oracle, outcome = rcov$outcome)), row.names = FALSE)
+reg_errors <- sum(reg_results$outcome == "error")
+reg_missed <- sum(rcov$oracle == "detectable" & rcov$outcome != "flagged")
+reg_false <- sum(rcov$oracle == "undetectable" & rcov$outcome == "flagged")
+rfl <- function(ty, s) unique(reg_results$case[reg_results$type == ty & reg_results$subset == s &
+                                                 reg_results$outcome == "flagged"])
+reg_hidden <- sum(vapply(reg_types, function(ty) {
+  narrow <- setdiff(names(reg_subsets[[ty]]), "all")
+  length(setdiff(unlist(lapply(narrow, function(s) rfl(ty, s))), rfl(ty, "all")))
+}, numeric(1)))
+reg_dead <- sum(reg_cells$flagged == 0)
+reg_ok <- reg_errors == 0 && reg_missed == 0 && reg_false == 0 && reg_hidden == 0 && reg_dead == 0
+cat(if (reg_ok) "\nPASS" else "\nFAIL", ": regression planted errors, errors = ", reg_errors,
+    ", oracle-detectable not flagged = ", reg_missed, ", oracle-undetectable flagged = ",
+    reg_false, ", flagged on a narrow subset but not on all = ", reg_hidden,
+    ", cells never flagged = ", reg_dead, "\n", sep = "")

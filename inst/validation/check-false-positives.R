@@ -30,6 +30,15 @@
 # M and SD 2 dp, partial eta2 or partial omega2 (half each; a negative omega2 is printed with its
 # sign), on subsets of every kind; the SS type the paper used is never told to the checker, so a
 # paper printed at type I or II must fit by its own type and not be flagged.
+# Regression family (ADR 0020): real lm() fits for simple, multiple (k = 2..6 columns, with and
+# without a factor, weighted or not) and moderation (with covariates, weighted or not), printed as
+# b, SE, t, p, the CI (90/95/99%), R2, F, df, n; each paper is checked on every kind of subset:
+# everything, no CI, a subset of the terms (with and without k declared), t/p/df only, the model
+# row only, n and df2 without k (n is not checkable), the adjusted R2 printed as R2, the
+# unstandardised b printed as beta (with and without the SDs), the simple regression's r and
+# SDs, and random subsets. Simple mediation: three lm() fits, the paths a, b, c and c' printed,
+# a*b with a bootstrap CI printed in some subsets: no row may be inconsistent, and the a*b numbers
+# must come out "not checkable", never fitting or not fitting (a false positive too).
 # PASS criterion: false positives == 0 AND errors == 0. A false positive is a
 # release blocker.
 # Size: 300 designs per handler (anova_oneway, anova_factorial (all shapes, and 2 x 2 only), chisq_independence, chisq_gof, chisq_gof w > 1,
@@ -207,11 +216,101 @@ chisq_indep22 <- chisq_tally(function() chisq_independence_paper(force_2x2 = TRU
 chisq_gof_all <- chisq_tally(chisq_gof_paper, n_designs)
 chisq_gof_w1 <- chisq_tally(function() chisq_gof_paper(high_w = TRUE, k = 4L), n_designs)
 
+# Regression family -----------------------------------------------------------------------
+lm_cases <- function(paper, i) {
+  keys <- names(paper)
+  model <- c("r2", "f", "df1", "df2", "p_model")
+  coefs <- names(paper$b)
+  some <- if (length(coefs) > 1L) sample(coefs, sample(seq_len(length(coefs) - 1L), 1L)) else coefs
+  cases <- list(
+    list(keys = keys), list(keys = setdiff(keys, c("ci_lower", "ci_upper"))),
+    list(keys = keys, terms_only = some), list(keys = keys, terms_only = some, k = attr(paper, "k")),
+    list(keys = c("t", "p", "df2")), list(keys = c("b", "se", "t")), list(keys = model),
+    list(keys = c("df2", "n")), list(keys = c("df2", "n", "t", "p")),
+    list(keys = c("df2", "n"), k = attr(paper, "k")),
+    list(keys = c("adj_r2", "f", "df1", "df2", "p_model")),
+    list(keys = c("adj_r2", "f", "df1", "df2", "n")),
+    list(keys = c("b", "se", "beta", "sd")), list(keys = c("b", "beta")),
+    list(keys = c("b", "se", "t", "beta", "sd", "r2", "f", "df1", "df2", "n")),
+    list(keys = setdiff(keys, c("ci_lower", "ci_upper")), terms_only = some),
+    list(keys = c("b", "se", "ci_lower", "ci_upper", "df2")),
+    list(keys = sample(keys, sample(2:length(keys), 1L))))
+  if (attr(paper, "handler") == "lm_simple") {
+    cases <- c(cases, list(list(keys = c("b", "r", "sd", "r2", "t", "f", "df1", "df2", "n")),
+                           list(keys = c("b", "r", "sd")), list(keys = c("r2", "r", "n")),
+                           list(keys = c("t", "f", "df1", "df2"))))
+  }
+  cases
+}
+lm_tally <- function(make, n_designs) {
+  total <- list(designs = 0L, checks = 0L, fp = list(), err = list())
+  for (i in seq_len(n_designs)) {
+    paper <- make()
+    if (is.null(paper)) next
+    total$designs <- total$designs + 1L
+    for (case in lm_cases(paper, i)) {
+      res <- run_lm_check(paper, case[["keys"]], case[["terms_only"]], case[["k"]])
+      total$checks <- total$checks + 1L
+      if (inherits(res, "error")) {
+        total$err[[length(total$err) + 1L]] <- list(msg = conditionMessage(res), keys = case$keys)
+      } else if (!res$consistent) {
+        total$fp[[length(total$fp) + 1L]] <- list(keys = case$keys, paper = paper[case$keys])
+      }
+    }
+  }
+  total
+}
+lm_make <- function(handler, ...) function() lm_paper(lm_raw(handler, ...))
+lm_simple_fp <- lm_tally(lm_make("lm_simple", weighted = FALSE), n_designs)
+lm_simple_w_fp <- lm_tally(lm_make("lm_simple", weighted = TRUE), n_designs)
+lm_multiple_fp <- lm_tally(lm_make("lm_multiple", weighted = FALSE, with_factor = FALSE), n_designs)
+lm_multiple_f_fp <- lm_tally(lm_make("lm_multiple", weighted = FALSE, with_factor = TRUE), n_designs)
+lm_multiple_w_fp <- lm_tally(lm_make("lm_multiple", weighted = TRUE), n_designs)
+lm_moderation_fp <- lm_tally(lm_make("lm_moderation", weighted = FALSE), n_designs)
+lm_moderation_w_fp <- lm_tally(lm_make("lm_moderation", weighted = TRUE), n_designs)
+
+mediation_cases <- function(paper) {
+  keys <- names(paper)
+  paths <- c("a", "b", "c", "c_prime")
+  list(list(keys = keys), list(keys = setdiff(keys, c("indirect", "indirect_ci_lower", "indirect_ci_upper"))),
+       list(keys = c("b", "se", "t", "p", "df")), list(keys = keys, paths = c("a", "b")),
+       list(keys = keys, paths = sample(paths, 2L)), list(keys = c("t", "df", "p")),
+       list(keys = c("n", "indirect", "indirect_ci_lower", "indirect_ci_upper")),
+       list(keys = c("b", "se", "t", "indirect", "indirect_ci_lower", "indirect_ci_upper")),
+       list(keys = c("b", "se", "t", "p", "df", "n", "indirect")),
+       list(keys = sample(keys, sample(2:length(keys), 1L))))
+}
+mediation_tally <- function(size, n_designs) {
+  total <- list(designs = 0L, checks = 0L, fp = list(), err = list())
+  for (i in seq_len(n_designs)) {
+    paper <- mediation_paper(mediation_raw(size))
+    total$designs <- total$designs + 1L
+    for (case in mediation_cases(paper)) {
+      res <- run_mediation_check(paper, case$keys, case$paths)
+      total$checks <- total$checks + 1L
+      if (inherits(res, "error")) {
+        total$err[[length(total$err) + 1L]] <- list(msg = conditionMessage(res), keys = case$keys)
+      } else if (!res$consistent || !indirect_untouched(res)) {
+        total$fp[[length(total$fp) + 1L]] <- list(keys = case$keys, paper = paper[case$keys])
+      }
+    }
+  }
+  total
+}
+mediation_small_fp <- mediation_tally("small", n_designs)
+mediation_large_fp <- mediation_tally("large", n_designs)
+mediation_mixed_fp <- mediation_tally("mixed", n_designs)
+
 results <- list(chisq_independence = chisq_indep, chisq_independence_2x2 = chisq_indep22,
                 chisq_gof = chisq_gof_all, chisq_gof_w_gt_1 = chisq_gof_w1, t_paired = paired, t_paired_d = paired_d, cor_pearson = pearson,
                 t_independent_student = student, t_independent_welch = welch,
                 t_one_sample = one_sample, anova_oneway = oneway, anova_oneway_negative_omega2 = oneway_neg,
-                anova_factorial = factorial_all, anova_factorial_2x2 = factorial_22)
+                anova_factorial = factorial_all, anova_factorial_2x2 = factorial_22,
+                lm_simple = lm_simple_fp, lm_simple_weighted = lm_simple_w_fp,
+                lm_multiple = lm_multiple_fp, lm_multiple_factor = lm_multiple_f_fp,
+                lm_multiple_weighted = lm_multiple_w_fp, lm_moderation = lm_moderation_fp,
+                lm_moderation_weighted = lm_moderation_w_fp, mediation_small = mediation_small_fp,
+                mediation_large = mediation_large_fp, mediation_mixed = mediation_mixed_fp)
 table_out <- do.call(rbind, lapply(names(results), function(h) {
   r <- results[[h]]
   data.frame(handler = h, designs = r$designs, checks = r$checks,

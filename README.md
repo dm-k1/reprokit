@@ -203,6 +203,16 @@ check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
             p = ".0001", v = ".41")
 ```
 
+A regression is checked with `check_lm()`, with one named value per term; pass
+`handler = "lm_simple"` or `"lm_moderation"` for those rows. Simple mediation is
+checked with `check_mediation()`, which checks the paths a, b, c and c' and says
+nothing about the indirect effect.
+
+```r
+check_lm(b = c(wt = "-3.19", hp = "-0.04"), se = c(wt = "0.64", hp = "0.01"),
+         t = c(wt = "-5.00", hp = "-3.67"), df2 = "29", k = 2)
+```
+
 ## Documentation
 
 * `vignette("reprokit")`: getting started, one worked example for authors and
