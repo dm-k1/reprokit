@@ -33,6 +33,7 @@ register_t_independent <- function() {
     formula_tests = c("student", "welch"),
     design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
     fractional = list(df = "welch"),
+    domains = list(eta2 = c(-1, 1)),
     sufficient = c("n", "m", "sd"),
     per_cell = c("n", "m", "sd"),
     relations = t_independent_relations(),
@@ -47,8 +48,10 @@ register_t_independent <- function() {
 # the variants (kind "test") of the relations that depend on the test, and n is
 # exact (an integer count), so only m and sd have a rounding box.
 #
-# df_from_n has inputs n and sd, not n alone, so that one relation covers both
-# tests (Welch df needs the SDs). The cost: df is not checked from n alone.
+# df_from_n has inputs n and sd and covers both tests (Welch df needs the SDs).
+# Student's df = n1 + n2 - 2 needs n alone: df_from_n_student, which only exists when the
+# caller fixes the test to Student (`requires_fixed`). Without a declared test an honest
+# Welch paper must not be held to it, so then df is checked from n and sd only.
 #
 # Effect sizes: how d was computed (pooled SD, average SD, Glass's delta, Hedges'
 # g) is rarely declared, so `d_from_descriptives` has falsifies = FALSE: a d that
@@ -60,6 +63,11 @@ register_t_independent <- function() {
 # each bound is one relation crossed over both (ADR 0014): the reported numbers
 # come from one analysis, so check_reported() requires one test and one level
 # across t, df and both bounds, not a choice per relation.
+#
+# d from t and n (`d_from_t`, Student only, again because t of a Welch test does not give the
+# pooled d): d = t sqrt(1/n1 + 1/n2), times Hedges' correction for g. Like d from descriptives
+# it cannot falsify. eta squared = t^2 / (t^2 + df) (`eta2_from_t`) is the same for every t
+# test; omega squared is the other common convention; neither falsifies.
 #
 # Monotonicity (checked numerically, see inst/validation/check-range-exactness.R
 # for the machinery): t and the Student CI are monotone in each m and sd, d too;
@@ -119,6 +127,8 @@ t_independent_relations <- function() {
   list(
     relation("df_from_n", c("n", "sd"), "df", function(vals, variant) parts(vals, variant)$df,
              variants = tests, variant_kind = "test", stationary = at_welch_df_peak),
+    relation("df_from_n_student", "n", "df", function(vals, variant) vals$n[1] + vals$n[2] - 2,
+             variants = "student", variant_kind = "test", requires_fixed = "test"),
     relation("t_from_descriptives", from, "t", function(vals, variant) {
       d <- parts(vals, variant)
       d$diff / d$se
@@ -142,8 +152,35 @@ t_independent_relations <- function() {
              glass_sd1 = diff / vals$sd[1],
              glass_sd2 = diff / vals$sd[2])
     }, variants = c("pooled", "hedges_g", "average", "glass_sd1", "glass_sd2"),
-    variant_kind = "convention", falsifies = FALSE)
+    variant_kind = "convention", falsifies = FALSE),
+    relation("d_from_t", c("t", "n"), "d", function(vals, variant) {
+      d <- vals$t * sqrt(1 / vals$n[1] + 1 / vals$n[2])
+      if (variant[["convention"]] == "hedges_g") {
+        d * (1 - 3 / (4 * (vals$n[1] + vals$n[2] - 2) - 1))
+      } else {
+        d
+      }
+    }, variants = list(test = "student", convention = c("pooled", "hedges_g")),
+    falsifies = FALSE, requires_fixed = "test"),
+    relation_eta2_from_t()
   )
+}
+
+# eta squared (or omega squared) of a t test from t and its df; shared by the t handlers.
+# Both are monotone in |t| and in df, but not in t itself: t^2 has its minimum at 0, so a
+# box that straddles 0 gets that point.
+relation_eta2_from_t <- function() {
+  relation("eta2_from_t", c("t", "df"), "eta2", function(vals, variant) {
+    t2 <- vals$t^2
+    switch(variant,
+           eta2 = t2 / (t2 + vals$df),
+           omega2 = (t2 - 1) / (t2 + vals$df + 1))
+  }, variants = c("eta2", "omega2"), variant_kind = "convention", falsifies = FALSE,
+  stationary = function(intervals) {
+    bounds <- interval_bounds(intervals$t)
+    if (!isTRUE(bounds$lower < 0 && bounds$upper > 0)) return(list())
+    lapply(corner_points(intervals, "df", "eta2_from_t"), function(point) c(list(t = 0), point))
+  })
 }
 
 t_independent_summarise <- function(x, data, test, alternative = "two.sided", conf_level = 0.95,

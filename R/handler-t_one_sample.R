@@ -21,6 +21,7 @@ register_t_one_sample <- function() {
     formula_tests = "one_sample",
     design = apa_design(statistic = "t", effect_size = "d", cells = 1L),
     sufficient = c("n", "m", "sd"),
+    domains = list(eta2 = c(-1, 1)),
     choices = "test value mu (default 0)",
     relations = t_one_sample_relations,
     example = function() {
@@ -58,7 +59,13 @@ t_one_sample_relations <- function(mu = 0) {
     relation("d_from_descriptives", from, "d", function(vals, variant) {
       d <- (vals$m - mu) / vals$sd
       if (variant == "hedges_g") d * (1 - 3 / (4 * (vals$n - 1) - 1)) else d
-    }, variants = c("cohen", "hedges_g"), variant_kind = "convention", falsifies = FALSE)
+    }, variants = c("cohen", "hedges_g"), variant_kind = "convention", falsifies = FALSE),
+    # d = (M - mu) / SD = t / sqrt(n) exactly; the same two conventions, no verdict.
+    relation("d_from_t", c("t", "n"), "d", function(vals, variant) {
+      d <- vals$t / sqrt(vals$n)
+      if (variant == "hedges_g") d * (1 - 3 / (4 * (vals$n - 1) - 1)) else d
+    }, variants = c("cohen", "hedges_g"), variant_kind = "convention", falsifies = FALSE),
+    relation_eta2_from_t()
   )
 }
 

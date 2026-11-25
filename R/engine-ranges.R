@@ -31,7 +31,7 @@ check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0
     found <- unique(sub("^[^:]*:", "", coefficient_names[grepl(":", coefficient_names)]))
     if (length(found) > 0L) args$terms <- found
   }
-  entry$relations <- relations_at(entry, args)
+  entry$relations <- applicable_relations(relations_at(entry, args), variants)
   if (length(entry$relations) == 0L) {
     abort_input(
       "reprokit has no relations to check ", analysis_name(entry),
@@ -59,7 +59,7 @@ check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0
       bounds <- interval_bounds(intervals$df1)
       if (length(bounds$lower) == 1L && bounds$lower == bounds$upper && bounds$lower >= 1) {
         args$k <- bounds$lower
-        entry$relations <- relations_at(entry, args)
+        entry$relations <- applicable_relations(relations_at(entry, args), variants)
       }
     }
     if (is.null(args$k) && any(c("n", "df2") %in% names(reported))) {
@@ -70,7 +70,8 @@ check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0
   # A balanced design has one SS type: the handler drops the variant when every cell
   # size is reported exactly and equal. Anything less certain keeps the variants.
   if ("balanced" %in% entry$test_args && is_balanced_report(intervals$n)) {
-    entry$relations <- relations_at(entry, c(args, list(balanced = TRUE)))
+    balanced <- relations_at(entry, c(args, list(balanced = TRUE)))
+    entry$relations <- applicable_relations(balanced, variants)
   }
   implied_inputs <- derive_implied_inputs(entry$relations, intervals)
   evaluations <- evaluate_relations(entry$relations, intervals, variants, implied_inputs)
@@ -94,6 +95,20 @@ check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0
     notes = c(notes, convention_notes(number_status)),
     consistent = !any(number_status$status == "inconsistent")
   ), class = "reprokit_check")
+}
+
+# Drop the relations that need a fixed variant (`requires_fixed`) when `variants` does not
+# fix it: it names no value of one of the relation's kinds, or names one the relation lacks.
+applicable_relations <- function(relations, variants) {
+  Filter(function(rel) {
+    if (length(rel$requires_fixed) == 0L) return(TRUE)
+    all(vapply(rel$requires_fixed, function(kind) {
+      values <- rel$variants[[kind]]
+      of_kind <- unique(unlist(lapply(relations, function(other) other$variants[[kind]])))
+      named <- intersect(variants, of_kind)
+      length(named) > 0L && all(named %in% values)
+    }, logical(1)))
+  }, relations)
 }
 
 # TRUE when n is reported for every cell, each exactly (a count) and all equal.
@@ -226,6 +241,10 @@ evaluate_relations <- function(relations, intervals, variants, implied = list())
   # so nothing is checked against it, and not in `basis`: it is not a descriptive.
   available <- c(intervals, lapply(implied, function(x) x[c("lower", "upper")]))
   basis <- intersect(names(intervals), descriptive_quantities())
+  # A relation that starts from a reported statistic (d from t and n) compares two
+  # reported numbers: it cannot verify, even when another input is a descriptive.
+  reported_statistics <- names(intervals)[quantity_base(names(intervals)) %in%
+                                            statistic_quantities()]
   done <- character()
   derived_outputs <- character()
   repeat {
@@ -257,7 +276,8 @@ evaluate_relations <- function(relations, intervals, variants, implied = list())
                                     target$lower, target$upper)
         }
         row <- evaluation_row(rel, variant, checked, fits, derived,
-                              from_descriptives = any(rel$inputs %in% basis))
+                              from_descriptives = any(rel$inputs %in% basis) &&
+                                !any(rel$inputs %in% reported_statistics))
         rows[[length(rows) + 1L]] <- row
       }
       if ((!rel$output %in% names(available) || rel$output %in% derived_outputs) &&
@@ -429,7 +449,11 @@ number_statuses <- function(reported, evaluations, relations, implied = list()) 
       }
       shown <- ifelse(nzchar(involved$via) & involved$output != quantity,
                       paste0(involved$relation, " (via ", involved$via, ")"), involved$relation)
-      list(status = status, against = paste(shown, collapse = "; "))
+      against <- paste(shown, collapse = "; ")
+      if (status == "coherent") {
+        against <- paste0(against, upgrade_hint(quantity, stalled, have))
+      }
+      list(status = status, against = against)
     } else if (nrow(unreproduced) > 0L) {
       list(status = "not reproducible",
            against = paste0("no ", variant_kind_noun(unreproduced$relation, relations),
@@ -456,6 +480,22 @@ number_statuses <- function(reported, evaluations, relations, implied = list()) 
     checked_against = vapply(per_quantity, `[[`, character(1), "against"),
     stringsAsFactors = FALSE, row.names = NULL
   )
+}
+
+# What would turn a coherent number into a verified one: the relations that compute it from
+# descriptives (n, m, sd, r) and were not evaluated because an input is missing. Empty when
+# there is none, or when nothing is missing (the relation was skipped for these values, so
+# reporting more would not help). Appended to `checked_against`; the status stays coherent.
+upgrade_hint <- function(quantity, stalled, have) {
+  hints <- unlist(lapply(stalled, function(rel) {
+    lacking <- setdiff(rel$inputs, have)
+    if (rel$output != quantity || !any(rel$inputs %in% descriptive_quantities()) ||
+          length(lacking) == 0L) {
+      return(NULL)
+    }
+    paste0(rel$name, " would verify it (needs ", paste(lacking, collapse = ", "), ")")
+  }))
+  if (length(hints) == 0L) "" else paste0("; ", paste(hints, collapse = "; "))
 }
 
 # The kind of variant of the named relations, in words ("convention", "test").

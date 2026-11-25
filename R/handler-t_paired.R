@@ -29,6 +29,7 @@ register_t_paired <- function() {
     formula_tests = "paired",
     design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
     sufficient = c("n", "m", "sd", "r"),
+    domains = list(eta2 = c(-1, 1)),
     choices = "direction of the difference: first minus second in Pair(first, second)",
     relations = t_paired_relations,
     example = function() {
@@ -75,7 +76,7 @@ t_paired_relations <- function(mu = 0) {
   }
   at_sd_minimum <- at_sd_minimum_of(c("n", "m", "sd", "r"))
   from <- c("n", "m", "sd", "r")
-  list(
+  relations <- list(
     relation("df_from_n", "n", "df", function(vals, variant) vals$n - 1,
              inverse = function(df) df + 1),
     relation("t_from_descriptives", from, "t", function(vals, variant) {
@@ -104,8 +105,16 @@ t_paired_relations <- function(mu = 0) {
     relation("d_av_from_descriptives", c("n", "m", "sd"), "d", function(vals, variant) {
       d_av <- (vals$m[1] - vals$m[2]) / mean(vals$sd)
       if (variant == "g_av") d_av * (1 - 3 / (4 * (vals$n - 1) - 1)) else d_av
-    }, variants = c("d_av", "g_av"), variant_kind = "convention", falsifies = FALSE)
+    }, variants = c("d_av", "g_av"), variant_kind = "convention", falsifies = FALSE),
+    # d_z = mean difference / SD of the differences = t / sqrt(n) when the test value is 0
+    # (with another mu, t is of M_diff - mu, so it no longer gives d_z). No verdict.
+    if (mu == 0) {
+      relation("d_z_from_t", c("t", "n"), "d", function(vals, variant) vals$t / sqrt(vals$n),
+               variants = "d_z", variant_kind = "convention", falsifies = FALSE)
+    },
+    relation_eta2_from_t()
   )
+  Filter(Negate(is.null), relations)
 }
 
 # The two paired columns of `Pair(first, second) ~ 1`, complete pairs.

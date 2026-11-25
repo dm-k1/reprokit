@@ -23,6 +23,11 @@
 # for a relation whose formula authors choose freely and rarely declare (the
 # d convention): when none of its variants fits, the number is "not
 # reproducible", never "inconsistent".
+# `requires_fixed` names the kinds (a character vector, such as "test") under whose declared
+# value alone the relation is true (Student's df from n alone): check_reported() evaluates it
+# only when `variants` names a value of each of those kinds and every value it names is one
+# of the relation's. Without a declared test the relation
+# does not exist, so an honest Welch paper is never held to Student's df.
 # `inverse(output_value)` is optional: for a relation with a single, integer-valued input
 # (df from n) it returns the input that gives that output, increasing in the output. When the
 # input is not reported but the output is, check_reported() derives the input from it (an
@@ -39,7 +44,8 @@
 # corners and `stationary`, for relations whose extremes have no corner structure or whose
 # inputs have too many values for 2^k corners (the one-way F over k groups).
 relation <- function(name, inputs, output, fn, variants = NULL, variant_kind = "tail",
-                     stationary = NULL, falsifies = TRUE, inverse = NULL, range = NULL) {
+                     stationary = NULL, falsifies = TRUE, inverse = NULL, range = NULL,
+                     requires_fixed = NULL) {
   stopifnot(is.character(name), length(name) == 1L, nzchar(name),
             is.character(inputs), length(inputs) >= 1L,
             is.character(output), length(output) == 1L,
@@ -47,14 +53,17 @@ relation <- function(name, inputs, output, fn, variants = NULL, variant_kind = "
             is.null(stationary) ||
               (is.function(stationary) && length(formals(stationary)) %in% 1:3),
             is.logical(falsifies), length(falsifies) == 1L, !is.na(falsifies),
+            is.null(requires_fixed) || is.character(requires_fixed),
             is.null(inverse) || (is.function(inverse) && length(formals(inverse)) == 1L &&
                                    length(inputs) == 1L),
             is.null(range) ||
               (is.function(range) && identical(names(formals(range)), c("intervals", "variant"))))
   variants <- normalise_variants(variants, variant_kind)
+  stopifnot(all(requires_fixed %in% names(variants)))
   check_quantity_names(c(inputs, output), "quantity name in relation")
   list(name = name, inputs = inputs, output = output, fn = fn, variants = variants,
-       stationary = stationary, falsifies = falsifies, inverse = inverse, range = range)
+       stationary = stationary, falsifies = falsifies, inverse = inverse, range = range,
+       requires_fixed = requires_fixed)
 }
 
 # `variants` as a named list, one character vector per kind (or NULL).
@@ -138,7 +147,8 @@ variant_label <- function(codes) {
 
 is_relation <- function(x) {
   is.list(x) && identical(names(x), c("name", "inputs", "output", "fn", "variants",
-                                      "stationary", "falsifies", "inverse", "range"))
+                                      "stationary", "falsifies", "inverse", "range",
+                                      "requires_fixed"))
 }
 
 # Slack for floating-point error only (1e-9 of the magnitude); the rounding
