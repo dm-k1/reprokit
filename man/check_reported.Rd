@@ -15,7 +15,8 @@ check_reported(
   mu = 0,
   dims = NULL,
   p0 = NULL,
-  effect = NULL
+  effect = NULL,
+  k = NULL
 )
 
 check_t(..., handler = "t_paired", variants = NULL, mu = 0)
@@ -78,6 +79,12 @@ to check: \code{"A"} (main effect of the factor in the rows of the cell matrices
 \code{"B"} (the columns) or \code{"AB"} (the interaction). A paper with three F tests gets
 three calls with the same cell descriptives. Giving \code{effect} (or \code{dims})
 selects the factorial handler; without it \code{check_F()} is the one-way ANOVA.}
+
+\item{k}{For the regression handlers (\code{check_lm()}), the number of predictor
+columns (the model's df1), when F is not reported to say it. With \code{k}, \code{n}
+and \code{df2} are checked against each other (df2 = n - k - 1) and either gives
+the other; without it they are not, because k is never guessed from the
+number of coefficients reported (a paper may leave some out). A plain number.}
 }
 \value{
 A \code{reprokit_check} object: \verb{$numbers} (status of each reported

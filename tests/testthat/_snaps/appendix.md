@@ -516,3 +516,282 @@
       
       **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: cell sizes. This lowers the risk of identifying a participant; it does not remove it.
 
+# the regression-family appendices are stable
+
+    Code
+      print(appendix(sufficient_stats(lm(mpg ~ wt, mt), sharing_reason = sr)))
+    Output
+      ## Appendix: sufficient statistics for the simple regression
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      n = 32
+      
+      | Variable | M | SD |
+      | --- | --- | --- |
+      | wt | 3.22 | 0.98 |
+      | mpg (outcome) | 20.09 | 6.03 |
+      
+      Correlations of the model columns and the outcome:
+      
+      |  | wt | mpg (outcome) |
+      | --- | --- | --- |
+      | wt | 1.00 | -.87 |
+      | mpg (outcome) | -.87 | 1.00 |
+      
+      | Coefficient | b | SE | t | p |
+      | --- | --- | --- | --- | --- |
+      | (Intercept) | 37.29 | 1.88 | 19.86 | < .001 |
+      | wt | -5.34 | 0.56 | -9.56 | < .001 |
+      
+      df = 30 for every coefficient. Each coefficient's confidence interval is b ± t(df) × SE at the level the paper states.
+      
+      | Model | Value |
+      | --- | --- |
+      | R² | .75 |
+      | Adjusted R² | .74 |
+      | F(1, 30) | 91.38 |
+      | p (model) | < .001 |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      None: the APA numbers in block A determine the result.
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | (none to declare) |  |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - residual diagnostics (normality, outliers, influence)
+      - refitting with other predictors or transformations
+      - heteroscedasticity-robust standard errors
+      
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
+
+---
+
+    Code
+      print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt), sharing_reason = sr),
+      choices = list(coding = "treatment")))
+    Output
+      ## Appendix: sufficient statistics for the multiple regression
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      n = 32
+      
+      | Variable | M | SD |
+      | --- | --- | --- |
+      | wt | 3.22 | 0.98 |
+      | hp | 146.69 | 68.56 |
+      | am1 | 0.41 | 0.50 |
+      | mpg (outcome) | 20.09 | 6.03 |
+      
+      Correlations of the model columns and the outcome:
+      
+      |  | wt | hp | am1 | mpg (outcome) |
+      | --- | --- | --- | --- | --- |
+      | wt | 1.00 | .66 | -.69 | -.87 |
+      | hp | .66 | 1.00 | -.24 | -.78 |
+      | am1 | -.69 | -.24 | 1.00 | .60 |
+      | mpg (outcome) | -.87 | -.78 | .60 | 1.00 |
+      
+      | Coefficient | b | SE | t | p |
+      | --- | --- | --- | --- | --- |
+      | (Intercept) | 34.00 | 2.64 | 12.87 | < .001 |
+      | wt | -2.88 | 0.90 | -3.18 | .004 |
+      | hp | -0.04 | 0.01 | -3.90 | < .001 |
+      | am1 | 2.08 | 1.38 | 1.51 | .141 |
+      
+      df = 28 for every coefficient. Each coefficient's confidence interval is b ± t(df) × SE at the level the paper states.
+      
+      | Model | Value |
+      | --- | --- |
+      | R² | .84 |
+      | Adjusted R² | .82 |
+      | F(3, 28) | 48.96 |
+      | p (model) | < .001 |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      | Number | Value | Why it is needed |
+      | --- | --- | --- |
+      | the correlations | shown in block A | APA does not require this; coefficients depend on how the predictors overlap |
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | Factor coding | am: contr.treatment |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - residual diagnostics (normality, outliers, influence)
+      - refitting with other predictors or transformations
+      - heteroscedasticity-robust standard errors
+      
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
+
+---
+
+    Code
+      print(appendix(sufficient_stats(lm(mpg ~ wt * hp, mt), sharing_reason = sr),
+      choices = list(centering = "none", coding = "none")))
+    Output
+      ## Appendix: sufficient statistics for the moderation
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      n = 32
+      
+      | Variable | M | SD |
+      | --- | --- | --- |
+      | wt | 3.22 | 0.98 |
+      | hp | 146.69 | 68.56 |
+      | wt:hp | 514.74 | 341.94 |
+      | mpg (outcome) | 20.09 | 6.03 |
+      
+      Correlations of the model columns and the outcome:
+      
+      |  | wt | hp | wt:hp | mpg (outcome) |
+      | --- | --- | --- | --- | --- |
+      | wt | 1.00 | .66 | .86 | -.87 |
+      | hp | .66 | 1.00 | .93 | -.78 |
+      | wt:hp | .86 | .93 | 1.00 | -.84 |
+      | mpg (outcome) | -.87 | -.78 | -.84 | 1.00 |
+      
+      | Coefficient | b | SE | t | p |
+      | --- | --- | --- | --- | --- |
+      | (Intercept) | 49.81 | 3.61 | 13.82 | < .001 |
+      | wt | -8.22 | 1.27 | -6.47 | < .001 |
+      | hp | -0.12 | 0.02 | -4.86 | < .001 |
+      | wt:hp | 0.03 | 0.01 | 3.75 | < .001 |
+      
+      df = 28 for every coefficient. Each coefficient's confidence interval is b ± t(df) × SE at the level the paper states.
+      
+      | Model | Value |
+      | --- | --- |
+      | R² | .88 |
+      | Adjusted R² | .87 |
+      | F(3, 28) | 71.66 |
+      | p (model) | < .001 |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      | Number | Value | Why it is needed |
+      | --- | --- | --- |
+      | the correlations | shown in block A | APA does not require this; coefficients depend on how the predictors overlap |
+      | the X·Z moments | shown in block A | APA does not require this; cannot be derived from X and Z summaries |
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | Centering | as analysed |
+      | Coding | no factor predictors |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - residual diagnostics (normality, outliers, influence)
+      - refitting with other predictors or transformations
+      - heteroscedasticity-robust standard errors
+      
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
+
+---
+
+    Code
+      print(appendix(sufficient_stats(mpg ~ wt, data = mt, test = "mediation",
+      mediator = "hp", sharing_reason = sr)))
+    Output
+      ## Appendix: sufficient statistics for the simple mediation
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      n = 32
+      
+      | Variable | M | SD |
+      | --- | --- | --- |
+      | wt (X) | 3.22 | 0.98 |
+      | hp (M) | 146.69 | 68.56 |
+      | mpg (Y) | 20.09 | 6.03 |
+      
+      Correlations of X, M and Y:
+      
+      |  | wt | hp | mpg |
+      | --- | --- | --- | --- |
+      | wt | 1.00 | .66 | -.87 |
+      | hp | .66 | 1.00 | -.78 |
+      | mpg | -.87 | -.78 | 1.00 |
+      
+      | Path | b | SE | t | df | p |
+      | --- | --- | --- | --- | --- | --- |
+      | a (X to M) | 46.16 | 9.63 | 4.80 | 30 | < .001 |
+      | b (M to Y, X held constant) | -0.03 | 0.01 | -3.52 | 29 | .001 |
+      | c (X to Y) | -5.34 | 0.56 | -9.56 | 30 | < .001 |
+      | c' (X to Y, M held constant) | -3.88 | 0.63 | -6.13 | 29 | < .001 |
+      
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      | Number | Value | Why it is needed |
+      | --- | --- | --- |
+      | the correlations | shown in block A | APA does not require this; coefficients depend on how the predictors overlap |
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | (none to declare) |  |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      a·b and its CI (inferred by bootstrap, which resamples cases; summaries cannot)
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - the bootstrap (or Monte Carlo) confidence interval of the indirect effect a*b
+      - residual diagnostics (normality, outliers, influence)
+      - refitting with covariates, other mediators or transformations
+      
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. This lowers the risk of identifying a participant; it does not remove it.
+

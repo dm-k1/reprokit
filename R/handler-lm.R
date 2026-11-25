@@ -18,18 +18,9 @@ register_lm <- function() {
              "refitting with other predictors or transformations"),
     # Exactly "lm": aov, glm and multivariate lm get their own handlers.
     matches = function(x, ...) identical(class(x), "lm"),
-    triage = function(x, ..., threshold) {
-      if (x$rank < ncol(stats::model.matrix(x))) {
-        return(list(
-          verdict = "needs_raw_data",
-          reason = paste0("The model is rank-deficient (some coefficients are NA), so ",
-                          "the covariance matrix cannot be inverted to reproduce it.")
-        ))
-      }
-      list(verdict = "summaries_suffice",
-           reason = paste0("Summary statistics suffice: n, the means and the covariance ",
-                           "matrix of the predictors and outcome determine the fit exactly."))
-    },
+    triage = lm_triage,
+    # The narrow regression handlers (handler-lm_family.R) match first (ADR 0020).
+    fallback = TRUE,
     summarise = lm_summarise,
     reproduce = lm_reproduce,
     reported = lm_reported,

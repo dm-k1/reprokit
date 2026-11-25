@@ -14,6 +14,8 @@ register_builtin_handlers <- function() {
   register_chisq_independence()
   register_chisq_gof()
   register_lm()
+  register_lm_family()
+  register_mediation_simple()
 }
 
 # A dataset from the datasets package, without adding it to Imports

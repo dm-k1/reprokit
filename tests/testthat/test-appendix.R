@@ -77,7 +77,9 @@ test_that("an unknown convention errors and lists the valid codes", {
 })
 
 test_that("a handler without a declared APA set has no appendix", {
-  s <- sufficient_stats(stats::lm(mpg ~ wt, data = mtcars), sharing_reason = sharing)
+  # A polynomial falls back to the general lm, which has no APA set.
+  s <- sufficient_stats(stats::lm(mpg ~ poly(wt, 2), data = mtcars), sharing_reason = sharing)
+  expect_equal(s$handler, "lm")
   expect_error(appendix(s), "No appendix for")
 })
 
@@ -187,4 +189,21 @@ test_that("the factorial appendix numbers equal the handler's at the declared SS
   expect_error(appendix(sufficient_stats(weight ~ group, data = PlantGrowth, test = "oneway",
                                         sharing_reason = sharing),
                         choices = list(ss_type = "III")), "SS type")
+})
+
+test_that("the regression-family appendices are stable", {
+  mt <- datasets::mtcars
+  mt$am <- factor(mt$am)
+  sr <- "Consent did not cover public sharing."
+  expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt, mt), sharing_reason = sr))),
+                  transform = ascii_safe)
+  expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt), sharing_reason = sr),
+                                 choices = list(coding = "treatment"))),
+                  transform = ascii_safe)
+  expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt * hp, mt), sharing_reason = sr),
+                                 choices = list(centering = "none", coding = "none"))),
+                  transform = ascii_safe)
+  expect_snapshot(print(appendix(sufficient_stats(mpg ~ wt, data = mt, test = "mediation",
+                                                  mediator = "hp", sharing_reason = sr))),
+                  transform = ascii_safe)
 })
