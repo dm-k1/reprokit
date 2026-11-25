@@ -83,6 +83,10 @@
 #' @param per_cell Character vector of the quantities that have one value per
 #'   condition (`cells` of them), or `NULL` for the default, `m` and `sd`. A
 #'   handler whose n differs between conditions (independent groups) adds `n`.
+#' @param extras Named list, quantity name to an [appendix_extra()]: the cross-complete
+#'   quantities beyond the APA set that the stored summaries determine, which
+#'   `appendix(extra = )` can add and the coverage table lists. Their names also count as
+#'   applicable quantities of the test (ADR 0031).
 #' @param coverage Named character vector overriding the generated text of the
 #'   `sufficient`, `missing` or `checkable` column of the coverage table, or `NULL`.
 #'   Only for a row whose generated wording would differ from the plan's (a
@@ -104,7 +108,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                              not_checkable = NULL, test_args = NULL, domains = NULL,
                              labels = NULL, appendix_table = NULL, appendix_effects = NULL,
                              fallback = FALSE, coverage = NULL, missing_why = NULL,
-                             fractional = NULL) {
+                             fractional = NULL, extras = NULL) {
   check_verdict(verdict)
   relations_at <- NULL
   if (is.function(relations)) {
@@ -139,6 +143,8 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(labels) || (is.character(labels) && !is.null(names(labels))),
     is.null(appendix_table) || is.function(appendix_table),
     is.null(appendix_effects) || is.function(appendix_effects),
+    is.null(extras) || (is.list(extras) && !is.null(names(extras)) &&
+                          all(vapply(extras, is_appendix_extra, logical(1)))),
     is.null(missing_why) || (is.character(missing_why) && !is.null(names(missing_why))),
     is.logical(fallback), length(fallback) == 1L, !is.na(fallback),
     is.null(coverage) || (is.character(coverage) && !is.null(names(coverage)) &&
@@ -156,6 +162,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
   if (!is.null(not_checkable)) {
     check_quantity_names(names(not_checkable), "quantity name in `not_checkable`")
   }
+  if (!is.null(extras)) check_quantity_names(names(extras), "quantity name in `extras`")
   if (!is.null(per_cell)) check_quantity_names(per_cell, "quantity name in `per_cell`")
   if (!is.null(domains)) check_quantity_names(names(domains), "quantity name in `domains`")
   if (!is.null(fractional)) check_quantity_names(names(fractional), "quantity name in `fractional`")
@@ -176,7 +183,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     cells = design$cells, sufficient = sufficient, relations = relations,
     relations_at = relations_at, test_args = test_args, domains = domains,
     labels = labels, appendix_table = appendix_table, appendix_effects = appendix_effects,
-    coverage = coverage, missing_why = missing_why, fractional = fractional,
+    coverage = coverage, missing_why = missing_why, fractional = fractional, extras = extras,
     per_cell = if (is.null(per_cell)) per_cell_quantities() else per_cell
   ), envir = .registry)
   invisible(name)
@@ -281,6 +288,33 @@ missing_quantities <- function(h) {
   setdiff(h$sufficient, closure_under_relations(h, h$apa))
 }
 
+# An appendix extra (ADR 0031): `label` is the row's name, `value` a
+# `function(s, answers, digits)` returning the number (one per row, named by the row labels
+# when it has several) or NULL when the stored summaries do not determine it, `bounded` whether the number cannot exceed 1 in absolute value (APA
+# style drops its leading zero).
+appendix_extra <- function(label, value, bounded) {
+  stopifnot(is.character(label), length(label) == 1L, is.function(value),
+            is.logical(bounded), length(bounded) == 1L)
+  structure(list(label = label, value = value, bounded = bounded), class = "appendix_extra")
+}
+
+is_appendix_extra <- function(x) inherits(x, "appendix_extra")
+
+# What a test accepts in check_reported() (ADR 0031): the APA set, the sufficient set, every
+# quantity its relations name and its appendix extras. Anything else is a known quantity of
+# another test.
+applicable_quantities <- function(h) {
+  relations <- h$relations
+  if (!is.null(h$relations_at) && "effect" %in% h$test_args) {
+    relations <- unlist(lapply(c("A", "B", "AB"), function(effect) {
+      relations_at(h, list(effect = effect))
+    }), recursive = FALSE)
+  }
+  unique(c(h$apa, h$sufficient,
+           relation_bases(unlist(lapply(relations, function(rel) c(rel$inputs, rel$output)))),
+           names(h$extras)))
+}
+
 # The relations' input and output names without the coefficient ("b:wt" -> "b").
 relation_bases <- function(names) unique(quantity_base(names))
 
@@ -367,7 +401,9 @@ display_quantities <- function(h, quantities) {
   }
   labels <- c(m = "M", sd = "SD", f = "F", chisq = "chisq", eta2 = "eta2", n_total = "N",
               v = "V", p0 = "H0 proportions", b = "b", se = "SE", r2 = "R\u00b2",
-              p_model = "model p", indirect = "a\u00b7b", r_all = "the correlations",
+              p_model = "model p", adj_r2 = "adjusted R\u00b2", omega2 = "omega2",
+              partial_eta2 = "partial eta2", partial_omega2 = "partial omega2",
+              beta = "standardized beta", indirect = "a\u00b7b", r_all = "the correlations",
               xz = "the X\u00b7Z moments")
   labels[names(h$labels)] <- h$labels
   label <- function(q) if (q %in% names(labels)) labels[[q]] else q

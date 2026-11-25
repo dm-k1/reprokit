@@ -36,14 +36,17 @@ coverage_text <- function(h, column, generated) {
 #'   * `missing`: sufficient but not in APA, each with its reason;
 #'   * `checkable`: APA numbers the relations derive from `sufficient`;
 #'   * `not_checkable`: APA numbers they do not reach, each with its reason;
-#'   * `choices`: what the author must declare.
+#'   * `choices`: what the author must declare;
+#'   * `extras`: the further quantities `appendix(extra = )` can add, which the stored
+#'     summaries determine.
 #'
 #'   An empty cell shows an em dash. Handlers without a design are left out.
 #' @export
 #' @examples
 #' coverage_table()
 coverage_table <- function() {
-  cols <- c("test", "apa", "sufficient", "missing", "checkable", "not_checkable", "choices")
+  cols <- c("test", "apa", "sufficient", "missing", "checkable", "not_checkable", "choices",
+            "extras")
   hs <- Filter(function(h) !is.null(h$design), lapply(handlers(), get_handler))
   if (length(hs) == 0L) {
     return(as.data.frame(stats::setNames(replicate(length(cols), character(), FALSE), cols)))
@@ -62,6 +65,7 @@ coverage_table <- function() {
                                 list_or_dash(display_quantities(h, checkable_quantities(h)))),
       not_checkable = with_reasons(h, unreached_quantities(h), h$not_checkable),
       choices = list_or_dash(handler_choices(h), "; "),
+      extras = list_or_dash(display_quantities(h, names(h$extras))),
       stringsAsFactors = FALSE
     )
   })

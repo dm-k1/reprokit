@@ -43,6 +43,14 @@ register_anova_factorial <- function() {
     # Partial omega squared can be negative, unlike partial eta squared.
     domains = list(eta2 = c(-1, 1)),
     labels = c(eta2 = "partial eta2"),
+    extras = list(
+      partial_eta2 = appendix_extra("partial eta2", function(s, answers, digits) {
+        factorial_partial_effects(s, answers)[["partial_eta2"]]
+      }, TRUE),
+      partial_omega2 = appendix_extra("partial omega2", function(s, answers, digits) {
+        factorial_partial_effects(s, answers)[["partial_omega2"]]
+      }, TRUE)
+    ),
     relations = anova_factorial_relations,
     appendix_table = anova_factorial_appendix_table,
     appendix_effects = anova_factorial_appx_effects,
@@ -249,6 +257,20 @@ anova_factorial_relations <- function(effect = NULL, dims = NULL, balanced = NUL
       explained <- vals$f * vals$df1
       explained / (explained + vals$df2)
     }, variants = "partial_eta2", variant_kind = "convention", falsifies = FALSE),
+    # The named partial eta squared is F df1 / (F df1 + df2) by definition, so it can falsify
+    # (ADR 0031); the plain eta2 above stays a convention (a paper may mean generalized eta
+    # squared) and partial omega squared has several formulas, so neither can.
+    relation("partial_eta2_from_f", c("f", "df1", "df2"), "partial_eta2",
+             function(vals, variant) {
+               explained <- vals$f * vals$df1
+               explained / (explained + vals$df2)
+             }),
+    relation("partial_omega2_from_f", c("f", "df1", "df2"), "partial_omega2",
+             function(vals, variant) {
+               if (is.null(dims)) return(NaN)
+               gain <- vals$df1 * (vals$f - 1)
+               gain / (gain + vals$df2 + prod(dims))
+             }, falsifies = FALSE),
     relation("eta2_omega_from_f", c("f", "df1", "df2"), "eta2", function(vals, variant) {
       if (is.null(dims)) return(NaN)
       gain <- vals$df1 * (vals$f - 1)
@@ -407,6 +429,28 @@ anova_factorial_appendix_table <- function(s) {
 # The three F tests with their df, p and the declared effect size. A main effect of an
 # unbalanced design needs the declared SS type; without it the row says so instead of
 # guessing (the interaction does not depend on it).
+# Partial eta squared and partial omega squared of A, B and AB from the stored cells, at the SS
+# type the author declared (or the stored one). NULL when an unbalanced design has no declared
+# type: the effects of A and B depend on it, and reprokit does not choose for the author here.
+factorial_partial_effects <- function(s, answers) {
+  type <- answers$test
+  if (!isTRUE(s$meta$balanced) && is.na(type)) return(NULL)
+  dims <- s$meta$dims
+  res <- factorial_effects(s$stats$n, s$stats$mean, s$stats$sd, dims,
+                           if (is.na(type)) "III" else type)
+  labels <- c(A = s$meta$factor_names[1L], B = s$meta$factor_names[2L],
+              AB = paste0(s$meta$factor_names[1L], " \u00d7 ", s$meta$factor_names[2L]))
+  eta <- omega <- numeric()
+  for (effect in c("A", "B", "AB")) {
+    e <- res$effects[[effect]]
+    explained <- e$f * e$df1
+    gain <- e$df1 * (e$f - 1)
+    eta[[labels[[effect]]]] <- explained / (explained + res$df2)
+    omega[[labels[[effect]]]] <- gain / (gain + res$df2 + prod(dims))
+  }
+  list(partial_eta2 = eta, partial_omega2 = omega)
+}
+
 anova_factorial_appx_effects <- function(s, answers, digits) {
   type <- answers$test
   balanced <- isTRUE(s$meta$balanced)

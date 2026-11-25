@@ -37,6 +37,14 @@ register_anova_oneway <- function() {
     per_cell = c("n", "m", "sd"),
     # Omega squared is negative when F < 1, unlike eta squared (ADR 0022).
     domains = list(eta2 = c(-1, 1)),
+    extras = list(
+      r2 = appendix_extra("R\u00b2", function(s, answers, digits) {
+        oneway_effect_sizes(s)[["eta2"]]
+      }, TRUE),
+      omega2 = appendix_extra("omega2", function(s, answers, digits) {
+        oneway_effect_sizes(s)[["omega2"]]
+      }, TRUE)
+    ),
     relations = anova_oneway_relations(),
     example = function() {
       list(x = weight ~ group, args = list(data = base_data("PlantGrowth"), test = "oneway"))
@@ -148,8 +156,25 @@ anova_oneway_relations <- function() {
       switch(variant,
              eta2 = explained / (explained + vals$df2),
              omega2 = vals$df1 * (vals$f - 1) / (explained + vals$df2 + 1))
-    }, variants = c("eta2", "omega2"), variant_kind = "convention", falsifies = FALSE)
+    }, variants = c("eta2", "omega2"), variant_kind = "convention", falsifies = FALSE),
+    # R squared of a one-way ANOVA is eta squared by definition (SSb / SST), so as the
+    # named quantity r2 it can falsify (ADR 0031); omega squared stays a convention.
+    relation("r2_from_f", c("f", "df1", "df2"), "r2", function(vals, variant) {
+      explained <- vals$f * vals$df1
+      explained / (explained + vals$df2)
+    }),
+    relation("omega2_from_f", c("f", "df1", "df2"), "omega2", function(vals, variant) {
+      vals$df1 * (vals$f - 1) / (vals$f * vals$df1 + vals$df2 + 1)
+    }, falsifies = FALSE)
   )
+}
+
+# eta squared (= R squared of the one-way model) and omega squared from the stored statistics.
+oneway_effect_sizes <- function(s) {
+  r <- reproduce(s)
+  explained <- r[["f"]] * r[["df1"]]
+  c(eta2 = explained / (explained + r[["df2"]]),
+    omega2 = r[["df1"]] * (r[["f"]] - 1) / (explained + r[["df2"]] + 1))
 }
 
 anova_oneway_summarise <- function(x, data, test, ...) {

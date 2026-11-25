@@ -24,6 +24,12 @@ register_cor_pearson <- function() {
     design = apa_design(statistic = "r", effect_size = "r", cells = 2L),
     sufficient = c("n", "r"),
     not_checkable = c(m = "r does not depend on them", sd = "r does not depend on them"),
+    extras = list(
+      r2 = appendix_extra("R\u00b2", function(s, answers, digits) s$stats$r^2, TRUE),
+      adj_r2 = appendix_extra("Adjusted R\u00b2", function(s, answers, digits) {
+        1 - (1 - s$stats$r^2) * (s$stats$n - 1) / (s$stats$n - 2)
+      }, TRUE)
+    ),
     relations = cor_pearson_relations(),
     example = function() {
       list(x = ~ mpg + wt, args = list(data = base_data("mtcars"), test = "pearson"))
@@ -61,6 +67,10 @@ cor_pearson_relations <- function() {
                }
                c(lower = lowest, upper = max(bounds$lower^2, bounds$upper^2))
              }),
+    # Adjusted R squared of the simple regression of one variable on the other (Wherry).
+    relation("adj_r2_from_r2", c("r2", "n"), "adj_r2", function(vals, variant) {
+      1 - (1 - vals$r2) * (vals$n - 1) / (vals$n - 2)
+    }),
     relation("ci_lower_from_r", c("r", "n"), "ci_lower", fisher_bound(-1),
              variants = confidence_levels(), variant_kind = "level"),
     relation("ci_upper_from_r", c("r", "n"), "ci_upper", fisher_bound(1),

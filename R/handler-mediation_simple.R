@@ -56,6 +56,14 @@ register_mediation_simple <- function() {
     relations = relations_mediation,
     appendix_table = mediation_appendix_table,
     appendix_effects = function(s, answers, digits) character(),
+    extras = list(
+      r2 = appendix_extra("R\u00b2", function(s, answers, digits) {
+        mediation_model_values(s)[, "r2"]
+      }, TRUE),
+      f = appendix_extra("F", function(s, answers, digits) {
+        mediation_model_values(s)[, "f"]
+      }, FALSE)
+    ),
     example = function() {
       list(x = mpg ~ wt, args = list(data = base_data("mtcars"), test = "mediation",
                                      mediator = "hp"))
@@ -115,6 +123,24 @@ mediation_model_relations <- function(path, k) {
                stats::pf(vals[[f]], vals[[df1]], vals[[df2]], lower.tail = FALSE)
              })
   )
+}
+
+# R squared and F of the three regressions behind the paths (the model of M on X is a, of Y on X
+# and M is b, of Y on X is c), from the stored summaries. Rows are named as the appendix prints them.
+mediation_model_values <- function(s) {
+  xn <- s$meta$x
+  mn <- s$meta$m
+  yn <- s$meta$y
+  models <- list(
+    "model of a (X to M)" = mediation_sub(s, xn, mn),
+    "model of b and c' (X and M to Y)" = mediation_sub(s, c(xn, mn), yn),
+    "model of c (X to Y)" = mediation_sub(s, xn, yn)
+  )
+  out <- t(vapply(models, function(m) {
+    r <- lm_reproduce(m)
+    c(r2 = r[["r.squared"]], f = r[["F"]])
+  }, numeric(2)))
+  out
 }
 
 mediation_columns <- function(x, data, mediator) {

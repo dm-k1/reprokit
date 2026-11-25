@@ -153,8 +153,18 @@ lm_model_relations <- function() {
     }, variants = c("r2", "adj_r2"), variant_kind = "convention"),
     relation("p_model_from_f", c("f", "df1", "df2"), "p_model", function(vals, variant) {
       stats::pf(vals$f, vals$df1, vals$df2, lower.tail = FALSE)
-    })
+    }),
+    lm_adj_r2_relation()
   )
+}
+
+# Adjusted R squared from R squared and the model's df (ADR 0031): 1 - (1 - R2) (n - 1) /
+# (n - k - 1), where n - 1 = df1 + df2. Exact, so it can falsify; the convention variants of
+# f_from_r2 are for a paper that reports the adjusted value under the plain label.
+lm_adj_r2_relation <- function() {
+  relation("adj_r2_from_r2", c("r2", "df1", "df2"), "adj_r2", function(vals, variant) {
+    1 - (1 - vals$r2) * (vals$df1 + vals$df2) / vals$df2
+  })
 }
 
 # n from the residual df: df2 = n - k - 1 (ADR 0012), with k the number of predictor
@@ -246,7 +256,10 @@ register_lm_family <- function() {
     disclosure = lm_disclosure,
     domains = lm_domains(),
     appendix_table = lm_appendix_table,
-    appendix_effects = lm_appendix_effects
+    appendix_effects = lm_appendix_effects,
+    extras = list(
+      beta = appendix_extra("beta", lm_beta_values, FALSE)
+    )
   )
   register <- function(...) do.call(register_handler, c(shared, list(...)))
   register(
@@ -340,6 +353,21 @@ lm_appendix_table <- function(s, digits = 2L) {
     paste0("df = ", appendix_df(reproduced[["dendf"]], digits), " for every coefficient. ",
            "Each coefficient's confidence interval is b \u00b1 t(df) \u00d7 SE at the level ",
            "the paper states."))
+}
+
+# Standardized coefficients beta = b SD_x / SD_y, one per model column (the intercept has none).
+# A factor's columns are dummy variables, so their beta is the usual software default, which
+# is why the relation of check_reported() cannot falsify (see lm_beta_relation).
+lm_beta_values <- function(s, answers, digits) {
+  cp <- lm_crossproducts(s)
+  sd <- sqrt(diag(cp$s / (cp$w - 1)))
+  reproduced <- reproduce(s)
+  terms <- setdiff(sub("^estimate:", "", grep("^estimate:", names(reproduced), value = TRUE)),
+                   "(Intercept)")
+  if (length(terms) == 0L || !all(terms %in% names(sd))) return(NULL)
+  stats::setNames(vapply(terms, function(term) {
+    reproduced[[paste0("estimate:", term)]] * sd[[term]] / sd[["(response)"]]
+  }, numeric(1)), terms)
 }
 
 lm_appendix_effects <- function(s, answers, digits) {

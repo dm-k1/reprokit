@@ -59,6 +59,10 @@ sample_boxes <- list(
        paper = list(n = "4", r = "0.99", t = "7.00", df = "2")),
   list(handler = "cor_pearson",
        paper = list(n = "5", r = "-0.999", t = "-39.0", df = "3")),
+  list(handler = "cor_pearson", paper = list(n = "32", r2 = "0.160")),
+  list(handler = "cor_pearson", paper = list(n = "4", r2 = "0.01")),
+  list(handler = "anova_oneway", paper = list(f = "5.40", df1 = "2", df2 = "27", eta2 = "0.29")),
+  list(handler = "t_independent", paper = list(t = "2.10", df = "30", n = c("16", "16"))),
   list(handler = "t_paired",
        paper = list(n = "3", m = c("5.0", "4.0"), sd = c("0.01", "0.02"), r = "0.90",
                     t = "5.0", df = "2")),
@@ -93,6 +97,7 @@ expect_samples_contained <- function(draws) {
   for (spec in sample_boxes) {
     box <- box_of(spec$paper)
     for (rel in get_handler(spec$handler)$relations) {
+      if (!all(rel$inputs %in% names(box))) next # relations on quantities the paper omits
       for (variant in variant_combinations(rel$variants)) {
         range <- relation_range(rel, box, variant)
         sampled <- sampled_outputs(rel, box, variant, draws)

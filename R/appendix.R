@@ -50,11 +50,22 @@
 #'   back into the result, so they get more decimals than APA's two; the object
 #'   itself keeps full precision.
 #' @param threshold Passed to [sufficient_stats()] when it is called here.
+#' @param extra Names of further numbers to add after block D, or `"all"`. They are
+#'   quantities of the test that APA style does not ask for and that the stored summaries
+#'   determine: the R-squared family (`"r2"`, `"adj_r2"`, `"eta2"`, `"omega2"`,
+#'   `"partial_eta2"`, `"partial_omega2"`), the F of each mediation model, or `"beta"` for
+#'   the standardized coefficients of a regression. `coverage_table()` lists them per test
+#'   (column `extras`). A name the test does not offer is an error that lists the ones it
+#'   does. The default adds nothing, and the rest of the appendix does not change.
 #' @return A character vector of markdown lines, class `reprokit_appendix`. Refuses with an
 #'   error of class `reprokit_impossible` when summaries do not suffice.
 #' @export
 #' @examples
 #' appendix(chisq.test(table(mtcars$am, mtcars$vs)),
+#'          sharing_reason = "Consent did not cover public sharing.")
+#'
+#' # Add the standardized coefficients (and, for other tests, the R-squared family)
+#' appendix(lm(mpg ~ wt + hp, data = mtcars), extra = "beta",
 #'          sharing_reason = "Consent did not cover public sharing.")
 #'
 #' sleep_wide <- data.frame(drug1 = sleep$extra[sleep$group == 1],
@@ -63,7 +74,7 @@
 #'          sharing_reason = "Consent did not cover public sharing.",
 #'          choices = list(convention = "d_z"))
 appendix <- function(x, ..., sharing_reason, choices = list(), digits = 2L,
-                     digits_added = 4L, threshold = 5) {
+                     digits_added = 4L, threshold = 5, extra = character()) {
   reason <- if (!missing(sharing_reason) && is.character(sharing_reason) &&
                   length(sharing_reason) == 1L && !is.na(sharing_reason) &&
                   nzchar(trimws(sharing_reason))) trimws(sharing_reason) else NA_character_
@@ -84,6 +95,7 @@ appendix <- function(x, ..., sharing_reason, choices = list(), digits = 2L,
   if (is.null(h$design)) {
     abort_input("No appendix for the ", analysis_name(h), " yet: its APA set is not declared.")
   }
+  extra <- appendix_extra_names(h, extra)
   answers <- appendix_answers(h, s, choices)
   vals <- appendix_values(h, s, answers)
   labels <- appendix_cell_labels(h, s)
@@ -100,6 +112,7 @@ appendix <- function(x, ..., sharing_reason, choices = list(), digits = 2L,
     appendix_block_b(h, vals, labels, digits_added),
     appendix_block_c(h, s, answers, labels),
     appendix_block_d(h),
+    appendix_block_extras(h, s, answers, extra, digits),
     appendix_sharing(s, reason)
   )
   structure(lines, class = "reprokit_appendix")
@@ -109,6 +122,49 @@ appendix <- function(x, ..., sharing_reason, choices = list(), digits = 2L,
 print.reprokit_appendix <- function(x, ...) {
   cat(unclass(x), sep = "\n")
   invisible(x)
+}
+
+# The extras to print (ADR 0031): `extra` is "all" or names the test offers (`h$extras`).
+appendix_extra_names <- function(h, extra) {
+  if (is.null(extra) || length(extra) == 0L) return(character())
+  if (!is.character(extra) || anyNA(extra) || !all(nzchar(extra))) {
+    abort_input("`extra` must be names of extra numbers, or \"all\".")
+  }
+  offered <- names(h$extras)
+  if (identical(extra, "all")) return(offered)
+  unknown <- setdiff(extra, offered)
+  if (length(unknown) > 0L) {
+    abort_input(
+      "The ", analysis_name(h), " has no extra ", paste0("`", unknown, "`", collapse = ", "), ". ",
+      if (length(offered) > 0L) {
+        paste0("Valid extras: ", paste0("`", offered, "`", collapse = ", "), ", or \"all\".")
+      } else {
+        "It offers no extras."
+      }
+    )
+  }
+  unique(extra)
+}
+
+# The requested extras as a table after block D: each from the stored summaries, formatted as
+# APA asks (no leading zero for a number that cannot exceed 1; adjusted R squared may be negative).
+appendix_block_extras <- function(h, s, answers, extra, digits) {
+  if (length(extra) == 0L) return(character())
+  rows <- unlist(lapply(extra, function(q) {
+    spec <- h$extras[[q]]
+    value <- spec$value(s, answers, digits)
+    if (is.null(value) || !all(is.finite(value))) {
+      return(appendix_row(c(spec$label, "not determined by the stored summaries")))
+    }
+    labels <- if (is.null(names(value))) spec$label else paste0(spec$label, " (", names(value), ")")
+    vapply(seq_along(value), function(i) {
+      appendix_row(c(labels[i], appendix_number(value[[i]], digits,
+                                                leading_zero = !spec$bounded)))
+    }, character(1), USE.NAMES = FALSE)
+  }), use.names = FALSE)
+  c("### Additional numbers", "",
+    "Computed from the stored summaries at the author's request.", "",
+    appendix_row(c("Number", "Value")), appendix_row(c("---", "---")), rows, "")
 }
 
 # The analysis name in running text: no parenthetical, first letter lower case

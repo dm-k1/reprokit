@@ -31,6 +31,7 @@ register_t_paired <- function() {
     sufficient = c("n", "m", "sd", "r"),
     domains = list(eta2 = c(-1, 1)),
     choices = "direction of the difference: first minus second in Pair(first, second)",
+    extras = t_extras(),
     relations = t_paired_relations,
     example = function() {
       d <- base_data("sleep")
@@ -112,7 +113,9 @@ t_paired_relations <- function(mu = 0) {
       relation("d_z_from_t", c("t", "n"), "d", function(vals, variant) vals$t / sqrt(vals$n),
                variants = "d_z", variant_kind = "convention", falsifies = FALSE)
     },
-    relation_eta2_from_t()
+    relation_eta2_from_t(),
+    relation_r2_from_t(),
+    relation_omega2_from_t()
   )
   Filter(Negate(is.null), relations)
 }

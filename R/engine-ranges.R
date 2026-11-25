@@ -44,6 +44,20 @@ check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0
     abort_input("Every reported number must be named by its quantity, for example t = \"2.85\".")
   }
   check_quantity_names(names(reported), "reported quantity", terms = has_terms)
+  # A known quantity that this test does not have (r2 for chisq, d for pearson) is a usage
+  # error that names the ones it does (ADR 0031).
+  applicable <- applicable_quantities(entry)
+  inapplicable <- unique(names(reported)[!quantity_base(names(reported)) %in% applicable])
+  if (length(inapplicable) > 0L) {
+    abort_input(
+      paste0("`", inapplicable, "`", collapse = ", "), if (length(inapplicable) == 1L) {
+        " does not apply to "
+      } else {
+        " do not apply to "
+      }, analysis_name(entry), ". Quantities it takes: ",
+      paste0("`", applicable, "`", collapse = ", "), "."
+    )
+  }
   check_arity(reported, entry$cells, entry$per_cell)
   intervals <- Map(function(x, quantity) {
     as_count <- quantity_base(quantity) %in% c("n", "df", "df1", "df2", "n_total") &&
@@ -460,6 +474,7 @@ number_statuses <- function(reported, evaluations, relations, implied = list()) 
                             " tried reproduces it (", paste(unreproduced$relation, collapse = "; "),
                             ")"))
     } else if (length(waiting) > 0L) {
+      waiting <- drop_dominated_waiting(waiting, have)
       against <- vapply(waiting, function(rel) {
         lacking <- setdiff(rel$inputs, have)
         paste0(rel$name, if (length(lacking) > 0L) {
@@ -482,19 +497,41 @@ number_statuses <- function(reported, evaluations, relations, implied = list()) 
   )
 }
 
+# Of the relations waiting on the same number, those that lack strictly more than another
+# one that also applies are redundant to list (ADR 0031): Student's df needs n alone,
+# so "df from n and sd" is left out.
+drop_dominated_waiting <- function(waiting, have) {
+  lacking <- lapply(waiting, function(rel) setdiff(rel$inputs, have))
+  keep <- vapply(seq_along(waiting), function(i) {
+    !any(vapply(seq_along(waiting), function(j) {
+      j != i && waiting[[j]]$output == waiting[[i]]$output && length(lacking[[j]]) > 0L &&
+        all(lacking[[j]] %in% lacking[[i]]) && length(lacking[[j]]) < length(lacking[[i]])
+    }, logical(1)))
+  }, logical(1))
+  waiting[keep]
+}
+
 # What would turn a coherent number into a verified one: the relations that compute it from
 # descriptives (n, m, sd, r) and were not evaluated because an input is missing. Empty when
 # there is none, or when nothing is missing (the relation was skipped for these values, so
 # reporting more would not help). Appended to `checked_against`; the status stays coherent.
 upgrade_hint <- function(quantity, stalled, have) {
-  hints <- unlist(lapply(stalled, function(rel) {
-    lacking <- setdiff(rel$inputs, have)
-    if (rel$output != quantity || !any(rel$inputs %in% descriptive_quantities()) ||
-          length(lacking) == 0L) {
-      return(NULL)
-    }
-    paste0(rel$name, " would verify it (needs ", paste(lacking, collapse = ", "), ")")
-  }))
+  candidates <- Filter(function(rel) {
+    rel$output == quantity && any(rel$inputs %in% descriptive_quantities()) &&
+      length(setdiff(rel$inputs, have)) > 0L
+  }, stalled)
+  lacking <- lapply(candidates, function(rel) setdiff(rel$inputs, have))
+  # A hint that needs strictly more than another hint of the same number is redundant
+  # (Student's df from n alone makes "df from n and sd" noise); ADR 0031.
+  keep <- vapply(seq_along(candidates), function(i) {
+    !any(vapply(seq_along(candidates), function(j) {
+      j != i && all(lacking[[j]] %in% lacking[[i]]) && length(lacking[[j]]) < length(lacking[[i]])
+    }, logical(1)))
+  }, logical(1))
+  hints <- vapply(which(keep), function(i) {
+    paste0(candidates[[i]]$name, " would verify it (needs ",
+           paste(lacking[[i]], collapse = ", "), ")")
+  }, character(1))
   if (length(hints) == 0L) "" else paste0("; ", paste(hints, collapse = "; "))
 }
 

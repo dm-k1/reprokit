@@ -17,7 +17,9 @@
 quantity_names <- function() {
   c("n", "m", "sd", "r", "t", "f", "chisq", "df", "df1", "df2", "p", "eta2", "ci_lower",
     "ci_upper", "d", "n_total", "v", "p0", "b", "se", "beta", "r2", "p_model", "r_all", "xz",
-    "indirect", "indirect_ci_lower", "indirect_ci_upper")
+    "indirect", "indirect_ci_lower", "indirect_ci_upper",
+    # the cross-complete family: adjusted R squared, omega squared and the partial forms
+    "adj_r2", "omega2", "partial_eta2", "partial_omega2")
 }
 
 # Regression reports one number per coefficient. These quantities then carry the
@@ -62,7 +64,8 @@ quantity_domain <- function(quantity, overrides = NULL) {
   if (!is.null(overrides[[quantity]])) return(overrides[[quantity]])
   switch(quantity_base(quantity),
          r = c(-1, 1),
-         p = , p0 = , p_model = , r2 = c(0, 1),
+         p = , p0 = , p_model = , r2 = , partial_eta2 = c(0, 1),
+         adj_r2 = , omega2 = , partial_omega2 = c(-1, 1),
          n = , n_total = c(1, Inf),
          sd = , se = , df = , df1 = , df2 = , f = , chisq = c(0, Inf),
          eta2 = , v = c(0, 1),

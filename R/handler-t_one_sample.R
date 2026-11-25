@@ -23,6 +23,7 @@ register_t_one_sample <- function() {
     sufficient = c("n", "m", "sd"),
     domains = list(eta2 = c(-1, 1)),
     choices = "test value mu (default 0)",
+    extras = t_extras(),
     relations = t_one_sample_relations,
     example = function() {
       list(x = extra ~ 1, args = list(data = base_data("sleep"), test = "one_sample", mu = 0.5))
@@ -65,7 +66,9 @@ t_one_sample_relations <- function(mu = 0) {
       d <- vals$t / sqrt(vals$n)
       if (variant == "hedges_g") d * (1 - 3 / (4 * (vals$n - 1) - 1)) else d
     }, variants = c("cohen", "hedges_g"), variant_kind = "convention", falsifies = FALSE),
-    relation_eta2_from_t()
+    relation_eta2_from_t(),
+    relation_r2_from_t(),
+    relation_omega2_from_t()
   )
 }
 

@@ -36,6 +36,7 @@ register_t_independent <- function() {
     domains = list(eta2 = c(-1, 1)),
     sufficient = c("n", "m", "sd"),
     per_cell = c("n", "m", "sd"),
+    extras = t_extras(),
     relations = t_independent_relations(),
     example = function() {
       list(x = extra ~ group, args = list(data = base_data("sleep"), test = "welch"))
@@ -162,7 +163,9 @@ t_independent_relations <- function() {
       }
     }, variants = list(test = "student", convention = c("pooled", "hedges_g")),
     falsifies = FALSE, requires_fixed = "test"),
-    relation_eta2_from_t()
+    relation_eta2_from_t(),
+    relation_r2_from_t(),
+    relation_omega2_from_t()
   )
 }
 
@@ -181,6 +184,46 @@ relation_eta2_from_t <- function() {
     if (!isTRUE(bounds$lower < 0 && bounds$upper > 0)) return(list())
     lapply(corner_points(intervals, "df", "eta2_from_t"), function(point) c(list(t = 0), point))
   })
+}
+
+# R squared (t^2 / (t^2 + df), the squared point-biserial r for Student's test) and omega
+# squared of a t test, as their own quantities (ADR 0031). Welch's t has no agreed R squared and
+# omega squared has several formulas, so neither falsifies.
+relation_r2_from_t <- function() {
+  relation("r2_from_t", c("t", "df"), "r2", function(vals, variant) {
+    t2 <- vals$t^2
+    t2 / (t2 + vals$df)
+  }, falsifies = FALSE, stationary = t_zero_stationary("r2_from_t"))
+}
+
+relation_omega2_from_t <- function() {
+  relation("omega2_from_t", c("t", "df"), "omega2", function(vals, variant) {
+    t2 <- vals$t^2
+    (t2 - 1) / (t2 + vals$df + 1)
+  }, falsifies = FALSE, stationary = t_zero_stationary("omega2_from_t"))
+}
+
+# The minimum in t is at 0 when the box straddles it; the corners miss it.
+t_zero_stationary <- function(what) {
+  function(intervals) {
+    bounds <- interval_bounds(intervals$t)
+    if (!isTRUE(bounds$lower < 0 && bounds$upper > 0)) return(list())
+    lapply(corner_points(intervals, "df", what), function(point) c(list(t = 0), point))
+  }
+}
+
+# Appendix extras of the t tests: the R squared family from t and df, which every t test
+# stores (reproduce() gives both).
+t_extras <- function() {
+  from_t <- function(fn) function(s, answers, digits) {
+    r <- reproduce(s)
+    fn(r[["t"]]^2, r[["df"]])
+  }
+  list(
+    eta2 = appendix_extra("eta2", from_t(function(t2, df) t2 / (t2 + df)), TRUE),
+    omega2 = appendix_extra("omega2", from_t(function(t2, df) (t2 - 1) / (t2 + df + 1)), TRUE),
+    r2 = appendix_extra("R\u00b2", from_t(function(t2, df) t2 / (t2 + df)), TRUE)
+  )
 }
 
 t_independent_summarise <- function(x, data, test, alternative = "two.sided", conf_level = 0.95,
