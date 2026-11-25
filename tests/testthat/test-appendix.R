@@ -229,3 +229,9 @@ test_that("the regression appendices validate level and convention", {
     test = "paired", sharing_reason = "x")
   expect_error(appendix(t, choices = list(level = "0.95", convention = "d_z")), "level")
 })
+
+test_that("an undeclared effect-size convention is shown as not declared (one-way ANOVA)", {
+  s <- sufficient_stats(weight ~ group, data = PlantGrowth, test = "oneway",
+                        sharing_reason = sharing)
+  expect_snapshot(print(appendix(s)), transform = ascii_safe)
+})

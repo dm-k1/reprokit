@@ -8,10 +8,9 @@
 #' validates against, so the list cannot drift from the package.
 #'
 #' `default` is `TRUE` for the code reprokit uses when the argument is left out.
-#' Only the sums of squares type has one among several codes (type III). An
-#' effect-size convention with several codes has no default: leaving it out
-#' means "not declared", and the appendix says so. A handler with a single code
-#' (V, w) uses it.
+#' The sums of squares type never has one: it is the author's to declare, and
+#' leaving it out means "not declared". The same holds for an effect-size
+#' convention with several codes. A handler with a single code (V, w) uses it.
 #'
 #' @param handler A handler name from [handlers()], or `NULL` for all handlers
 #'   that accept a convention choice.
@@ -41,7 +40,7 @@ conventions <- function(handler = NULL) {
     convention <- variant_codes(h, "convention")
     ss_type <- if (has_ss_types(h)) variant_codes(h, "test")
     rbind(one("convention", convention, if (length(convention) == 1L) convention),
-          one("ss_type", ss_type, ss_type_codes()[1L]))
+          one("ss_type", ss_type, NULL))
   })
   out <- do.call(rbind, rows)
   if (is.null(out)) {

@@ -867,3 +867,53 @@
       
       **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: sample size only (no groups or cells; no individual values stored). This lowers the risk of identifying a participant; it does not remove it.
 
+# an undeclared effect-size convention is shown as not declared (one-way ANOVA)
+
+    Code
+      print(appendix(s))
+    Output
+      ## Appendix: sufficient statistics for the one-way ANOVA
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      |  | ctrl | trt1 | trt2 |
+      | --- | --- | --- | --- |
+      | n | 10 | 10 | 10 |
+      | M | 5.03 | 4.66 | 5.53 |
+      | SD | 0.58 | 0.79 | 0.44 |
+      
+      | Result | Value |
+      | --- | --- |
+      | F(2, 27) | 4.85 |
+      | p | .016 |
+      | eta2, convention not declared | .26 |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      None: the APA numbers in block A determine the result.
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | Effect-size convention | not declared (declaring it is a reprokit rule; APA does not require it) |
+      | Variance assumption | equal variances (classical F test, not Welch's) |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - checking the distribution and outliers within each group
+      - checking equal variances beyond the group SDs
+      - post-hoc comparisons that need the raw data or the error term of a model
+      
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: group sizes. This lowers the risk of identifying a participant; it does not remove it.
+

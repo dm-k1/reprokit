@@ -231,7 +231,8 @@ appendix_block_a <- function(h, s, vals, answers, labels, digits) {
   es_row <- if (is.null(es) || identical(es, statistic)) NULL else if (is.null(vals[[es]])) {
     c(es, "not computed: declare the effect-size convention (block C)")
   } else {
-    es_label <- variant_label(answers$convention)
+    es_label <- if (is.na(answers$convention)) "convention not declared" else
+      variant_label(answers$convention)
     c(if (es == "v") es_label else paste0(es, ", ", es_label),
       appendix_number(vals[[es]], digits, leading_zero = !es %in% c("eta2", "v")))
   }

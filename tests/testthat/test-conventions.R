@@ -30,8 +30,8 @@ test_that("each handler x choice has at most one default, and exactly one where 
   expect_true(all(n_default <= 1L))
   n_codes <- tapply(x$code, paste(x$handler, x$choice), length)
   expect_true(all(n_default[n_codes == 1L] == 1L))
-  ss <- x[x$choice == "ss_type", ]
-  expect_identical(ss$code[ss$default], "III")
+  # The SS type is the author's to declare: never a default.
+  expect_false(any(x$default[x$choice == "ss_type"]))
 })
 
 # One design per handler, to run its codes through the real functions.
@@ -95,12 +95,24 @@ test_that("the defaults are what happens when the argument is omitted", {
       expect_false(any(x$default[x$handler == name & x$choice == "convention"]))
     }
   }
-  # Type III is what an omitted ss_type computes.
-  tg <- unbalanced_tooth()
-  stats_with <- function(...) {
-    sufficient_stats(len ~ supp * dose, data = tg, test = "factorial", sharing_reason = sharing,
-                     ...)
+  # Omitting the SS type leaves it undeclared in the appendix (it is never inferred).
+  md <- appendix(sufficient_stats(len ~ supp * dose, data = unbalanced_tooth(),
+                                  test = "factorial", sharing_reason = sharing))
+  expect_match(grep("^\\| SS type \\|", md, value = TRUE), "not declared")
+})
+
+test_that("appendix() renders every undeclared choice, for every handler", {
+  extra <- list(
+    cor_pearson = sufficient_stats(~ mpg + wt, data = mtcars, test = "pearson",
+                                   sharing_reason = sharing),
+    mediation_simple = sufficient_stats(mpg ~ wt, data = mtcars,
+                                        test = "mediation", mediator = "hp",
+                                        sharing_reason = sharing))
+  for (name in handlers()) {
+    if (is.null(get_handler(name)$design)) next  # `lm`: no appendix by design
+    s <- if (name %in% names(extra)) extra[[name]] else convention_stats(name)
+    expect_identical(s$handler, name)
+    expect_error(md <- appendix(s), NA, info = name)
+    expect_s3_class(md, "reprokit_appendix")
   }
-  expect_equal(reproduce(stats_with()), reproduce(stats_with(ss_type = "III")))
-  expect_false(isTRUE(all.equal(reproduce(stats_with()), reproduce(stats_with(ss_type = "I")))))
 })
