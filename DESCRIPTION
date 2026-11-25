@@ -1,6 +1,6 @@
 Package: reprokit
 Title: Reproduce and Check Results When Raw Data Cannot Be Shared
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R:
     person("D.M.", "Kloppenburg", , "192165061+dm-k1@users.noreply.github.com",
            role = c("aut", "cre"))

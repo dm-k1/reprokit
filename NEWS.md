@@ -1,6 +1,6 @@
-# reprokit (development version)
+# reprokit 0.1.0
 
-First development version. Not yet on CRAN; names and output may change.
+First release (lifecycle: experimental). Not on CRAN; names and output may change.
 
 ## Share: for authors who cannot share raw data
 
@@ -35,6 +35,21 @@ First development version. Not yet on CRAN; names and output may change.
   numbers it does not but the result needs, the analysis choices, the numbers a
   reader cannot check, why the data are not shared, what readers lose, and a
   disclosure check on small groups.
+* Disclosure check per handler (ADR 0023). The default threshold is 5 and applies to
+  groups, cells, counts and factor levels; the general minimum n stays 2 x threshold.
+  - `chisq_independence` flags a cell and `chisq_gof` a category with
+    0 < count < threshold. A count of 0 is not flagged (ADR 0023 point 3, still open).
+  - `lm_multiple`, `lm_moderation` and the general `lm` flag every factor level with
+    fewer than `threshold` rows in the fit, counted unweighted (rows with weight 0 are
+    not in the fit). The existing check of 0/1 columns and their pairwise tables stays.
+  - `t_one_sample`, `t_paired`, `cor_pearson` and `mediation_simple`, which have no
+    groups or cells, get an explicit hook that adds no problems and says so, so the
+    appendix always names what was checked ("sample size only (no groups or cells; no
+    individual values stored)"). The appendix names the check for every handler.
+  - A flag drops the verdict to `needs_raw_data`, as before. The check lowers the risk
+    of identifying a participant; it is not a guarantee of anonymity.
+* The appendix gives mediation's missing correlations of X, M and Y their own reason:
+  the paths b and c' depend on how X and M overlap (it said "the predictors" before).
 
 ## Check: for readers of a paper
 
@@ -46,7 +61,6 @@ First development version. Not yet on CRAN; names and output may change.
   that were not reported. An inconsistency never says which number is wrong.
 * `check_r()` does not report r as "not checkable" when it reaches p only
   through an unreported t (for example `check_r(r = ".41", df = "28", p = ".024")`).
-
 * `check_chisq()` checks a chi-squared test of independence or goodness of fit
   from the table of counts (a matrix, or a vector for goodness of fit) and the
   reported chi-squared, df, p, N and Cramer's V (Cohen's w for goodness of fit).
@@ -108,5 +122,9 @@ First development version. Not yet on CRAN; names and output may change.
 ## Documentation
 
 * New vignettes: `vignette("reprokit")` (getting started),
-  `vignette("concepts")` (terms) and `vignette("validation")` (evidence).
+  `vignette("concepts")` (terms) and `vignette("validation")` (evidence). The validation
+  vignette reads the committed results of the scripts in `inst/validation/results/`, each
+  stamped with its seed, the package version and the date.
+* The README is generated from `README.Rmd`, with the coverage table rendered from
+  `coverage_table()`.
 * The package help page (`?reprokit`) gives an overview of both directions.
