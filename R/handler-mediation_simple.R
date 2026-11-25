@@ -1,8 +1,10 @@
 # Simple mediation: X -> M -> Y, written as `y ~ x` with `test = "mediation"` and
 # `mediator = "m"` (ADR 0020 point 2). It is three regressions: M on X (path a), Y on
 # X (path c) and Y on X and M (paths b and c'). The indirect effect a*b is inferred
-# by a bootstrap that resamples cases, which summaries cannot do, so it is neither
-# reproduced nor checked (ADR 0020 point 7); the bootstrap CI is in `lost`.
+# by a bootstrap that resamples cases, which summaries cannot do, so its CI is neither
+# reproduced nor checked and is in `lost` (ADR 0020 point 7). Its point estimate is the
+# product a*b (ADR 0028): the appendix gives it, and a reported indirect effect is checked
+# for coherence with the reported a and b.
 # In one line: n, the means and the covariance of X, M and Y determine the three
 # regressions exactly.
 #
@@ -48,7 +50,6 @@ register_mediation_simple <- function() {
     missing_why = c(r_all = paste("the paths b and c\u2032 depend on how X and M overlap;",
                                   "the means and SDs do not determine it")),
     not_checkable = c(
-      indirect = "inferred by bootstrap, which resamples cases; summaries cannot",
       indirect_ci_lower = "inferred by bootstrap, which resamples cases; summaries cannot",
       indirect_ci_upper = "inferred by bootstrap, which resamples cases; summaries cannot"
     ),
@@ -71,7 +72,14 @@ relations_mediation <- function(terms = mediation_paths()) {
     stop("Unknown mediation path ", paste0("'", unknown, "'", collapse = ", "),
          ". The paths are a, b, c and c_prime.", call. = FALSE)
   }
-  unlist(lapply(terms, function(path) {
+  # ADR 0028: the point estimate of the indirect effect is the product a*b, so a reported
+  # indirect effect must lie in the interval product of the rounding intervals of a and b. It
+  # says nothing about significance, and the indirect CI has no relation.
+  indirect <- if (all(c("a", "b") %in% terms)) {
+    list(relation("indirect_from_ab", c("b:a", "b:b"), "indirect",
+                  function(vals, variant) vals[["b:a"]] * vals[["b:b"]]))
+  }
+  c(unlist(lapply(terms, function(path) {
     k <- if (path %in% c("a", "c")) 1 else 2
     c(
       list(relation(paste0("df_from_n:", path), "n", paste0("df:", path),
@@ -79,7 +87,7 @@ relations_mediation <- function(terms = mediation_paths()) {
                     inverse = function(df) df + k + 1)),
       lm_term_relations(path, df = paste0("df:", path))
     )
-  }), recursive = FALSE)
+  }), recursive = FALSE), indirect)
 }
 
 mediation_columns <- function(x, data, mediator) {
@@ -150,7 +158,8 @@ mediation_gather <- function(m_on_x, y_on_x, y_on_xm, xn, mn) {
                 c_prime = list(y_on_xm, xn))
   per <- function(what) vapply(paths, function(p) pick(p[[1L]], what, p[[2L]]), numeric(1))
   df <- vapply(paths, function(p) p[[1L]][["dendf"]], numeric(1))
-  mediation_pack(per("estimate"), per("se"), per("t"), per("p"), df)
+  c(mediation_pack(per("estimate"), per("se"), per("t"), per("p"), df),
+    indirect = per("estimate")[["a"]] * per("estimate")[["b"]])
 }
 
 mediation_reported <- function(x, data = NULL, test = NULL, mediator = NULL, ...) {
@@ -166,8 +175,8 @@ mediation_reported <- function(x, data = NULL, test = NULL, mediator = NULL, ...
   mediation_gather(fit(mn, xn), fit(yn, xn), fit(yn, c(xn, mn)), xn, mn)
 }
 
-# Appendix (block A): n, M, SD and correlations of X, M and Y, and the four paths. The
-# indirect effect is not in the appendix's numbers: block D says why.
+# Appendix (block A): n, M, SD and correlations of X, M and Y, the four paths and a*b.
+# The CI of a*b is not in the appendix's numbers: block D says why.
 mediation_appendix_table <- function(s, digits = 2L) {
   cov <- s$stats$cov
   vars <- names(s$stats$mean)
@@ -189,6 +198,9 @@ mediation_appendix_table <- function(s, digits = 2L) {
       appendix_row(c(vars[i], appendix_number(cors[i, ], digits, leading_zero = FALSE)))
     }, character(1), USE.NAMES = FALSE),
     "",
+    paste0("Indirect effect a\u00b7b (computed from the stored summaries): ",
+           appendix_number(reproduced[["indirect"]], digits + 2L), ". Its confidence interval ",
+           "is not reproducible from summaries (block D)."), "",
     appendix_row(c("Path", "b", "SE", "t", "df", "p")), appendix_row(rep("---", 6L)),
     vapply(names(labels), function(path) {
       appendix_row(c(labels[[path]],
