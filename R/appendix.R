@@ -98,7 +98,9 @@ appendix <- function(x, ..., sharing_reason, choices = list(), digits = 2L,
   extra <- appendix_extra_names(h, extra)
   # Printed numbers come from the model when there is one; the guard refuses a fit whose own
   # numbers differ from the ones recomputed from its summaries (ADR 0031 point 5).
-  reference <- if (is_sufficient_stats(x)) NULL else {
+  reference <- if (is_sufficient_stats(x)) {
+    NULL
+  } else {
     appendix_model_reference(x, list(...), s$handler)
   }
   guard_model_source(reference, appendix_recomputed(h, s))

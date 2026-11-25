@@ -624,7 +624,7 @@ cat(if (chisq_ok) "\nPASS" else "\nFAIL", ": chi-squared planted errors, errors 
 set.seed(20261124)
 fact_types <- c("cell_mean_change", "f_digit", "p_digit", "df2_wrong", "type_mix")
 fact_subsets <- function(paper) {
-  list(all = names(paper), `f/df/p` = c("f", "df1", "df2", "p"),
+  list(all = setdiff(names(paper), new_keys), `f/df/p` = c("f", "df1", "df2", "p"),
        `desc+f+p` = c("n", "m", "sd", "f", "p"))
 }
 fact_plant <- function(paper, type) {
@@ -913,11 +913,11 @@ reg_check <- function(type, p, sub) {
     return(run_mediation_check(p$paper, keys, if (sub == "a/b/indirect") c("a", "b")))
   }
   paper <- p$paper
-  if (is.null(keys)) keys <- setdiff(names(paper), c("n"))
+  if (is.null(keys)) keys <- setdiff(names(paper), c("n", "adj_r2"))
   # a simple regression fixes k = 1 and takes no k argument
   kk <- if (attr(paper, "handler") == "lm_simple") NULL else attr(paper, "k")
   if (sub == "n/df2 + k") return(run_lm_check(paper, keys, k = kk))
-  if (sub == "all" && type == "df_wrong_k") keys <- names(paper)
+  if (sub == "all" && type == "df_wrong_k") keys <- setdiff(names(paper), "adj_r2")
   run_lm_check(paper, keys)
 }
 reg_rows <- list()
@@ -964,6 +964,207 @@ cat(if (reg_ok) "\nPASS" else "\nFAIL", ": regression planted errors, errors = "
     reg_false, ", flagged on a narrow subset but not on all = ", reg_hidden,
     ", cells never flagged = ", reg_dead, "\n", sep = "")
 
-pass_all <- ok && chisq_ok && fact_ok && reg_ok
-cat(if (pass_all) "\nPASS" else "\nFAIL", ": all planted-error sections (t/r/F, chi-squared, factorial, regression and mediation)\n", sep = "")
+# Cross-complete quantity planted errors (ADR 0031) --------------------------------------------
+# Claim: the relations added for the cross-complete quantity sets flag a planted error in the
+# quantity they cover whenever the oracle (independent of the package) says the error is
+# detectable from the reported numbers, and never flag one it says is not. One error per paper,
+# the correct papers of check-designs.R (which now print these quantities). Types:
+#   pearson_r2        R squared of a Pearson r off by 5-30 units of its last digit (oracle: r^2 over
+#                     the rounding box of r); subset r/r2
+#   pearson_adj_r2    adjusted R squared off by 5-30 units (oracle: 1 - (1 - R2)(n - 1)/(n - 2) over
+#                     the R2 box, n exact); subset n/r2/adj_r2
+#   oneway_r2         one-way R squared (= eta2) off by 5-30 units (oracle: F d1/(F d1 + d2) over
+#                     the F box); subset f/df/r2
+#   factorial_partial_eta2  partial eta2 off by 5-30 units (same oracle); subset f/df/partial_eta2
+#   lm_adj_r2         adjusted R squared of an lm off by 5-30 units (oracle: 1 - (1 - R2) (d1 + d2)/d2
+#                     over the R2 box, d1 and d2 exact); subset r2/adj_r2/df
+#   med_f / med_r2    F (off by 5-50 per cent) or R squared (off by 5-30 units) of one of the three
+#                     mediation models (oracle: F from the R2 box and the exact df, or R2 from the F
+#                     box); subset r2/f/df
+#   student_df_n      Student's df off from n1 + n2 - 2 by 1 or 2 (always detectable: n and df are
+#                     exact integers); subset n/df, with no t, p or CI that would reveal it
+# PASS: no errors; oracle-detectable always flagged; oracle-undetectable never flagged; every
+# type x subset cell flags at least once; nothing flagged on the narrow subset is missed on all.
+set.seed(20261126)
+new_types <- c("pearson_r2", "pearson_adj_r2", "oneway_r2", "factorial_partial_eta2", "lm_adj_r2",
+               "med_f", "med_r2", "student_df_n")
+new_subsets <- list(
+  pearson_r2 = list(all = NULL, `r/r2` = c("r", "r2")),
+  pearson_adj_r2 = list(all = NULL, `n/r2/adj_r2` = c("n", "r2", "adj_r2")),
+  oneway_r2 = list(all = NULL, `f/df/r2` = c("f", "df1", "df2", "r2")),
+  factorial_partial_eta2 = list(all = NULL, `f/df/partial_eta2` = c("f", "df1", "df2", "partial_eta2")),
+  lm_adj_r2 = list(all = NULL, `r2/adj_r2/df` = c("r2", "adj_r2", "df1", "df2")),
+  med_f = list(all = NULL, `r2/f/df` = c("r2", "f", "df1", "df2")),
+  med_r2 = list(all = NULL, `r2/f/df` = c("r2", "f", "df1", "df2")),
+  student_df_n = list(all = NULL, `n/df` = c("n", "df")))
+new_shift <- function(s, units, lo = -Inf, hi = Inf) {
+  d <- n_decimals(s)
+  v <- as.numeric(s) + units * 10^-d
+  if (v < lo || v > hi) return(NULL)
+  fmt(v, d)
+}
+unit_draw <- function() sample(5:30, 1L) * sample(c(-1, 1), 1L)
+square_range <- function(i) {
+  i <- pmin(pmax(i, -1), 1)
+  c(if (i[1L] <= 0 && i[2L] >= 0) 0 else min(i^2), max(i^2))
+}
+f_to_r2 <- function(fi, d1, d2) fi * d1 / (fi * d1 + d2)
+new_paper <- function(type) {
+  switch(type,
+    pearson_r2 = , pearson_adj_r2 = {
+      paper <- pearson_paper()
+      key <- if (type == "pearson_r2") "r2" else "adj_r2"
+      if (is.null(paper) || is.null(paper[[key]])) return(NULL)
+      new <- new_shift(paper[[key]], unit_draw(), if (key == "r2") 0 else -1, 1)
+      if (is.null(new)) return(NULL)
+      paper[[key]] <- new
+      list(paper = paper, key = key, test = "pearson")
+    },
+    oneway_r2 = {
+      paper <- oneway_paper()
+      if (is.null(paper)) return(NULL)
+      new <- new_shift(paper$r2, unit_draw(), 0, 1)
+      if (is.null(new)) return(NULL)
+      paper$r2 <- new
+      list(paper = paper, key = "r2", test = "oneway")
+    },
+    factorial_partial_eta2 = {
+      paper <- factorial_paper()
+      if (is.null(paper)) return(NULL)
+      new <- new_shift(paper$partial_eta2, unit_draw(), 0, 1)
+      if (is.null(new)) return(NULL)
+      paper$partial_eta2 <- new
+      list(paper = paper, key = "partial_eta2", test = "factorial")
+    },
+    lm_adj_r2 = {
+      paper <- lm_paper(lm_raw())
+      new <- new_shift(paper$adj_r2, unit_draw(), -1, 1)
+      if (is.null(new)) return(NULL)
+      paper$adj_r2 <- new
+      list(paper = paper, key = "adj_r2", test = "lm")
+    },
+    med_f = , med_r2 = {
+      paper <- mediation_paper(mediation_raw())
+      path <- sample(c("a", "b", "c"), 1L)
+      if (type == "med_f") {
+        paper$f[[path]] <- fmt(as.numeric(paper$f[[path]]) *
+                                 (1 + sample(c(-1, 1), 1L) * sample(5:50, 1L) / 100), 2L)
+      } else {
+        new <- new_shift(paper$r2[[path]], unit_draw(), 0, 1)
+        if (is.null(new)) return(NULL)
+        paper$r2[[path]] <- new
+      }
+      list(paper = paper, key = if (type == "med_f") "f" else "r2", path = path, test = "mediation")
+    },
+    student_df_n = {
+      paper <- independent_paper(TRUE)
+      if (is.null(paper)) return(NULL)
+      truth <- sum(as.numeric(paper$n)) - 2
+      paper$df <- as.character(truth + sample(c(-2, -1, 1, 2), 1L))
+      list(paper = paper, key = "df", test = "student")
+    })
+}
+new_oracle <- function(type, p) {
+  paper <- p$paper
+  if (type == "pearson_r2") {
+    return(verdict(overlap(square_range(interval(paper$r)), pmin(pmax(interval(paper$r2), 0), 1))))
+  }
+  if (type == "pearson_adj_r2") {
+    n <- as.numeric(paper$n)
+    ri <- pmin(pmax(interval(paper$r2), 0), 1)
+    adj <- 1 - (1 - ri) * (n - 1) / (n - 2)
+    return(verdict(overlap(range(adj), interval(paper$adj_r2))))
+  }
+  if (type %in% c("oneway_r2", "factorial_partial_eta2")) {
+    key <- p$key
+    fg <- seq(interval(paper$f)[1L], interval(paper$f)[2L], length.out = 101L)
+    fg <- pmax(fg, 0)
+    r <- f_to_r2(fg, as.numeric(paper$df1), as.numeric(paper$df2))
+    ri <- pmin(pmax(interval(paper[[key]]), 0), 1)
+    if (ri[2L] >= 1) return("edge")
+    return(verdict(overlap(range(r), ri)))
+  }
+  if (type == "lm_adj_r2") {
+    d1 <- as.numeric(paper$df1)
+    d2 <- as.numeric(paper$df2)
+    ri <- pmin(pmax(interval(paper$r2), 0), 1)
+    adj <- 1 - (1 - ri) * (d1 + d2) / d2
+    return(verdict(overlap(range(adj), interval(paper$adj_r2))))
+  }
+  if (type == "med_f") {
+    d1 <- as.numeric(paper$df1[[p$path]])
+    d2 <- as.numeric(paper$df2[[p$path]])
+    ri <- pmin(pmax(interval(paper$r2[[p$path]]), 0), 0.999999)
+    fr <- (ri / d1) / ((1 - ri) / d2)
+    return(verdict(overlap(range(fr), interval(paper$f[[p$path]]))))
+  }
+  if (type == "med_r2") {
+    d1 <- as.numeric(paper$df1[[p$path]])
+    d2 <- as.numeric(paper$df2[[p$path]])
+    fi <- interval(paper$f[[p$path]])
+    fg <- pmax(seq(fi[1L], fi[2L], length.out = 101L), 0)
+    ri <- pmin(pmax(interval(paper$r2[[p$path]]), 0), 1)
+    # a reported r2 whose interval reaches 1 implies an unbounded F: not evaluable, an edge
+    if (ri[2L] >= 1) return("edge")
+    return(verdict(overlap(range(f_to_r2(fg, d1, d2)), ri)))
+  }
+  # student_df_n: n and df are exact integers
+  if (as.numeric(paper$df) != sum(as.numeric(paper$n)) - 2) "detectable" else "undetectable"
+}
+new_check <- function(type, p, sub) {
+  paper <- p$paper
+  keys <- new_subsets[[type]][[sub]]
+  if (is.null(keys)) keys <- if (p$test == "lm") setdiff(names(paper), "n") else names(paper)
+  switch(p$test,
+    pearson = , oneway = , student = run_check(p$test, paper, keys),
+    factorial = run_factorial_check(paper, keys),
+    lm = run_lm_check(paper, keys),
+    mediation = run_mediation_check(paper, keys))
+}
+new_rows <- list()
+n_new <- 800L
+for (i in seq_len(n_new)) {
+  type <- new_types[(i - 1L) %% length(new_types) + 1L]
+  planted <- NULL
+  for (attempt in 1:200) {
+    planted <- new_paper(type)
+    if (!is.null(planted)) break
+  }
+  if (is.null(planted)) next
+  oracle <- new_oracle(type, planted)
+  for (sub in names(new_subsets[[type]])) {
+    res <- new_check(type, planted, sub)
+    outcome <- if (inherits(res, "error")) "error" else if (!res$consistent) "flagged" else "not flagged"
+    new_rows[[length(new_rows) + 1L]] <- data.frame(
+      case = i, type = type, subset = sub, outcome = outcome,
+      oracle = if (sub != "all") oracle else NA_character_)
+  }
+}
+new_results <- do.call(rbind, new_rows)
+new_cells <- aggregate(outcome ~ type + subset, new_results,
+                       function(o) c(n = length(o), flagged = sum(o == "flagged")))
+new_cells <- cbind(new_cells[1:2], as.data.frame(new_cells$outcome))
+new_cells$`% flagged` <- round(100 * new_cells$flagged / new_cells$n, 1)
+cat("\n== Cross-complete quantity planted errors ==\n")
+print(new_cells, row.names = FALSE)
+ncov <- new_results[!is.na(new_results$oracle) & new_results$oracle != "edge", ]
+print(as.data.frame(table(oracle = ncov$oracle, outcome = ncov$outcome)), row.names = FALSE)
+new_errors <- sum(new_results$outcome == "error")
+new_missed <- sum(ncov$oracle == "detectable" & ncov$outcome != "flagged")
+new_false <- sum(ncov$oracle == "undetectable" & ncov$outcome == "flagged")
+nfl <- function(ty, s) unique(new_results$case[new_results$type == ty & new_results$subset == s &
+                                                 new_results$outcome == "flagged"])
+new_hidden <- sum(vapply(new_types, function(ty) {
+  narrow <- setdiff(names(new_subsets[[ty]]), "all")
+  length(setdiff(unlist(lapply(narrow, function(s) nfl(ty, s))), nfl(ty, "all")))
+}, numeric(1)))
+new_dead <- sum(new_cells$flagged == 0)
+new_ok <- new_errors == 0 && new_missed == 0 && new_false == 0 && new_hidden == 0 && new_dead == 0
+cat(if (new_ok) "\nPASS" else "\nFAIL", ": cross-complete planted errors, errors = ", new_errors,
+    ", oracle-detectable not flagged = ", new_missed, ", oracle-undetectable flagged = ",
+    new_false, ", flagged on a narrow subset but not on all = ", new_hidden,
+    ", cells never flagged = ", new_dead, "\n", sep = "")
+
+pass_all <- ok && chisq_ok && fact_ok && reg_ok && new_ok
+cat(if (pass_all) "\nPASS" else "\nFAIL", ": all planted-error sections (t/r/F, chi-squared, factorial, regression, mediation and the cross-complete quantities)\n", sep = "")
 finish_validation(pass_all)

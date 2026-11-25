@@ -100,6 +100,10 @@ pearson_paper <- function(raw = NULL, alternative = "two.sided") {
   paper <- list(n = as.character(n), r = fmt(unname(ct$estimate), dec),
                 df = as.character(n - 2L), t = fmt(unname(ct$statistic), 2L),
                 p = fmt_p(p_value))
+  # R squared and its adjusted value (cross-complete quantities of the test): printed with r
+  r_hat <- unname(ct$estimate)
+  paper$r2 <- fmt(r_hat^2, dec)
+  if (n > 3L) paper$adj_r2 <- fmt(1 - (1 - r_hat^2) * (n - 1) / (n - 2), dec)
   if (n > 3L) {
     paper <- c(paper, list(ci_lower = fmt(ct$conf.int[1L], dec),
                            ci_upper = fmt(ct$conf.int[2L], dec)))
@@ -258,7 +262,7 @@ oneway_paper <- function(d = oneway_raw(), negative_omega = FALSE) {
   effect <- if (!negative_omega && runif(1L) < 0.5) truth$eta2 else truth$omega2
   list(n = as.character(d$n), m = fmt(tapply(d$y, d$g, mean), 2L), sd = fmt(sds, 2L),
        f = fmt(truth$f, 2L), df1 = as.character(truth$df1), df2 = as.character(truth$df2),
-       p = fmt_p(truth$p), eta2 = fmt(effect, 2L))
+       p = fmt_p(truth$p), eta2 = fmt(effect, 2L), r2 = fmt(truth$eta2, 2L))
 }
 
 # Factorial ANOVA (ADR 0017) ---------------------------------------------------------------
@@ -319,7 +323,8 @@ factorial_paper <- function(raw = factorial_raw(), effect = sample(c("A", "B", "
                 sd = matrix(fmt(as.vector(sds), 2L), raw$dims[1L]),
                 f = fmt(truth$f[[effect]], 2L), df1 = as.character(truth$df1[[effect]]),
                 df2 = as.character(truth$df2), p = fmt_p(truth$p[[effect]]),
-                eta2 = fmt(size, 2L))
+                eta2 = fmt(size, 2L), partial_eta2 = fmt(truth$eta2[[effect]], 2L),
+                partial_omega2 = fmt(truth$omega2[[effect]], 2L))
   attr(paper, "effect") <- effect
   attr(paper, "dims") <- raw$dims
   attr(paper, "balanced") <- raw$balanced
@@ -521,7 +526,12 @@ draw_cases <- function(group, n_papers) {
 }
 
 # The reported subsets the planted-error and statcheck scripts use.
+# Keys the generators print for the cross-complete quantities (ADR 0031); the planted-error
+# oracles below do not model them, so those sections leave them out and the dedicated section
+# plants errors in them.
+new_keys <- c("r2", "adj_r2", "partial_eta2", "partial_omega2")
 report_subsets <- function(handler, paper) {
+  paper <- paper[setdiff(names(paper), new_keys)]
   if (handler == "anova_oneway") {
     return(list(all = names(paper), `f/df/p` = c("f", "df1", "df2", "p"),
                 `desc+f+p` = c("n", "m", "sd", "f", "p")))
@@ -684,7 +694,7 @@ lm_paper <- function(raw, intercept = runif(1L) < 0.3) {
     r2 = fmt(sm$r.squared, 2L), f = fmt(unname(fst[["value"]]), 2L),
     df1 = as.character(fst[["numdf"]]), df2 = as.character(fst[["dendf"]]),
     p_model = fmt_p(stats::pf(fst[["value"]], fst[["numdf"]], fst[["dendf"]], lower.tail = FALSE)),
-    n = as.character(stats::nobs(fit)))
+    adj_r2 = fmt(sm$adj.r.squared, 2L), n = as.character(stats::nobs(fit)))
   paper$ci_upper <- paper$ci_upper
   attr(paper, "handler") <- raw$handler
   attr(paper, "k") <- k
@@ -710,9 +720,9 @@ run_lm_check <- function(paper, keys, terms_only = NULL, k = NULL, ...) {
   per_term <- c("b", "se", "t", "p", "ci_lower", "ci_upper", "beta")
   args <- list()
   for (key in keys) {
-    v <- if (key == "sd") attr(paper, "sd_all") else if (key == "adj_r2") NULL else paper[[key]]
+    v <- if (key == "sd") attr(paper, "sd_all") else if (key == "r2_adj") NULL else paper[[key]]
     if (key %in% per_term && !is.null(terms_only)) v <- v[intersect(names(v), terms_only)]
-    if (key == "adj_r2") { args[["r2"]] <- attr(paper, "adj"); next }
+    if (key == "r2_adj") { args[["r2"]] <- attr(paper, "adj"); next }
     if (key == "beta") v <- paper$b
     if (!is.null(v) && length(v) > 0L) args[[key]] <- v
   }
@@ -778,6 +788,12 @@ mediation_paper <- function(d) {
            c_prime = as.character(n - 3L)),
     n = as.character(n), indirect = fmt(paths$a[[1L]] * paths$b[[1L]], 2L),
     indirect_ci_lower = fmt(q[[1L]], 2L), indirect_ci_upper = fmt(q[[2L]], 2L))
+  # the model rows PROCESS prints: R squared and F(df1, df2) of the three regressions, by path
+  models <- list(a = fa, b = fb, c = fc)
+  paper$r2 <- stats::setNames(vapply(models, function(m) fmt(m$r.squared, 2L), ""), names(models))
+  paper$f <- stats::setNames(vapply(models, function(m) fmt(m$fstatistic[["value"]], 2L), ""), names(models))
+  paper$df1 <- stats::setNames(vapply(models, function(m) as.character(m$fstatistic[["numdf"]]), ""), names(models))
+  paper$df2 <- stats::setNames(vapply(models, function(m) as.character(m$fstatistic[["dendf"]]), ""), names(models))
   attr(paper, "level") <- level
   # The other way a paper gets its indirect effect: the product of the printed paths,
   # round(round(a) * round(b)).

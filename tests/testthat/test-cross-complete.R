@@ -59,7 +59,8 @@ test_that("Student df is checked against n, and only the non-redundant relation 
   expect_false(check_reported("student", df = "17", n = c("10", "10"))$consistent)
   expect_true(check_reported("student", df = "18", n = c("10", "10"))$consistent)
   hint <- check_reported("student", df = "18", t = "2.85")
-  expect_equal(sum(grepl("^df_from_n", hint$numbers$checked_against[hint$numbers$quantity == "df"])),
+  checked <- hint$numbers$checked_against[hint$numbers$quantity == "df"]
+  expect_equal(sum(grepl("^df_from_n", checked)),
                1L)
   expect_match(hint$numbers$checked_against[hint$numbers$quantity == "df"],
                "df_from_n_student (needs n)", fixed = TRUE)

@@ -570,6 +570,74 @@ print(data.frame(assertion = names(checks6), holds = unname(checks6)), row.names
 cat(if (all(checks6)) "\nPASS" else "\nFAIL",
     ": regression known answers (", sum(checks6), "/", length(checks6), ")\n", sep = "")
 
-all_pass <- all(checks) && all(checks2) && all(checks3) && all(checks4) && all(checks5) && all(checks6)
+
+# Appendix extras against base R (ADR 0031) ------------------------------------------------
+# Case 7: the numbers `appendix(extra = "all")` prints are computed from the stored summaries.
+# They must equal an independent computation from the raw data with base R (stats::lm, aov,
+# cor, t.test), to the two decimals the appendix prints. Cases: lm standardised betas
+# (mtcars, mpg ~ wt + hp: the slope of lm() on scale()d columns), Student t test R squared and
+# eta squared (sleep: t^2 / (t^2 + df)), Pearson R squared and adjusted R squared
+# (mtcars mpg, wt), one-way R squared = SSb / SST and omega squared (PlantGrowth), factorial
+# partial eta squared per effect (ToothGrowth, type III by drop1 on sum contrasts) and the
+# mediation models' R squared and F (mtcars, wt -> hp -> mpg).
+# PASS: every printed extra equals the base R value.
+extras_text <- function(s, ...) {
+  x <- paste(appendix(s, extra = "all", sharing_reason = "x", ...), collapse = "\n")
+  start <- regexpr("### Additional numbers", x, fixed = TRUE)
+  substring(x, start, regexpr("### Raw data", x, fixed = TRUE) - 1L)
+}
+extra_value <- function(text, label) {
+  line <- grep(paste0("| ", label, " |"), strsplit(text, "\n")[[1L]], fixed = TRUE, value = TRUE)
+  if (length(line) != 1L) return(NA_character_)
+  trimws(sub("^.*\\| ([^|]*) \\|$", "\\1", line))
+}
+apa2 <- function(x) chartr("-", "−", sub("^(-?)0\\.", "\\1.", sprintf("%.2f", x)))
+# a standardised beta is not bounded by 1, so APA keeps its leading zero
+unbounded2 <- function(x) chartr("-", "\u2212", sprintf("%.2f", x))
+mt <- mtcars
+lm_txt <- extras_text(sufficient_stats(lm(mpg ~ wt + hp, mt), data = mt))
+beta_ref <- coef(lm(scale(mpg) ~ scale(wt) + scale(hp), mt))[-1L]
+st <- t.test(extra ~ group, sleep, var.equal = TRUE)
+t_txt <- extras_text(sufficient_stats(extra ~ group, data = sleep, test = "student"),
+                     choices = list(convention = "eta2"))
+t2 <- unname(st$statistic)^2
+pr <- cor.test(mt$mpg, mt$wt)
+r2 <- unname(pr$estimate)^2
+p_txt <- extras_text(sufficient_stats(~ mpg + wt, data = mt, test = "pearson"))
+aov1 <- summary(aov(weight ~ group, PlantGrowth))[[1L]]
+ssb <- aov1[1L, "Sum Sq"]
+sst <- sum(aov1[, "Sum Sq"])
+o_txt <- extras_text(sufficient_stats(weight ~ group, data = PlantGrowth, test = "oneway"))
+tg <- ToothGrowth
+tg$dose <- factor(tg$dose)
+full <- lm(len ~ supp * dose, tg, contrasts = list(supp = "contr.sum", dose = "contr.sum"))
+dr <- drop1(full, scope = ~ supp + dose + supp:dose)
+sse <- deviance(full)
+f_txt <- extras_text(sufficient_stats(len ~ supp * dose, data = tg, test = "factorial"),
+                     choices = list(ss_type = "III"))
+m_txt <- extras_text(sufficient_stats(mpg ~ wt, data = mt, test = "mediation", mediator = "hp"))
+sm_a <- summary(lm(hp ~ wt, mt))
+sm_b <- summary(lm(mpg ~ wt + hp, mt))
+sm_c <- summary(lm(mpg ~ wt, mt))
+checks7 <- c(
+  `lm beta (wt)` = identical(extra_value(lm_txt, "beta (wt)"), unbounded2(beta_ref[["scale(wt)"]])),
+  `lm beta (hp)` = identical(extra_value(lm_txt, "beta (hp)"), unbounded2(beta_ref[["scale(hp)"]])),
+  `Student R2` = identical(extra_value(t_txt, "R²"), apa2(t2 / (t2 + unname(st$parameter)))),
+  `Student eta2` = identical(extra_value(t_txt, "eta2"), apa2(t2 / (t2 + unname(st$parameter)))),
+  `Pearson R2` = identical(extra_value(p_txt, "R²"), apa2(r2)),
+  `Pearson adjusted R2` = identical(extra_value(p_txt, "Adjusted R²"),
+                                    apa2(1 - (1 - r2) * (nrow(mt) - 1) / (nrow(mt) - 2))),
+  `one-way R2` = identical(extra_value(o_txt, "R²"), apa2(ssb / sst)),
+  `one-way omega2` = identical(extra_value(o_txt, "omega2"),
+                               apa2((ssb - aov1[1L, "Df"] * aov1[2L, "Mean Sq"]) / (sst + aov1[2L, "Mean Sq"]))),
+  `factorial partial eta2 (supp)` = grepl(apa2(dr["supp", "Sum of Sq"] / (dr["supp", "Sum of Sq"] + sse)), f_txt, fixed = TRUE),
+  `factorial partial eta2 (interaction)` = grepl(apa2(dr["supp:dose", "Sum of Sq"] / (dr["supp:dose", "Sum of Sq"] + sse)), f_txt, fixed = TRUE),
+  `mediation R2 (a, b, c)` = all(vapply(list(sm_a, sm_b, sm_c), function(s) grepl(apa2(s$r.squared), m_txt, fixed = TRUE), NA)),
+  `mediation F (a, b, c)` = all(vapply(list(sm_a, sm_b, sm_c), function(s) grepl(sprintf("%.2f", s$fstatistic[["value"]]), m_txt, fixed = TRUE), NA)))
+cat("\n-- appendix extras against base R --\n")
+print(data.frame(extra = names(checks7), holds = unname(checks7)), row.names = FALSE)
+cat(if (all(checks7)) "\nPASS" else "\nFAIL", ": appendix extras known answers (", sum(checks7), "/", length(checks7), ")\n", sep = "")
+
+all_pass <- all(checks) && all(checks2) && all(checks3) && all(checks4) && all(checks5) && all(checks6) && all(checks7)
 cat(if (all_pass) "\nPASS" else "\nFAIL", ": all known-answer sections\n", sep = "")
 finish_validation(all_pass)

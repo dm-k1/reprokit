@@ -133,9 +133,9 @@ A further section of numbers is added on request with `extra` (names, or `"all"`
 for example the R squared family:
 
 ```{r}
-x <- strsplit(paste(appendix(s0, extra = c("eta2", "r2"),
-                  choices = list(convention = "pooled"),
-                  sharing_reason = "Consent did not cover public sharing."), collapse = "\n"), "\n")[[1]]
+out <- appendix(s0, extra = c("eta2", "r2"), choices = list(convention = "pooled"),
+                sharing_reason = "Consent did not cover public sharing.")
+x <- strsplit(paste(out, collapse = "\n"), "\n")[[1]]
 cat(x[seq(grep("Additional numbers", x), grep("Raw data", x) - 1)], sep = "\n")
 ```
 

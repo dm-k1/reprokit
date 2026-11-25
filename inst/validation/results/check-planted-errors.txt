@@ -404,7 +404,7 @@ one-tailed p printed as two-tailed (expected undetectable, not a criterion): pap
 
 pooled large-error rates (%): decision_all = 100, decision_tdfp = 100, decision_desc = 99.8, decision_rdfp = 84, df_wrong_n_all = 99.5, m_large_all = 91.8 
 informational: lowest handler rate, decision/df_wrong_n/m_change-large on all (%): 76.5 
-planted papers: 6000  checks: 17134  runtime (min): 2.1 
+planted papers: 6000  checks: 17134  runtime (min): 9.4 
 PASS: errors = 0, oracle-detectable not flagged = 0, oracle-undetectable flagged = 0, flagged on a subset but not on all = 0, oracle-detectable on a subset but not flagged on all = 0, cells never flagged = 0 (lowest large-error rate, informational = 76.5%)
 
 == Chi-squared planted errors: detection by handler x type x subset ==
@@ -496,4 +496,30 @@ PASS: factorial planted errors, errors = 0, oracle-detectable not flagged = 0, o
 
 PASS: regression planted errors, errors = 0, oracle-detectable not flagged = 0, oracle-undetectable flagged = 0, flagged on a narrow subset but not on all = 0, cells never flagged = 0
 
-PASS: all planted-error sections (t/r/F, chi-squared, factorial, regression and mediation)
+== Cross-complete quantity planted errors ==
+                   type            subset   n flagged % flagged
+ factorial_partial_eta2               all 100     100       100
+              lm_adj_r2               all 100     100       100
+                  med_f               all 100      92        92
+                 med_r2               all 100      98        98
+              oneway_r2               all 100     100       100
+         pearson_adj_r2               all 100     100       100
+             pearson_r2               all 100     100       100
+           student_df_n               all 100     100       100
+ factorial_partial_eta2 f/df/partial_eta2 100     100       100
+              oneway_r2           f/df/r2 100     100       100
+           student_df_n              n/df 100     100       100
+         pearson_adj_r2       n/r2/adj_r2 100     100       100
+             pearson_r2              r/r2 100     100       100
+              lm_adj_r2      r2/adj_r2/df 100     100       100
+                  med_f           r2/f/df 100      92        92
+                 med_r2           r2/f/df 100      98        98
+       oracle     outcome Freq
+   detectable     flagged  790
+ undetectable     flagged    0
+   detectable not flagged    0
+ undetectable not flagged    8
+
+PASS: cross-complete planted errors, errors = 0, oracle-detectable not flagged = 0, oracle-undetectable flagged = 0, flagged on a narrow subset but not on all = 0, cells never flagged = 0
+
+PASS: all planted-error sections (t/r/F, chi-squared, factorial, regression, mediation and the cross-complete quantities)

@@ -8,56 +8,56 @@ tasks: 690 chunks of up to 15 designs; cores: 8
                       handler designs checks checked % min % ties |r|>=.995
                      t_paired     300   3020      65.9    60    0        59
                    t_paired_d     300   1500      37.5    30    0        51
-                  cor_pearson     300   2362      79.5    70    0        56
-        t_independent_student     300   2700      95.8    75    0         0
+                  cor_pearson     300   3555      85.6    70    0        65
+        t_independent_student     300   3000      96.2    75    0         0
           t_independent_welch     300   2700      82.2    75    0         0
                  t_one_sample     300   2700      95.5    90    0         0
-                 anova_oneway     300   2700      84.1    75    0         0
- anova_oneway_negative_omega2     482   4338      84.3    75    0         0
-              anova_factorial     300   2700      90.3    85    0         0
-          anova_factorial_2x2     300   2700      96.3    90    0         0
+                 anova_oneway     300   3300      77.8    75    0         0
+ anova_oneway_negative_omega2     493   5423      78.4    75    0         0
+              anova_factorial     300   3300      91.8    85    0         0
+          anova_factorial_2x2     300   3300      96.6    90    0         0
            chisq_independence     252   2268      75.7    70    0         0
        chisq_independence_2x2     282   2538      75.6    70    0         0
                     chisq_gof     300   2700      75.6    70    0         0
              chisq_gof_w_gt_1     300   2700      75.9    70    0         0
-                    lm_simple     300   6600      89.4    80    0         0
-           lm_simple_weighted     300   6600      89.5    80    0         0
-                  lm_multiple     300   5400      81.0    75    0         0
-           lm_multiple_factor     300   5400      80.8    75    0         0
-         lm_multiple_weighted     300   5400      80.8    75    0         0
-                lm_moderation     300   5400      81.0    75    0         0
-       lm_moderation_weighted     300   5400      80.5    75    0         0
-              mediation_small     600   5874      83.1    75    0         0
-              mediation_large     600   5873      83.0    75    0         0
-              mediation_mixed     600   5875      83.2    75    0         0
+                    lm_simple     300   7200      86.1    80    0         0
+           lm_simple_weighted     300   7200      86.2    80    0         0
+                  lm_multiple     300   6000      77.8    75    0         0
+           lm_multiple_factor     300   6000      77.8    75    0         0
+         lm_multiple_weighted     300   6000      77.7    75    0         0
+                lm_moderation     300   6000      77.8    75    0         0
+       lm_moderation_weighted     300   6000      78.1    75    0         0
+              mediation_small     600   6759      85.7    75    0         0
+              mediation_large     600   6777      85.7    75    0         0
+              mediation_mixed     600   6764      85.8    75    0         0
         t_welch_df_0_decimals     300   2700      81.8    75    0         0
-               likert_student     300   2700      95.6    75   27         0
+               likert_student     300   3000      96.0    75   27         0
                  likert_welch     300   2700      83.1    75   20         0
    likert_welch_df_0_decimals     298   2682      83.6    75   35         0
             likert_one_sample     300   2700      95.9    90   11         0
                 likert_paired     180   1812      65.8    60   14         0
-               likert_pearson     298   2384      83.2    75    0         0
+               likert_pearson     300   3600      89.2    75    0         0
              one_sided_paired     150   1660      69.0    60    0         0
-            one_sided_pearson     150   1314      83.4    75    0         0
+            one_sided_pearson     150   1932      88.0    75    0         0
             one_sided_student     150   1500      95.7    75    0         0
               one_sided_welch     150   1500      82.3    75    0         0
          one_sided_one_sample     150   1500      96.4    90    0         0
      one_sided_likert_student     198   1980      95.3    75   16         0
   one_sided_likert_one_sample     200   2000      95.9    90    7         0
-            lm_simple_small_n     150   3300      89.3    80    0         0
-          lm_multiple_small_n     150   2700      81.0    75    0         0
-        lm_moderation_small_n     150   2700      80.9    75    0         0
+            lm_simple_small_n     150   3600      86.0    80    0         0
+          lm_multiple_small_n     150   3000      77.7    75    0         0
+        lm_moderation_small_n     150   3000      77.7    75    0         0
  n<=6 sd 0 dec yates w>1 unbalanced df 0 dec one-sided false_positives errors
   132       88     0   0          0        0         0               0      0
   114       90     0   0          0        0         0               0      0
-  132        0     0   0          0        0         0               0      0
+  133        0     0   0          0        0         0               0      0
   209       92     0   0          0        0         0               0      0
   208       86     0   0          0        0         0               0      0
   133       89     0   0          0        0         0               0      0
     0        0     0   0          0        0         0               0      0
     0        0     0   0          0        0         0               0      0
-    0        0     0   0        178        0         0               0      0
-    0        0     0   0        181        0         0               0      0
+    0        0     0   0        175        0         0               0      0
+    0        0     0   0        177        0         0               0      0
     0        0    15   0          0        0         0               0      0
     0        0   133   0          0        0         0               0      0
     0        0     0 184          0        0         0               0      0
@@ -78,7 +78,7 @@ tasks: 690 chunks of up to 15 designs; cores: 8
     0        0     0   0          0      298         0               0      0
    40       64     0   0          0        0         0               0      0
    16       36     0   0          0        0         0               0      0
-   30        0     0   0          0        0         0               0      0
+   40        0     0   0          0        0         0               0      0
     0        0     0   0          0        0       150               0      0
     0        0     0   0          0        0       150               0      0
     0        0     0   0          0        0       150               0      0
@@ -94,89 +94,89 @@ Status of every reported number, per handler/variant:
                       handler coherent not checkable not reproducible
                      t_paired     8160          2203               43
                    t_paired_d     3283          2161               37
-                  cor_pearson     4738           798                0
-        t_independent_student     7846           324                0
+                  cor_pearson     6446           856                0
+        t_independent_student     8146           324                0
           t_independent_welch     7302           329                0
                  t_one_sample     7425           662                0
-                 anova_oneway     8729           719                0
- anova_oneway_negative_omega2    13999          1159                0
-              anova_factorial     9301           369                0
-          anova_factorial_2x2     9741            50                0
+                 anova_oneway    10621           712                0
+ anova_oneway_negative_omega2    17518          1145                0
+              anova_factorial    13057           367                0
+          anova_factorial_2x2    13506            66                0
            chisq_independence     4101             0               14
        chisq_independence_2x2     4349             0              111
                     chisq_gof     5659             0                0
              chisq_gof_w_gt_1     5679             0                0
-                    lm_simple    32113          1231              568
-           lm_simple_weighted    32057          1215              568
-                  lm_multiple    58043          6277             2318
-           lm_multiple_factor    61147          6670             2498
-         lm_multiple_weighted    60071          6516             2424
-                lm_moderation    59353          6287             2304
-       lm_moderation_weighted    58046          6242             2288
-              mediation_small    79527          7412                0
-              mediation_large    79352          7360                0
-              mediation_mixed    79244          7353                0
+                    lm_simple    34975          1200              552
+           lm_simple_weighted    35055          1205              566
+                  lm_multiple    62248          6459             2408
+           lm_multiple_factor    65330          6797             2582
+         lm_multiple_weighted    63487          6586             2468
+                lm_moderation    60893          6147             2256
+       lm_moderation_weighted    62095          6232             2314
+              mediation_small   109483         13870                0
+              mediation_large   109574         13897                0
+              mediation_mixed   109659         13814                0
         t_welch_df_0_decimals     7266           326                0
-               likert_student     7769           314                0
+               likert_student     8069           314                0
                  likert_welch     7390           325                0
    likert_welch_df_0_decimals     7393           328                0
             likert_one_sample     7492           659                0
                 likert_paired     5115          1196               21
-               likert_pearson     4933           642                0
+               likert_pearson     6790           647                0
              one_sided_paired     4822          1118               29
-            one_sided_pearson     2848           378                0
+            one_sided_pearson     3733           393                0
             one_sided_student     4496           158                0
               one_sided_welch     4156           164                0
          one_sided_one_sample     4351           330                0
      one_sided_likert_student     5879           215                0
   one_sided_likert_one_sample     5772           449                0
-            lm_simple_small_n    16061           615              288
-          lm_multiple_small_n    29561          3221             1198
-        lm_moderation_small_n    29296          3213             1182
+            lm_simple_small_n    17278           635              296
+          lm_multiple_small_n    30116          3159             1180
+        lm_moderation_small_n    30473          3050             1132
  unconfirmed verified
         1725     3629
          363     1781
-         552     3314
-         870     4735
+         912     5481
+         870     5035
         1817     4319
          854     4562
-         676     3948
-        1075     6350
-        1923     2538
-         404     3868
+        1633     3945
+        2671     6510
+        1937     2634
+         525     3857
          143     3293
          366     3627
          149     3159
          128     3216
-        1770     4364
-        1782     4375
-        5028     2572
-        5175     2576
-        4967     2587
-        4831     2602
-        5077     2568
-        6899    10692
-        7143    10576
-        7152    10720
+        3125     4355
+        3077     4376
+        6246     2564
+        6789     2603
+        6493     2633
+        6201     2545
+        6335     2587
+        7490    18836
+        7765    19152
+        7581    19122
         1819     4303
-         910     4790
+         910     5090
         1563     4426
         1510     4399
          722     4624
          877     2345
-         291     3741
+         650     6118
          867     2435
-         209     2127
+         408     3696
          476     2996
         1135     2664
          374     2897
          593     3976
          512     3875
-         899     2184
-        2582     1284
-        2481     1294
+        1550     2178
+        3188     1279
+        3234     1335
 
-one-way designs with F < 1 and a negative omega2 checked and not flagged: 482 
+one-way designs with F < 1 and a negative omega2 checked and not flagged: 493 
 goodness-of-fit designs with w > 1 checked and not flagged: 276 
 integer-data draws printed half-even and half-up that met an exact tie (the two printings differ):
              likert_student                likert_welch 
@@ -188,6 +188,6 @@ integer-data draws printed half-even and half-up that met an exact tie (the two 
 one_sided_likert_one_sample 
                           7 
 not tested: one-sided papers for oneway, factorial, chisq, gof (upper-tail tests, no tail to state), lm and mediation (no tail variant)
-runtime (min): 11.2 
+runtime (min): 37 
 
 PASS: false positives = 0, errors = 0, groups below their checked-share minimum = 0

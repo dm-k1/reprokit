@@ -126,7 +126,8 @@ mediation_model_relations <- function(path, k) {
 }
 
 # R squared and F of the three regressions behind the paths (the model of M on X is a, of Y on X
-# and M is b, of Y on X is c), from the stored summaries. Rows are named as the appendix prints them.
+# and M is b, of Y on X is c), from the stored summaries. Rows are named as the appendix prints
+# them.
 mediation_model_values <- function(s) {
   xn <- s$meta$x
   mn <- s$meta$m

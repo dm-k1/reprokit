@@ -101,5 +101,5 @@ One example per category and group (text; truth/type; verdicts)
   [r-rounding | cor_pearson_r] r(18) = -.00, p = .996  (correct/none) statcheck=error check_reported=consistent
 
 check_reported flags, statcheck does not: 0  of which not oracle-detectable: 0 
-runtime (min): 0.2 
+runtime (min): 0.5 
 PASS: check_reported false positives = 0, errors = 0, unexplained statcheck-only errors = 0, check-only flags not oracle-detectable = 0, gross errors inside the one-tailed category = 1

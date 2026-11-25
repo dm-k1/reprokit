@@ -246,4 +246,21 @@ PASS: factorial known answers (10/10)
 
 PASS: regression known answers (13/13)
 
+-- appendix extras against base R --
+                                extra holds
+                         lm beta (wt)  TRUE
+                         lm beta (hp)  TRUE
+                           Student R2  TRUE
+                         Student eta2  TRUE
+                           Pearson R2  TRUE
+                  Pearson adjusted R2  TRUE
+                           one-way R2  TRUE
+                       one-way omega2  TRUE
+        factorial partial eta2 (supp)  TRUE
+ factorial partial eta2 (interaction)  TRUE
+               mediation R2 (a, b, c)  TRUE
+                mediation F (a, b, c)  TRUE
+
+PASS: appendix extras known answers (12/12)
+
 PASS: all known-answer sections

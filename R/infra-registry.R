@@ -290,8 +290,8 @@ missing_quantities <- function(h) {
 
 # An appendix extra (ADR 0031): `label` is the row's name, `value` a
 # `function(s, answers, digits)` returning the number (one per row, named by the row labels
-# when it has several) or NULL when the stored summaries do not determine it, `bounded` whether the number cannot exceed 1 in absolute value (APA
-# style drops its leading zero).
+# when it has several) or NULL when the stored summaries do not determine it, `bounded` whether
+# the number cannot exceed 1 in absolute value (APA style drops its leading zero).
 appendix_extra <- function(label, value, bounded) {
   stopifnot(is.character(label), length(label) == 1L, is.function(value),
             is.logical(bounded), length(bounded) == 1L)

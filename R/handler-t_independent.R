@@ -215,9 +215,11 @@ t_zero_stationary <- function(what) {
 # Appendix extras of the t tests: the R squared family from t and df, which every t test
 # stores (reproduce() gives both).
 t_extras <- function() {
-  from_t <- function(fn) function(s, answers, digits) {
-    r <- source_reproduce(s)
-    fn(r[["t"]]^2, r[["df"]])
+  from_t <- function(fn) {
+    function(s, answers, digits) {
+      r <- source_reproduce(s)
+      fn(r[["t"]]^2, r[["df"]])
+    }
   }
   list(
     eta2 = appendix_extra("eta2", from_t(function(t2, df) t2 / (t2 + df)), TRUE),

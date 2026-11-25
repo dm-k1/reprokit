@@ -9,7 +9,8 @@ test_that("registered handlers appear in handlers() and coverage_table()", {
 })
 
 test_that("coverage_table() has a fixed shape even when empty", {
-  cols <- c("test", "apa", "sufficient", "missing", "checkable", "not_checkable", "choices")
+  cols <- c("test", "apa", "sufficient", "missing", "checkable", "not_checkable", "choices",
+            "extras")
   expect_named(coverage_table(), cols)
   saved <- as.list(.registry)
   rm(list = ls(.registry), envir = .registry)

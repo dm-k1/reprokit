@@ -72,7 +72,8 @@ random_paper <- function(handler) {
   paper <- list(n = as.character(n), r = r, t = fmt(rnorm(1L) * 4, t_dec),
                 df = as.character(n - if (handler %in% c("t_paired", "t_one_sample")) 1 else 2),
                 m = c(fmt(rnorm(1L) * scale, dec), fmt(rnorm(1L) * scale, dec)),
-                sd = fmt(abs(rnorm(2L)) * scale + 0.02, dec))
+                sd = fmt(abs(rnorm(2L)) * scale + 0.02, dec),
+                r2 = fmt(runif(1L), sample(2:3, 1L)))  # the R squared of Pearson's r (adjusted R squared relation)
   if (handler == "t_one_sample") {
     paper$m <- paper$m[1L]
     paper$sd <- paper$sd[1L]
@@ -583,7 +584,56 @@ reg_pass <- reg_escaped == 0L && reg_vertex_miss == 0L && all(span_ok) &&
 cat(if (reg_pass) "\nPASS" else "\nFAIL", ": regression ranges, escaped draws = ", reg_escaped,
     ", vertex mismatches = ", reg_vertex_miss, ", skipped boxes = ", reg_skipped, "\n", sep = "")
 
-all_pass <- pass && one_pass && v_pass && fact_pass && reg_pass
+
+# Cross-complete relations (ADR 0031) ------------------------------------------------------
+# A fifth section with its own PASS line: the relations added for the cross-complete quantity sets
+# that no section above reaches (one-way R squared and omega squared from F; factorial partial
+# eta squared and partial omega squared from F; the lm adjusted R squared from R squared). 300 random
+# boxes each (F and R squared rounded to 2 decimals, df exact) against 400 uniform draws; none may
+# escape its range. The t and Pearson additions are covered by the first section.
+cc_cases <- list(
+  list(handler = "anova_oneway", args = list(), rels = c("r2_from_f", "omega2_from_f")),
+  list(handler = "anova_factorial", args = list(dims = c(2L, 3L), effect = "A", balanced = TRUE),
+       rels = c("partial_eta2_from_f", "partial_omega2_from_f")),
+  list(handler = "lm_multiple", args = list(terms = "x", k = 2L), rels = "adj_r2_from_r2"))
+cc_box <- function(inputs) {
+  box <- list(f = iv(round(runif(1L, 0, 20), 2L), 0.005), r2 = iv(round(runif(1L, 0, 0.99), 2L), 0.005),
+              df1 = point(sample(1:5, 1L)), df2 = point(sample(c(5, 12, 30, 120), 1L)))
+  box$f$lower <- max(box$f$lower, 0)
+  box$r2$lower <- max(box$r2$lower, 0)
+  box$r2$upper <- min(box$r2$upper, 1)
+  box[inputs]
+}
+cc_tasks <- do.call(c, lapply(cc_cases, function(case) {
+  lapply(case$rels, function(rname) list(case = case, rname = rname))
+}))
+cc_rows <- par_run(cc_tasks, function(task) {
+  rel <- Filter(function(r) r$name == task$rname, relations_at(get_handler(task$case$handler), task$case$args))
+  stopifnot(length(rel) == 1L)
+  rel <- rel[[1L]]
+  finite <- bad <- 0L
+  for (b in seq_len(n_boxes)) {
+    box <- cc_box(rel$inputs)
+    range <- tryCatch(relation_range(rel, box, NULL), error = function(e) c(NA_real_, NA_real_))
+    if (!all(is.finite(range))) next
+    finite <- finite + 1L
+    values <- vapply(replicate(uniform_draws, draw_uniform(box, rel$inputs), simplify = FALSE),
+                     function(pt) rel$fn(pt, NULL), numeric(1))
+    values <- values[is.finite(values)]
+    slack <- 1e-9 * max(1, abs(range))
+    bad <- bad + sum(values < range[["lower"]] - slack | values > range[["upper"]] + slack)
+  }
+  data.frame(handler = task$case$handler, relation = task$rname, boxes = n_boxes,
+             finite = finite, escaped = bad)
+}, seed = 20261126)
+cc_all <- do.call(rbind, cc_rows)
+cat("\n== Cross-complete relation ranges ==\n")
+print(cc_all, row.names = FALSE)
+cc_pass <- sum(cc_all$escaped) == 0L && all(cc_all$finite > 0L)
+cat(if (cc_pass) "\nPASS" else "\nFAIL", ": cross-complete ranges, escaped draws = ", sum(cc_all$escaped),
+    ", relations with no finite box = ", sum(cc_all$finite == 0L), "\n", sep = "")
+
+all_pass <- pass && one_pass && v_pass && fact_pass && reg_pass && cc_pass
 cat(if (all_pass) "\nPASS" else "\nFAIL", ": all range-exactness sections (cores: ", par_cores(),
     ", runtime ", round(as.numeric(difftime(Sys.time(), started, units = "mins")), 1), " min)\n", sep = "")
 finish_validation(all_pass)

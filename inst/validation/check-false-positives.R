@@ -92,6 +92,9 @@ generic_subsets <- function(paper, i) {
        sample(keys, sample(2:length(keys), 1L)))
 }
 
+# Student only: n and df alone (df = n1 + n2 - 2 is a relation of the Student test, ADR 0031)
+student_subsets <- function(paper, i) c(generic_subsets(paper, i), list(c("n", "df")))
+
 paired_subsets <- function(paper, i) {
   keys <- names(paper)
   with_no_r <- i %% 15L == 0L
@@ -120,6 +123,8 @@ pearson_subsets <- function(paper, i) {
   # r/df/p and r/df/p/ci: n is not reported and is implied by df (n = df + 2)
   subsets <- list(keys, c("n", "r", "df", "t", "p"), c("r", "n"), c("n", "r", "p"),
                   c("t", "df", "p"), c("r", "df", "p"),
+                  intersect(keys, c("r", "r2")), intersect(keys, c("n", "r", "r2", "adj_r2")),
+                  intersect(keys, c("r2", "adj_r2", "n")), intersect(keys, c("r2", "n", "df")),
                   sample(keys, sample(2:length(keys), 1L)))
   if (all(c("ci_lower", "ci_upper") %in% keys)) {
     subsets <- c(subsets, list(c("r", "df", "p", "ci_lower", "ci_upper")))
@@ -132,6 +137,7 @@ oneway_subsets <- function(paper, i) {
   list(keys, setdiff(keys, "eta2"), c("n", "m", "sd", "f", "p"), c("f", "df1", "df2", "p"),
        c("n", "df1", "df2", "f"), c("n", "m", "sd", "df1", "df2"),
        c("n", "m", "sd", "f", "eta2"), c("f", "df1", "df2", "eta2"),
+       intersect(keys, c("f", "df1", "df2", "r2", "partial_eta2")), intersect(keys, c("f", "df1", "df2", "partial_omega2")),
        sample(keys, sample(2:length(keys), 1L)))
 }
 factorial_subsets <- oneway_subsets
@@ -147,8 +153,9 @@ lm_cases <- function(paper, i) {
     list(keys = c("t", "p", "df2")), list(keys = c("b", "se", "t")), list(keys = model),
     list(keys = c("df2", "n")), list(keys = c("df2", "n", "t", "p")),
     list(keys = c("df2", "n"), k = attr(paper, "k")),
-    list(keys = c("adj_r2", "f", "df1", "df2", "p_model")),
-    list(keys = c("adj_r2", "f", "df1", "df2", "n")),
+    list(keys = c("r2_adj", "f", "df1", "df2", "p_model")),
+    list(keys = c("r2_adj", "f", "df1", "df2", "n")),
+    list(keys = c("r2", "adj_r2", "df1", "df2")), list(keys = c("adj_r2", "f", "df1", "df2")),
     list(keys = c("b", "se", "beta", "sd")), list(keys = c("b", "beta")),
     list(keys = c("b", "se", "t", "beta", "sd", "r2", "f", "df1", "df2", "n")),
     list(keys = setdiff(keys, c("ci_lower", "ci_upper")), terms_only = some),
@@ -170,6 +177,8 @@ mediation_cases <- function(paper, i) {
     list(keys = c("b", "se", "t", "p", "df")), list(keys = keys, paths = c("a", "b")),
     list(keys = c("b", "se", "df", "ci_lower", "ci_upper")),
     list(keys = c("ci_lower", "ci_upper", "df", "n")),
+    list(keys = c("r2", "f", "df1", "df2")), list(keys = c("n", "r2", "f", "df1", "df2")),
+    list(keys = c("b", "se", "t", "p", "df", "n", "r2", "f", "df1", "df2")),
     list(keys = c("b", "se", "ci_lower", "ci_upper"), paths = sample(paths, 2L)),
     list(keys = keys, paths = sample(paths, 2L)), list(keys = c("t", "df", "p")),
     list(keys = c("n", "indirect", "indirect_ci_lower", "indirect_ci_upper")),
@@ -264,7 +273,7 @@ families <- list(
   t_paired = family(one(function() paired_paper(paired_design())), as_cases(paired_subsets), run_t("paired"), extra = extra_t),
   t_paired_d = family(one(pair_d), as_cases(paired_d_subsets), run_t("paired"), extra = extra_t),
   cor_pearson = family(one(pearson_paper), as_cases(pearson_subsets), run_t("pearson"), extra = extra_t),
-  t_independent_student = family(one(function() independent_paper(TRUE)), as_cases(generic_subsets), run_t("student"), extra = extra_t),
+  t_independent_student = family(one(function() independent_paper(TRUE)), as_cases(student_subsets), run_t("student"), extra = extra_t),
   t_independent_welch = family(one(function() independent_paper(FALSE)), as_cases(generic_subsets), run_t("welch"), extra = extra_t),
   t_one_sample = family(one(one_sample_paper), as_cases(generic_subsets), run_t("one_sample"), extra = extra_t),
   anova_oneway = family(one(function() oneway_paper()), as_cases(oneway_subsets), run_oneway),
@@ -292,7 +301,7 @@ families <- list(
   t_welch_df_0_decimals = family(one(function() independent_paper(FALSE, df_dec = 0L)), as_cases(generic_subsets),
                                  run_t("welch"), extra = extra_welch_df0),
   # integer data, printed half-even and half-up
-  likert_student = family(modes(function() likert_independent_paper(TRUE)), as_cases(generic_subsets),
+  likert_student = family(modes(function() likert_independent_paper(TRUE)), as_cases(student_subsets),
                           run_t("student"), extra = extra_t, designs = 150L),
   likert_welch = family(modes(function() likert_independent_paper(FALSE)), as_cases(generic_subsets),
                         run_t("welch"), extra = extra_t, designs = 150L),
