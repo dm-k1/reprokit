@@ -144,7 +144,8 @@ check_mediation <- function(..., variants = NULL, indirect_type = NULL, estimato
     ))
     return(res)
   }
-  per_path <- c("b", "se", "t", "p", "df", "ci_lower", "ci_upper", "beta")
+  per_path <- c("b", "se", "t", "p", "df", "ci_lower", "ci_upper", "beta",
+                "r2", "f", "df1", "df2", "p_model")
   out <- list()
   for (q in names(dots)) {
     value <- dots[[q]]

@@ -24,7 +24,12 @@ quantity_names <- function() {
 # coefficient's name after a colon ("b:wt", "se:wt", "df:a"), a pseudo-quantity
 # of one scalar value that relations and statuses treat like any other (ADR 0020).
 # A handler without `terms` in its design has none of them.
-per_term_quantities <- function() c("b", "se", "t", "df", "p", "ci_lower", "ci_upper", "beta", "sd")
+per_term_quantities <- function() {
+  c("b", "se", "t", "df", "p", "ci_lower", "ci_upper", "beta", "sd",
+    # a mediation's model-level numbers, one set per regression ("r2:a" is the R squared of
+    # the model that contains path a)
+    "r2", "f", "df1", "df2", "p_model")
+}
 
 # "b:wt" -> "b"; a quantity without a colon is its own base.
 quantity_base <- function(x) sub(":.*$", "", x)

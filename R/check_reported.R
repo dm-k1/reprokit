@@ -61,7 +61,8 @@
 #'     `"glass_sd2"` (Glass's delta), `"cohen"`, `"d_z"`, `"d_rm"`, `"d_av"`,
 #'     `"g_av"`, `"eta2"` (eta squared), `"omega2"` (omega squared),
 #'     `"partial_eta2"`, `"partial_omega2"` (factorial ANOVA). Which of
-#'     them a handler has depends on the test.
+#'     them a handler has depends on the test. For the t tests, `"eta2"` and
+#'     `"omega2"` are computed from t and df.
 #' @param mu The test value the mean (or mean difference) is compared with, for
 #'   tests whose t depends on it (`"one_sample"`, `"paired"`). A plain
 #'   number, not a string (`mu = 20`, not `mu = "20"`), unlike the reported

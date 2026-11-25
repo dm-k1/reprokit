@@ -49,6 +49,18 @@ cor_pearson_relations <- function() {
       vals$r * sqrt(vals$n - 2) / sqrt(1 - vals$r^2)
     }),
     relation_p_from_statistic("t"),
+    # r squared is r squared. Its minimum is 0 when the rounding box of r straddles it, which
+    # the corners miss, so the exact range is given.
+    relation("r2_from_r", "r", "r2", function(vals, variant) vals$r^2,
+             range = function(intervals, variant) {
+               bounds <- interval_bounds(intervals$r)
+               lowest <- if (bounds$lower < 0 && bounds$upper > 0) {
+                 0
+               } else {
+                 min(bounds$lower^2, bounds$upper^2)
+               }
+               c(lower = lowest, upper = max(bounds$lower^2, bounds$upper^2))
+             }),
     relation("ci_lower_from_r", c("r", "n"), "ci_lower", fisher_bound(-1),
              variants = confidence_levels(), variant_kind = "level"),
     relation("ci_upper_from_r", c("r", "n"), "ci_upper", fisher_bound(1),

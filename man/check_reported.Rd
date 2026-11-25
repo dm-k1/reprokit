@@ -67,7 +67,8 @@ type III, type II, type I).
 \code{"glass_sd2"} (Glass's delta), \code{"cohen"}, \code{"d_z"}, \code{"d_rm"}, \code{"d_av"},
 \code{"g_av"}, \code{"eta2"} (eta squared), \code{"omega2"} (omega squared),
 \code{"partial_eta2"}, \code{"partial_omega2"} (factorial ANOVA). Which of
-them a handler has depends on the test.
+them a handler has depends on the test. For the t tests, \code{"eta2"} and
+\code{"omega2"} are computed from t and df.
 }}
 
 \item{mu}{The test value the mean (or mean difference) is compared with, for

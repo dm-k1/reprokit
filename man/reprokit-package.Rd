@@ -51,6 +51,7 @@ See also \code{\link[=handlers]{handlers()}}, \code{\link[=quantity_names]{quant
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://dm-k1.github.io/reprokit/}
   \item \url{https://github.com/dm-k1/reprokit}
   \item Report bugs at \url{https://github.com/dm-k1/reprokit/issues}
 }

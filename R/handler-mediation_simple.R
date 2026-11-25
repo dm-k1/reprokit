@@ -87,9 +87,34 @@ relations_mediation <- function(terms = mediation_paths()) {
       list(relation(paste0("df_from_n:", path), "n", paste0("df:", path),
                     function(vals, variant) vals$n - k - 1,
                     inverse = function(df) df + k + 1)),
-      lm_term_relations(path, df = paste0("df:", path))
+      lm_term_relations(path, df = paste0("df:", path)),
+      if (path != "c_prime") mediation_model_relations(path, k)
     )
   }), recursive = FALSE), indirect)
+}
+
+# The model-level numbers PROCESS prints for a regression: R squared, F(df1, df2) and its
+# p. They are named by the path whose model they belong to: "r2:a" is the model of M on X,
+# "r2:b" the model of Y on X and M (which holds b and c'; PROCESS prints no separate
+# block for c'), "r2:c" the model of Y on X. df2 follows from n (n - k - 1, k predictors).
+# PROCESS prints R squared, not the adjusted value, so unlike a regression there is no
+# convention to choose (and none for the appendix to ask for).
+mediation_model_relations <- function(path, k) {
+  r2 <- paste0("r2:", path)
+  f <- paste0("f:", path)
+  df1 <- paste0("df1:", path)
+  df2 <- paste0("df2:", path)
+  list(
+    relation(paste0("df2_from_n:", path), "n", df2, function(vals, variant) vals$n - k - 1,
+             inverse = function(df) df + k + 1),
+    relation(paste0("f_from_r2:", path), c(r2, df1, df2), f, function(vals, variant) {
+      (vals[[r2]] / vals[[df1]]) / ((1 - vals[[r2]]) / vals[[df2]])
+    }),
+    relation(paste0("p_model_from_f:", path), c(f, df1, df2), paste0("p_model:", path),
+             function(vals, variant) {
+               stats::pf(vals[[f]], vals[[df1]], vals[[df2]], lower.tail = FALSE)
+             })
+  )
 }
 
 mediation_columns <- function(x, data, mediator) {

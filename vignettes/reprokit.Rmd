@@ -369,7 +369,16 @@ check_reported(
 )
 ```
 
+Models can be checked too, as PROCESS prints them: `r2`, `f`, `df1`, `df2` and `p_model`,
+one value per model. `a` is the model of the mediator on X, `b` the outcome on X and the
+mediator, and `c` the outcome on X alone. R squared, F and its p are checked against
+each other and against n.
+
 `quantity_names()` lists the names you can pass.
+
+When a number is coherent but not verified, the `checked_against` column says which
+relation would verify it and what it needs, for example
+`t_from_descriptives would verify it (needs n, m, sd)`.
 
 ## Limits
 

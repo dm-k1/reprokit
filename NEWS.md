@@ -133,3 +133,12 @@ First release (lifecycle: experimental). Not on CRAN; names and output may chang
 * The README is generated from `README.Rmd`, with the coverage table rendered from
   `coverage_table()`.
 * The package help page (`?reprokit`) gives an overview of both directions.
+
+## check_reported() additions
+
+* A "coherent" number now says which relation would verify it and what that needs
+  (for example "t_from_descriptives would verify it (needs n, m, sd)").
+* With the test declared as Student, df is checked against n alone (df = n1 + n2 - 2);
+  Welch is never held to it. d is cross-checked from t and n (not falsifying).
+* eta squared (omega squared) of the t tests is checked from t and df; R squared of
+  Pearson's r from r; simple mediation checks R squared, F and p per model.
