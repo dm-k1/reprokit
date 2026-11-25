@@ -229,6 +229,12 @@ chisq_independence_frame <- function(x, data) {
 chisq_table_from_observed <- function(observed, default_names) {
   obs <- observed
   storage.mode(obs) <- "integer"
+  # A plain counts vector (chisq.test(x)$observed for goodness of fit) is a 1-D table.
+  if (is.null(dim(obs))) {
+    labels <- names(obs)
+    dim(obs) <- length(obs)
+    if (!is.null(labels)) dimnames(obs) <- list(labels)
+  }
   dn <- dimnames(obs)
   if (is.null(dn)) dn <- vector("list", length(dim(obs)))
   for (i in seq_along(dn)) if (is.null(dn[[i]])) dn[[i]] <- as.character(seq_len(dim(obs)[i]))
