@@ -46,15 +46,22 @@ checking_handlers <- function() {
 }
 
 test_that("what a handler says is sufficient is a subset of what its summarise stores", {
-  # `m` is stored as `mean`; every other quantity is stored under its own name.
-  stored_name <- function(quantity) if (quantity == "m") "mean" else quantity
+  # `m` is stored as `mean`; the regression handlers keep the SDs and correlations in
+  # the covariance matrix (or the cross-products, when weighted). Every other quantity
+  # is stored under its own name.
+  stored_name <- function(quantity) {
+    # Handlers that store a covariance matrix store no `sd` or `r` of their own.
+    switch(quantity, m = "mean", r_all = , xz = "cov", quantity)
+  }
   with_sufficient <- Filter(function(n) !is.null(get_handler(n)$sufficient), handlers())
   expect_gt(length(with_sufficient), 0L)
   for (name in with_sufficient) {
     h <- get_handler(name)
     ex <- h$example()
     stored <- names(do.call(h$summarise, c(list(ex$x), ex$args))$stats)
-    expect_true(all(vapply(h$sufficient, stored_name, character(1)) %in% stored),
+    needed <- vapply(h$sufficient, stored_name, character(1))
+    if ("cov" %in% stored) needed[needed %in% c("sd", "r")] <- "cov"
+    expect_true(all(needed %in% stored),
                 info = name)
   }
 })

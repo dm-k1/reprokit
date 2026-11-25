@@ -16,8 +16,18 @@
 #' quantity_names()
 quantity_names <- function() {
   c("n", "m", "sd", "r", "t", "f", "chisq", "df", "df1", "df2", "p", "eta2", "ci_lower",
-    "ci_upper", "d", "n_total", "v", "p0")
+    "ci_upper", "d", "n_total", "v", "p0", "b", "se", "beta", "r2", "p_model", "r_all", "xz",
+    "indirect", "indirect_ci_lower", "indirect_ci_upper")
 }
+
+# Regression reports one number per coefficient. These quantities then carry the
+# coefficient's name after a colon ("b:wt", "se:wt", "df:a"), a pseudo-quantity
+# of one scalar value that relations and statuses treat like any other (ADR 0020).
+# A handler without `terms` in its design has none of them.
+per_term_quantities <- function() c("b", "se", "t", "df", "p", "ci_lower", "ci_upper", "beta", "sd")
+
+# "b:wt" -> "b"; a quantity without a colon is its own base.
+quantity_base <- function(x) sub(":.*$", "", x)
 
 # Why a quantity that determines the analysis may be missing from what APA asks a
 # paper to report: one plain-English reason per quantity, shared by every test
@@ -25,7 +35,9 @@ quantity_names <- function() {
 missing_reasons <- function() {
   c(r = paste("the SD of the differences depends on the correlation between conditions;",
               "per-condition M and SD do not determine it"),
-    p0 = "the expected counts depend on them; not needed when they are equal")
+    p0 = "the expected counts depend on them; not needed when they are equal",
+    r_all = "coefficients depend on how the predictors overlap",
+    xz = "cannot be derived from X and Z summaries")
 }
 
 # Quantities that are descriptives: they come from the data, not from another
@@ -43,11 +55,11 @@ per_cell_quantities <- function() c("m", "sd")
 # Cohen's w can exceed 1 where Cramer's V cannot.
 quantity_domain <- function(quantity, overrides = NULL) {
   if (!is.null(overrides[[quantity]])) return(overrides[[quantity]])
-  switch(quantity,
+  switch(quantity_base(quantity),
          r = c(-1, 1),
-         p = , p0 = c(0, 1),
+         p = , p0 = , p_model = , r2 = c(0, 1),
          n = , n_total = c(1, Inf),
-         sd = , df = , df1 = , df2 = , f = , chisq = c(0, Inf),
+         sd = , se = , df = , df1 = , df2 = , f = , chisq = c(0, Inf),
          eta2 = , v = c(0, 1),
          c(-Inf, Inf))
 }
@@ -112,7 +124,14 @@ check_arity <- function(reported, cells, per_cell_names = per_cell_quantities())
   invisible(reported)
 }
 
-check_quantity_names <- function(x, what = "quantity name") {
+# `terms` allows the per-coefficient form "b:wt" (a per-term quantity, a colon, a
+# non-empty name); only handlers with `terms` in their design take it.
+check_quantity_names <- function(x, what = "quantity name", terms = TRUE) {
+  named <- grepl(":", x, fixed = TRUE)
+  if (terms) {
+    ok <- named & quantity_base(x) %in% per_term_quantities() & nzchar(sub("^[^:]*:", "", x))
+    x <- ifelse(ok, quantity_base(x), x)
+  }
   unknown <- setdiff(x, quantity_names())
   if (length(unknown) > 0L) {
     stop("Unknown ", what, ": ", paste0("'", unknown, "'", collapse = ", "),

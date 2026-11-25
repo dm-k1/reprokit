@@ -79,6 +79,9 @@
 #' @param per_cell Character vector of the quantities that have one value per
 #'   condition (`cells` of them), or `NULL` for the default, `m` and `sd`. A
 #'   handler whose n differs between conditions (independent groups) adds `n`.
+#' @param fallback `TRUE` for a general handler that only handles what no specific
+#'   handler matches (the general `lm`). `find_handler()` tries the other handlers
+#'   first, so a narrow handler wins whatever the alphabetical order of the names.
 #' @return `name`, invisibly.
 #' @keywords internal
 #' @noRd
@@ -88,7 +91,8 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                              formula_tests = NULL, example = NULL, design = NULL,
                              sufficient = NULL, relations = NULL, per_cell = NULL,
                              not_checkable = NULL, test_args = NULL, domains = NULL,
-                             labels = NULL, appendix_table = NULL, appendix_effects = NULL) {
+                             labels = NULL, appendix_table = NULL, appendix_effects = NULL,
+                             fallback = FALSE) {
   check_verdict(verdict)
   relations_at <- NULL
   if (is.function(relations)) {
@@ -120,7 +124,8 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                                       logical(1)))),
     is.null(labels) || (is.character(labels) && !is.null(names(labels))),
     is.null(appendix_table) || is.function(appendix_table),
-    is.null(appendix_effects) || is.function(appendix_effects)
+    is.null(appendix_effects) || is.function(appendix_effects),
+    is.logical(fallback), length(fallback) == 1L, !is.na(fallback)
   )
   if (length(test_args) > 0L && is.null(relations_at)) {
     stop("Handler '", name, "' declares test arguments but its `relations` is not a function.",
@@ -128,7 +133,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
   }
   if (!is.null(design)) {
     check_quantity_names(c(design$statistic, design$effect_size, design$descriptives,
-                           design$extra), "quantity name in `design`")
+                           design$extra), "quantity name in `design`", terms = FALSE)
   }
   if (!is.null(sufficient)) check_quantity_names(sufficient, "quantity name in `sufficient`")
   if (!is.null(not_checkable)) {
@@ -148,7 +153,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     needs = needs, catch = catch, lost = lost, matches = matches, triage = triage,
     summarise = summarise, reproduce = reproduce, reported = reported, disclosure = disclosure,
     choices = choices, not_checkable = not_checkable,
-    formula_tests = formula_tests, example = example,
+    formula_tests = formula_tests, example = example, fallback = fallback,
     design = design, apa = if (is.null(design)) NULL else apa_quantities(design),
     cells = design$cells, sufficient = sufficient, relations = relations,
     relations_at = relations_at, test_args = test_args, domains = domains,
@@ -168,23 +173,35 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
 # reported). The arity of m and sd follows from `cells`. `descriptives` are the
 # quantities reported per cell (a chi-squared table reports only n) and `extra`
 # further quantities APA asks for after p (N for chi-squared).
+# A regression reports numbers per coefficient and for the model (ADR 0020): `terms`
+# is the number of coefficients, NULL for none, NA for a variable number (like
+# `cells = NA`). A terms design asks for b, SE, the statistic (t), p and, with `ci`,
+# the CI of every coefficient, and `model = TRUE` adds the model level: R squared
+# (the effect size), F, df1, df2 and the model p. Without `terms` and `model` (all
+# the older designs) nothing changes.
 apa_design <- function(statistic, effect_size, cells = NULL, ci = TRUE,
-                       descriptives = c("n", "m", "sd"), extra = NULL) {
+                       descriptives = c("n", "m", "sd"), extra = NULL, terms = NULL,
+                       model = FALSE) {
   stopifnot(is.character(statistic), length(statistic) == 1L,
             is.null(effect_size) || (is.character(effect_size) && length(effect_size) == 1L),
             is.null(cells) || (is.numeric(cells) && length(cells) == 1L &&
                                  (is.na(cells) || cells >= 1)),
             is.logical(ci), length(ci) == 1L, !is.na(ci),
             is.character(descriptives), length(descriptives) >= 1L,
-            is.null(extra) || is.character(extra))
+            is.null(extra) || is.character(extra),
+            is.null(terms) || (is.numeric(terms) && length(terms) == 1L &&
+                                 (is.na(terms) || terms >= 1)),
+            is.logical(model), length(model) == 1L, !is.na(model),
+            !isTRUE(model) || !is.null(terms))
   list(statistic = statistic, effect_size = effect_size,
        cells = if (is.null(cells)) NULL else as.integer(cells), ci = ci,
-       descriptives = descriptives, extra = extra)
+       descriptives = descriptives, extra = extra,
+       terms = if (is.null(terms)) NULL else as.integer(terms), model = model)
 }
 
 is_apa_design <- function(x) {
   is.list(x) && identical(names(x), c("statistic", "effect_size", "cells", "ci",
-                                      "descriptives", "extra"))
+                                      "descriptives", "extra", "terms", "model"))
 }
 
 # The one rule for what APA style asks a paper to report: the test statistic, its
@@ -193,10 +210,22 @@ is_apa_design <- function(x) {
 # 7th ed.; ADR 0010 decision 1). F has two degrees of freedom; a design without
 # `ci` leaves the interval out.
 apa_quantities <- function(design) {
+  if (!is.null(design$terms)) return(apa_quantities_terms(design))
   df <- if (identical(design$statistic, "f")) c("df1", "df2") else "df"
   unique(c(if (!is.null(design$cells)) design$descriptives,
            design$statistic, df, "p", design$extra, design$effect_size,
            if (isTRUE(design$ci)) c("ci_lower", "ci_upper")))
+}
+
+# A regression design (ADR 0020): the per-coefficient numbers (b, SE, the statistic,
+# p, the CI), then `extra`, then the model level. The residual df are the model's
+# df2 (or, for mediation, follow from n), so no per-coefficient df is asked for.
+apa_quantities_terms <- function(design) {
+  unique(c(if (!is.null(design$cells)) design$descriptives,
+           "b", "se", design$statistic, "p",
+           if (isTRUE(design$ci)) c("ci_lower", "ci_upper"),
+           design$extra,
+           if (isTRUE(design$model)) c(design$effect_size, "f", "df1", "df2", "p_model")))
 }
 
 unregister_handler <- function(name) {
@@ -225,18 +254,46 @@ handlers <- function() sort(ls(.registry))
 # `sufficient` and `relations`.
 
 # What the sufficient set needs that an APA-style paper does not report.
-missing_quantities <- function(h) setdiff(h$sufficient, h$apa)
+# A regression reports b, SE and the model's R squared, which the relations take as
+# inputs: what an APA set reaches through them counts as reported, so the
+# sufficient quantities that follow from it (r from b and the SDs) are not missing.
+missing_quantities <- function(h) {
+  if (is.null(h$design$terms)) return(setdiff(h$sufficient, h$apa))
+  setdiff(h$sufficient, closure_under_relations(h, h$apa))
+}
+
+# The relations' input and output names without the coefficient ("b:wt" -> "b").
+relation_bases <- function(names) unique(quantity_base(names))
+
+closure_under_relations <- function(h, known) {
+  repeat {
+    outputs <- unlist(lapply(h$relations, function(rel) {
+      if (all(relation_bases(rel$inputs) %in% known)) quantity_base(rel$output)
+    }))
+    grown <- union(known, outputs)
+    if (length(grown) == length(known)) return(known)
+    known <- grown
+  }
+}
 
 # Everything the relations reach from `sufficient`, itself included: add the
 # output of every relation whose inputs are all known until nothing changes.
 # Meta that is not a quantity (the test value mu) is not an input, and the
 # relations are the ones at their defaults (mu = 0); per-cell quantities count
-# as one name, as in `relation()`.
+# as one name, as in `relation()`. A regression's coefficients (b, SE) and model R
+# squared are inputs nothing computes: they are what a paper reports and the
+# relations cohere, so a terms design starts from them too, and the relations
+# reach the rest (t, p, the CI, F).
 reached_quantities <- function(h) {
   reached <- h$sufficient
+  if (!is.null(h$design$terms)) {
+    inputs <- unlist(lapply(h$relations, function(rel) relation_bases(rel$inputs)))
+    outputs <- unlist(lapply(h$relations, function(rel) quantity_base(rel$output)))
+    reached <- union(reached, setdiff(inputs, outputs))
+  }
   repeat {
     outputs <- unlist(lapply(h$relations, function(rel) {
-      if (all(rel$inputs %in% reached)) rel$output
+      if (all(relation_bases(rel$inputs) %in% reached)) quantity_base(rel$output)
     }))
     grown <- union(reached, outputs)
     if (length(grown) == length(reached)) return(reached)
@@ -274,7 +331,7 @@ handler_choices <- function(h) {
 }
 
 # The test arguments a handler's relations can take (`test_args`).
-test_arg_names <- function() c("mu", "dims", "p0", "effect", "balanced")
+test_arg_names <- function() c("mu", "dims", "p0", "effect", "balanced", "k", "terms")
 
 # Display ---------------------------------------------------------------------
 
@@ -282,9 +339,15 @@ test_arg_names <- function() c("mu", "dims", "p0", "effect", "balanced")
 # one value per condition (when there is more than one), "CI" for both bounds.
 display_quantities <- function(h, quantities) {
   if (length(quantities) == 0L) return(character())
-  unit <- if (identical(h$design$effect_size, "r")) "variable" else "condition"
+  unit <- if (identical(h$design$effect_size, "r") || !is.null(h$design$terms)) {
+    "variable"
+  } else {
+    "condition"
+  }
   labels <- c(m = "M", sd = "SD", f = "F", chisq = "chisq", eta2 = "eta2", n_total = "N",
-              v = "V", p0 = "H0 proportions")
+              v = "V", p0 = "H0 proportions", b = "b", se = "SE", r2 = "R\u00b2",
+              p_model = "model p", indirect = "a\u00b7b", r_all = "the correlations",
+              xz = "the X\u00b7Z moments")
   labels[names(h$labels)] <- h$labels
   label <- function(q) if (q %in% names(labels)) labels[[q]] else q
   grouped <- if (is.null(h$cells) || (!is.na(h$cells) && h$cells < 2L)) character() else
@@ -298,6 +361,12 @@ display_quantities <- function(h, quantities) {
       }
     } else if (q == "ci_upper" && "ci_lower" %in% quantities) {
       next
+    } else if (q %in% c("indirect_ci_lower", "indirect_ci_upper")) {
+      # The indirect effect and its CI read as one item (ADR 0020 point 7).
+      if ("indirect" %in% quantities) next
+      items <- c(items, if (q == "indirect_ci_lower") "the CI of a\u00b7b" else next)
+    } else if (q == "indirect" && any(c("indirect_ci_lower", "indirect_ci_upper") %in% quantities)) {
+      items <- c(items, "a\u00b7b and its CI")
     } else {
       items <- c(items, if (q == "ci_lower" && "ci_upper" %in% quantities) "CI" else label(q))
     }

@@ -50,7 +50,9 @@ test_that("unreadable input is refused with a useful message", {
 
 test_that("quantity_names lists the vocabulary and the validator uses it", {
   expect_equal(quantity_names(), c("n", "m", "sd", "r", "t", "f", "chisq", "df", "df1", "df2",
-                                   "p", "eta2", "ci_lower", "ci_upper", "d", "n_total", "v", "p0"))
+                                   "p", "eta2", "ci_lower", "ci_upper", "d", "n_total", "v", "p0",
+                                   "b", "se", "beta", "r2", "p_model", "r_all", "xz", "indirect",
+                                   "indirect_ci_lower", "indirect_ci_upper"))
   expect_error(check_quantity_names("tstat"), "Unknown quantity name: 'tstat'.*n, m, sd")
   expect_identical(check_quantity_names(c("t", "p")), c("t", "p"))
 })

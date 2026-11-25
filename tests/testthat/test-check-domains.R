@@ -125,7 +125,10 @@ test_that("apa is built from the design and cannot be hand-written", {
 })
 
 test_that("level 2 is unreachable for t_paired and cor_pearson", {
-  names <- quantity_names()
+  # the quantities of the t and correlation family: the regression quantities cannot occur in
+  # these two handlers, and enumerating every subset of all of them (2^28) is not feasible
+  names <- setdiff(quantity_names(), c("b", "se", "beta", "r2", "p_model", "r_all", "xz",
+                                       "indirect", "indirect_ci_lower", "indirect_ci_upper"))
   bits <- 2^(seq_along(names) - 1)
   subsets <- lapply(0:(2^length(names) - 1), function(i) names[bitwAnd(i, bits) > 0])
   expect_length(subsets, 2^length(names))

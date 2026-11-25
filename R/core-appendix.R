@@ -88,6 +88,15 @@ appendix_analysis_name <- function(h) {
 # Tails, level and test come from how the analysis was run; the effect-size
 # convention only the author knows.
 appendix_answers <- function(h, s, choices) {
+  # A regression's variants (R squared or adjusted, the CI level) are conventions the
+  # checks try, not choices the author declares.
+  if (!is.null(h$design$terms)) {
+    if (!is.null(choices$convention)) {
+      stop("`", h$name, "` has no effect-size convention to declare; drop `choices$convention`.",
+           call. = FALSE)
+    }
+    return(list())
+  }
   kinds <- unique(unlist(lapply(h$relations, function(rel) names(rel$variants))))
   convention_codes <- unique(unlist(lapply(h$relations, function(rel) rel$variants$convention)))
   if (!is.null(choices$convention) && length(convention_codes) == 0L) {
@@ -262,8 +271,12 @@ appendix_block_b <- function(h, vals, labels, digits) {
     } else {
       display_quantities(h, q)
     }
-    appendix_row(c(name, paste(appendix_number(vals[[q]], digits, leading_zero = q != "r"),
-                               collapse = ", "),
+    value <- if (is.null(vals[[q]])) {
+      "shown in block A"
+    } else {
+      paste(appendix_number(vals[[q]], digits, leading_zero = q != "r"), collapse = ", ")
+    }
+    appendix_row(c(name, value,
                    paste0("APA does not require this; ", reasons[[q]])))
   }, character(1), USE.NAMES = FALSE)
   c(out, appendix_row(c("Number", "Value", "Why it is needed")),
@@ -287,9 +300,10 @@ appendix_block_c <- function(h, s, answers, labels) {
   }, character(1), USE.NAMES = FALSE)
   extras <- vapply(h$choices, appendix_choice_row, character(1), s = s, labels = labels,
                    USE.NAMES = FALSE)
+  none <- if (length(rows) + length(extras) == 0L) appendix_row(c("(none to declare)", ""))
   c("### C. Analysis choices", "",
     appendix_row(c("Choice", "Answer")), appendix_row(c("---", "---")),
-    rows, extras, "")
+    rows, extras, none, "")
 }
 
 # One declared choice as a table row. A choice written "name: answer" shows its
@@ -305,6 +319,14 @@ appendix_choice_row <- function(choice, s, labels) {
   }
   if (is.na(answer) && grepl("test value", name, fixed = TRUE) && !is.null(s$meta$mu)) {
     return(appendix_row(c("Test value mu", s$meta$mu)))
+  }
+  if (is.na(answer) && grepl("coding", name, fixed = TRUE)) {
+    # The contrasts the fit used, as stored; none when there is no factor predictor.
+    answer <- if (length(s$meta$contrasts) > 0L) {
+      paste0(names(s$meta$contrasts), ": ", unlist(s$meta$contrasts), collapse = "; ")
+    } else {
+      "no factor predictors"
+    }
   }
   if (is.na(answer)) answer <- "as analysed"
   appendix_row(c(appendix_capitalise(name), answer))

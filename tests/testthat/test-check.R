@@ -109,7 +109,8 @@ test_that("input errors are clear", {
   expect_error(check_reported("nope", t = "2.85"), "No handler registered")
   expect_error(check_reported("lm", t = "2.85"),
                paste0("no relations.*Handlers that do: anova_factorial, anova_oneway, chisq_gof, ",
-                      "chisq_independence, cor_pearson, t_independent, t_one_sample, t_paired"))
+                      "chisq_independence, cor_pearson, lm_moderation, lm_multiple, lm_simple, ",
+                      "mediation_simple, t_independent, t_one_sample, t_paired"))
 })
 
 test_that("a confidence level is reported apart from the tails", {

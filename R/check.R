@@ -43,6 +43,11 @@
 #'   number, not a string (`mu = 20`, not `mu = "20"`), unlike the reported
 #'   numbers. Default 0. A handler without a test value errors on `mu` other
 #'   than 0.
+#' @param k For the regression handlers (`check_lm()`), the number of predictor
+#'   columns (the model's df1), when F is not reported to say it. With `k`, `n`
+#'   and `df2` are checked against each other (df2 = n - k - 1) and either gives
+#'   the other; without it they are not, because k is never guessed from the
+#'   number of coefficients reported (a paper may leave some out). A plain number.
 #' @return A `reprokit_check` object: `$numbers` (status of each reported
 #'   number), `$level` (coverage, 0 to 3), `$missing` (what would raise the
 #'   level, and the range implied for it), `$variants` (a list with one data
@@ -82,7 +87,7 @@
 #' @examples
 #' check_reported("t_paired", n = "20", t = "2.85", df = "19", p = ".010")
 check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL,
-                           effect = NULL) {
+                           effect = NULL, k = NULL) {
   if (missing(handler)) {
     stop("Name the handler first: check_reported(\"t_paired\", t = ...). Handlers that can ",
          "check: ", paste(handlers_with_relations(), collapse = ", "), ".", call. = FALSE)
@@ -92,9 +97,16 @@ check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p
     stop("Handler '", handler, "' checks one effect at a time: name it with ",
          "`effect = \"A\"`, `\"B\"` or `\"AB\"`.", call. = FALSE)
   }
-  args <- test_arguments(mu = mu, dims = dims, p0 = p0, effect = effect)
-  entry$relations <- relations_at(entry, args)
+  args <- test_arguments(mu = mu, dims = dims, p0 = p0, effect = effect, k = k)
   dots <- list(...)
+  has_terms <- !is.null(entry$design$terms)
+  if (has_terms) {
+    # A regression names its coefficients ("b:wt"): the relations are built for them.
+    coefficient_names <- names(dots)[quantity_base(names(dots)) %in% coefficient_quantities()]
+    found <- unique(sub("^[^:]*:", "", coefficient_names[grepl(":", coefficient_names)]))
+    if (length(found) > 0L) args$terms <- found
+  }
+  entry$relations <- relations_at(entry, args)
   if (length(entry$relations) == 0L) {
     stop("Handler '", handler, "' has no relations to check against. Handlers that do: ",
          paste(handlers_with_relations(), collapse = ", "), ".", call. = FALSE)
@@ -104,13 +116,29 @@ check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p
     stop("Every reported number must be named by its quantity, for example t = \"2.85\".",
          call. = FALSE)
   }
-  check_quantity_names(names(reported), "reported quantity")
+  check_quantity_names(names(reported), "reported quantity", terms = has_terms)
   check_arity(reported, entry$cells, entry$per_cell)
   intervals <- Map(function(x, quantity) {
-    as_count <- quantity %in% c("n", "df", "df1", "df2", "n_total")
+    as_count <- quantity_base(quantity) %in% c("n", "df", "df1", "df2", "n_total")
     restrict_to_domain(interval_bounds(reported_value(x, as_count = as_count)), quantity, x,
                        entry$domains)
   }, reported, names(reported))
+  notes <- character()
+  if (has_terms && "k" %in% entry$test_args) {
+    # k is the model's df1: read it when F's df1 is reported exactly, else it stays
+    # unknown (never the number of terms reported).
+    if (is.null(k) && !is.null(intervals$df1)) {
+      bounds <- interval_bounds(intervals$df1)
+      if (length(bounds$lower) == 1L && bounds$lower == bounds$upper && bounds$lower >= 1) {
+        args$k <- bounds$lower
+        entry$relations <- relations_at(entry, args)
+      }
+    }
+    if (is.null(args$k) && any(c("n", "df2") %in% names(reported))) {
+      notes <- paste("n and df2 are not checked against each other: that needs k, the number",
+                     "of predictor columns. Give `k` or report df1.")
+    }
+  }
   # A balanced design has one SS type: the handler drops the variant when every cell
   # size is reported exactly and equal. Anything less certain keeps the variants.
   if ("balanced" %in% entry$test_args && is_balanced_report(intervals$n)) {
@@ -135,7 +163,7 @@ check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p
     implied = implied,
     implied_inputs = implied_inputs,
     checked = any(evaluations$checked & evaluations$falsifies),
-    notes = character(),
+    notes = c(notes, convention_notes(number_status)),
     consistent = !any(number_status$status == "inconsistent")
   ), class = "reprokit_check")
 }
@@ -287,12 +315,13 @@ check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = 
 # default 0 (so a handler without a test value still accepts mu = 0), `dims`, `p0`
 # and `effect` when not NULL. What a handler does not declare is rejected by
 # relations_at().
-test_arguments <- function(mu = 0, dims = NULL, p0 = NULL, effect = NULL) {
+test_arguments <- function(mu = 0, dims = NULL, p0 = NULL, effect = NULL, k = NULL) {
   args <- list()
   if (!(is.numeric(mu) && length(mu) == 1L && isTRUE(mu == 0))) args$mu <- mu
   if (!is.null(dims)) args$dims <- dims
   if (!is.null(p0)) args$p0 <- p0
   if (!is.null(effect)) args$effect <- effect
+  if (!is.null(k)) args$k <- k
   args
 }
 
@@ -317,6 +346,16 @@ relations_at <- function(entry, args = list()) {
       if (!(is.character(value) && length(value) == 1L && value %in% c("A", "B", "AB"))) {
         stop("`effect` must be one of \"A\", \"B\" or \"AB\".", call. = FALSE)
       }
+    } else if (name == "terms") {
+      if (!(is.character(value) && length(value) >= 1L && !anyNA(value) && all(nzchar(value)))) {
+        stop("`terms` must be coefficient names.", call. = FALSE)
+      }
+    } else if (name == "k") {
+      if (!(is.numeric(value) && length(value) == 1L && is.finite(value) && value >= 1 &&
+              value == round(value))) {
+        stop("`k` must be one whole number, at least 1 (the number of predictor columns).",
+             call. = FALSE)
+      }
     } else if (name == "balanced") {
       if (!(is.logical(value) && length(value) == 1L && !is.na(value))) {
         stop("`balanced` must be TRUE or FALSE.", call. = FALSE)
@@ -328,8 +367,9 @@ relations_at <- function(entry, args = list()) {
     if (name == "mu" && length(value) != 1L) stop("`mu` must be one finite number.", call. = FALSE)
     if (!name %in% entry$test_args) {
       stop("Handler '", entry$name, "' has no test argument `", name, "`",
-           if (length(entry$test_args) > 0L) {
-             paste0("; it takes ", paste0("`", entry$test_args, "`", collapse = ", "))
+           if (length(setdiff(entry$test_args, "terms")) > 0L) {
+             paste0("; it takes ", paste0("`", setdiff(entry$test_args, "terms"), "`",
+                                          collapse = ", "))
            } else {
              " (it takes none)"
            }, ".", call. = FALSE)
@@ -640,6 +680,18 @@ variant_kind_noun <- function(relation_names, relations) {
 
 statistic_quantities <- function() c("t", "f", "chisq")
 
+# The per-coefficient quantities a regression check reads names for.
+coefficient_quantities <- function() c("b", "se", "t", "df", "p", "ci_lower", "ci_upper", "beta")
+
+# What a convention that did not fit means (ADR 0020 point 6): said once, in words.
+convention_notes <- function(numbers) {
+  bad <- numbers$status == "not reproducible"
+  c(if (any(bad & quantity_base(numbers$quantity) == "beta")) {
+    paste("beta is not evaluable as labelled: papers write beta for unstandardised b and the",
+          "other way round, so a beta that does not equal b * SD_x / SD_y is not an error.")
+  })
+}
+
 # Level from which quantities are reported (ADR 0010 decision 2), by the highest
 # one reached:
 #   3  the reported set contains the handler's `sufficient` set
@@ -681,6 +733,8 @@ implied_ranges <- function(handler, intervals, evaluations) {
     # missing input: which convention was used is unknown, so ambiguity resolves
     # towards silence.
     if (!rel$falsifies) next
+    # R squared = r^2 cannot say the sign of r: no range for r from it.
+    if (rel$name == "r2_from_r") next
     # The variants are alternatives (one of them was used), so the missing input
     # may lie in the union of their ranges; relations are all true, so they intersect.
     # This does not apply the shared-choice rule of shared_choice() (one test and
@@ -737,7 +791,18 @@ format_implied <- function(found) {
 
 # Unreported quantities of the handler that would raise the level if reported.
 missing_numbers <- function(handler, reported_names, level, implied) {
-  candidates <- setdiff(union(handler$apa, handler$sufficient), reported_names)
+  candidates <- union(handler$apa, handler$sufficient)
+  if (!is.null(handler$design$terms)) {
+    # A coefficient's number is missing per coefficient: "se:wt", not "se".
+    coefficient_names <- reported_names[quantity_base(reported_names) %in%
+                                          coefficient_quantities() &
+                                          grepl(":", reported_names, fixed = TRUE)]
+    found <- unique(sub("^[^:]*:", "", coefficient_names))
+    candidates <- unlist(lapply(candidates, function(q) {
+      if (q %in% coefficient_quantities()) paste0(q, ":", found) else q
+    }))
+  }
+  candidates <- setdiff(candidates, reported_names)
   reach <- vapply(candidates, function(quantity) {
     coverage_level(handler, c(reported_names, quantity))
   }, integer(1))

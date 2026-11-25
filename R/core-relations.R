@@ -117,6 +117,7 @@ variant_labels <- function() {
     eta2 = "eta squared", omega2 = "omega squared",
     III = "type III", II = "type II", I = "type I",
     partial_eta2 = "partial eta squared", partial_omega2 = "partial omega squared",
+    r2 = "R\u00b2", adj_r2 = "adjusted R\u00b2",
     pearson = "Pearson chi-squared", yates = "Yates' continuity correction",
     v = "Cram\u00e9r's V", w = "Cohen's w")
 }

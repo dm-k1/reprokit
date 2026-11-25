@@ -115,9 +115,13 @@ formula_tests <- function() {
   unlist(lapply(handlers(), function(n) get_handler(n)$formula_tests), use.names = FALSE)
 }
 
+# Handlers are tried in alphabetical order, the narrow ones before a general
+# `fallback` handler (the general `lm`), so the most specific match wins whatever the
+# names are.
 find_handler <- function(x, ...) {
-  for (name in handlers()) {
-    h <- get_handler(name)
+  hs <- lapply(handlers(), get_handler)
+  hs <- hs[order(vapply(hs, function(h) isTRUE(h$fallback), logical(1)))]
+  for (h in hs) {
     if (isTRUE(tryCatch(h$matches(x, ...), error = function(e) FALSE))) return(h)
   }
   NULL
