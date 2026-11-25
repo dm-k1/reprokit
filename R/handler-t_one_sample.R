@@ -17,6 +17,7 @@ register_t_one_sample <- function() {
     summarise = t_one_sample_summarise,
     reproduce = t_one_sample_reproduce,
     reported = t_one_sample_reported,
+    disclosure = disclosure_sample_size_only,
     formula_tests = "one_sample",
     design = apa_design(statistic = "t", effect_size = "d", cells = 1L),
     sufficient = c("n", "m", "sd"),

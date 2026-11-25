@@ -32,6 +32,7 @@ register_mediation_simple <- function() {
     summarise = mediation_summarise,
     reproduce = mediation_reproduce,
     reported = mediation_reported,
+    disclosure = disclosure_sample_size_only,
     formula_tests = "mediation",
     design = apa_design(statistic = "t", effect_size = "indirect", cells = 3L, ci = TRUE,
                         terms = 4L, model = FALSE,
@@ -41,6 +42,11 @@ register_mediation_simple <- function() {
     coverage = c(sufficient = "n, M, SD and correlations of X, M, Y",
                  missing = "the correlations of X, M, Y",
                  checkable = "a, b, c, c\u2032 (b, SE, t, p, CI each)"),
+    # True for this handler: the paths b and c' are the coefficients of M and X in one
+    # regression, so they depend on how X and M overlap (the shared wording talks of
+    # "the predictors", which a reader of a mediation paper would not recognise).
+    missing_why = c(r_all = paste("the paths b and c\u2032 depend on how X and M overlap;",
+                                  "the means and SDs do not determine it")),
     not_checkable = c(
       indirect = "inferred by bootstrap, which resamples cases; summaries cannot",
       indirect_ci_lower = "inferred by bootstrap, which resamples cases; summaries cannot",

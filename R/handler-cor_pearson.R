@@ -19,6 +19,7 @@ register_cor_pearson <- function() {
     summarise = cor_pearson_summarise,
     reproduce = cor_pearson_reproduce,
     reported = cor_pearson_reported,
+    disclosure = disclosure_sample_size_only,
     formula_tests = "pearson",
     design = apa_design(statistic = "r", effect_size = "r", cells = 2L),
     sufficient = c("n", "r"),

@@ -51,7 +51,7 @@
       - checking the distribution and outliers of the differences
       - nonparametric or robust alternatives
       
-      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: sample size only (no groups or cells; no individual values stored). This lowers the risk of identifying a participant; it does not remove it.
 
 # the one-sample appendix is stable
 
@@ -101,7 +101,7 @@
       - checking the distribution and outliers
       - nonparametric or robust alternatives
       
-      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: sample size only (no groups or cells; no individual values stored). This lowers the risk of identifying a participant; it does not remove it.
 
 # the independent-samples appendix is stable
 
@@ -203,7 +203,7 @@
       - checking the scatterplot for outliers and non-linearity
       - Spearman, Kendall or robust alternatives
       
-      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: sample size only (no groups or cells; no individual values stored). This lowers the risk of identifying a participant; it does not remove it.
 
 # the one-way appendix is stable
 
@@ -303,7 +303,7 @@
       - exact, Fisher or Monte Carlo alternatives for sparse tables
       - any variable other than the ones in the table
       
-      **Disclosure check.** No summary rests on fewer than 1 cases, and n is at least 2. Checked: cell counts. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 1 cases, and n is at least 2. Checked: cell counts (a count above 0 and below 1 is flagged; zeros are not). This lowers the risk of identifying a participant; it does not remove it.
 
 # the chi-squared goodness-of-fit appendix is stable
 
@@ -352,7 +352,7 @@
       - exact, Fisher or Monte Carlo alternatives for sparse tables
       - any variable other than the ones in the table
       
-      **Disclosure check.** No summary rests on fewer than 1 cases, and n is at least 2. Checked: cell counts. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 1 cases, and n is at least 2. Checked: category counts (a count above 0 and below 1 is flagged; zeros are not). This lowers the risk of identifying a participant; it does not remove it.
 
 # the factorial appendix is stable: balanced, then unbalanced with and without the SS type
 
@@ -580,7 +580,7 @@
       - refitting with other predictors or transformations
       - heteroscedasticity-robust standard errors
       
-      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: factor levels (unweighted rows in the fit), counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
 
 ---
 
@@ -647,7 +647,7 @@
       - refitting with other predictors or transformations
       - heteroscedasticity-robust standard errors
       
-      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: factor levels (unweighted rows in the fit), counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
 
 ---
 
@@ -723,7 +723,7 @@
       - refitting with other predictors or transformations
       - heteroscedasticity-robust standard errors
       
-      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: factor levels (unweighted rows in the fit), counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
 
 ---
 
@@ -801,7 +801,7 @@
       - refitting with other predictors or transformations
       - heteroscedasticity-robust standard errors
       
-      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: factor levels (unweighted rows in the fit), counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
 
 ---
 
@@ -843,7 +843,7 @@
       
       | Number | Value | Why it is needed |
       | --- | --- | --- |
-      | the correlations | shown in block A | APA does not require this; coefficients depend on how the predictors overlap |
+      | the correlations | shown in block A | APA does not require this; the paths b and c′ depend on how X and M overlap; the means and SDs do not determine it |
       
       ### C. Analysis choices
       
@@ -865,5 +865,5 @@
       - residual diagnostics (normality, outliers, influence)
       - refitting with covariates, other mediators or transformations
       
-      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. This lowers the risk of identifying a participant; it does not remove it.
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: sample size only (no groups or cells; no individual values stored). This lowers the risk of identifying a participant; it does not remove it.
 

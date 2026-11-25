@@ -25,6 +25,7 @@ register_t_paired <- function() {
     summarise = t_paired_summarise,
     reproduce = t_paired_reproduce,
     reported = t_paired_reported,
+    disclosure = disclosure_sample_size_only,
     formula_tests = "paired",
     design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
     sufficient = c("n", "m", "sd", "r"),

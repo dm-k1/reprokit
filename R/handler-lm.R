@@ -43,6 +43,7 @@ lm_summarise <- function(x, ...) {
   z <- cbind(predictors, "(response)" = y)
   w <- stats::weights(x)
   weighted <- !is.null(w)
+  in_fit <- if (weighted) w > 0 else rep(TRUE, nrow(z))
   if (weighted) {
     z <- z[w > 0, , drop = FALSE]
     w <- w[w > 0]
@@ -67,7 +68,8 @@ lm_summarise <- function(x, ...) {
       contrasts = x$contrasts
     ),
     # Used by the disclosure check only; not stored.
-    check = list(binary_counts = binary_counts(z))
+    check = list(binary_counts = binary_counts(z),
+                 factor_counts = factor_counts(mf[in_fit, , drop = FALSE]))
   )
 }
 
@@ -173,14 +175,32 @@ binary_counts <- function(z) {
   list(n = nrow(z), ones = colSums(zb), both = crossprod(zb))
 }
 
-# Any cell of a 0/1 column or of a pair's 2 x 2 table with 0 < count < threshold
-# is flagged. Continuous columns are not checked.
+# Rows per level of every factor predictor (factor, character, logical), unweighted,
+# over the rows in the fit (ADR 0023 point 4, ADR 0007). The response is not a predictor.
+factor_counts <- function(mf) {
+  predictors <- mf[-1L]
+  is_factor <- vapply(predictors, function(v) is.factor(v) || is.character(v) || is.logical(v),
+                      logical(1))
+  lapply(predictors[is_factor], function(v) table(factor(v)))
+}
+
+# A factor level with 0 < rows < threshold is flagged (ADR 0023 point 4); a level with no
+# rows in the fit is not. Then any cell of a 0/1 column or of a pair's 2 x 2 table with
+# 0 < count < threshold is flagged. Continuous columns are not checked.
 lm_disclosure <- function(summary, threshold) {
   counts <- summary$check$binary_counts
   n <- counts$n
   ones <- counts$ones
   b <- names(ones)
   problems <- character()
+  for (v in names(summary$check$factor_counts)) {
+    tab <- summary$check$factor_counts[[v]]
+    small <- tab[tab > 0 & tab < threshold]
+    if (length(small)) {
+      problems <- c(problems, paste0("factor ", v, ", level '", names(small), "' has n = ",
+                                     small, " < ", threshold))
+    }
+  }
   flag <- function(count, label) {
     if (count > 0 && count < threshold) problems <<- c(problems, paste0(label, ": n = ", count))
   }
@@ -199,6 +219,7 @@ lm_disclosure <- function(summary, threshold) {
     flag(n - ones[[i]] - ones[[j]] + n11, paste0(i, " = 0 & ", j, " = 0"))
   }
   list(passed = length(problems) == 0L,
-       checked = "counts of 0/1 columns and their pairwise tables",
+       checked = paste("factor levels (unweighted rows in the fit), counts of 0/1 columns and",
+                       "their pairwise tables"),
        problems = problems)
 }

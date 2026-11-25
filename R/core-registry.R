@@ -83,6 +83,9 @@
 #'   `sufficient`, `missing` or `checkable` column of the coverage table, or `NULL`.
 #'   Only for a row whose generated wording would differ from the plan's (a
 #'   mediation row with named paths); the content still comes from the registry.
+#' @param missing_why Named character vector overriding the shared reason (see
+#'   `missing_reasons()`) why a quantity is missing from the APA set, for this handler
+#'   only (appendix block B and the coverage table), or `NULL`.
 #' @param fallback `TRUE` for a general handler that only handles what no specific
 #'   handler matches (the general `lm`). `find_handler()` tries the other handlers
 #'   first, so a narrow handler wins whatever the alphabetical order of the names.
@@ -96,7 +99,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                              sufficient = NULL, relations = NULL, per_cell = NULL,
                              not_checkable = NULL, test_args = NULL, domains = NULL,
                              labels = NULL, appendix_table = NULL, appendix_effects = NULL,
-                             fallback = FALSE, coverage = NULL) {
+                             fallback = FALSE, coverage = NULL, missing_why = NULL) {
   check_verdict(verdict)
   relations_at <- NULL
   if (is.function(relations)) {
@@ -129,6 +132,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(labels) || (is.character(labels) && !is.null(names(labels))),
     is.null(appendix_table) || is.function(appendix_table),
     is.null(appendix_effects) || is.function(appendix_effects),
+    is.null(missing_why) || (is.character(missing_why) && !is.null(names(missing_why))),
     is.logical(fallback), length(fallback) == 1L, !is.na(fallback),
     is.null(coverage) || (is.character(coverage) && !is.null(names(coverage)) &&
                             all(names(coverage) %in% c("sufficient", "missing", "checkable")))
@@ -164,7 +168,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     cells = design$cells, sufficient = sufficient, relations = relations,
     relations_at = relations_at, test_args = test_args, domains = domains,
     labels = labels, appendix_table = appendix_table, appendix_effects = appendix_effects,
-    coverage = coverage,
+    coverage = coverage, missing_why = missing_why,
     per_cell = if (is.null(per_cell)) per_cell_quantities() else per_cell
   ), envir = .registry)
   invisible(name)
@@ -391,6 +395,13 @@ with_reasons <- function(h, quantities, reasons) {
   }, character(1)), collapse = "; ")
 }
 
+# The shared reasons, with the handler's own wording where it declares one.
+handler_missing_reasons <- function(h) {
+  reasons <- missing_reasons()
+  reasons[names(h$missing_why)] <- h$missing_why
+  reasons
+}
+
 list_or_dash <- function(x, sep = ", ") if (length(x) == 0L) "\u2014" else paste(x, collapse = sep)
 
 # A handler's declared wording for a coverage column, else the generated one.
@@ -433,7 +444,7 @@ coverage_table <- function() {
       sufficient = coverage_text(h, "sufficient",
                                  list_or_dash(display_quantities(h, h$sufficient))),
       missing = coverage_text(h, "missing",
-                              with_reasons(h, missing_quantities(h), missing_reasons())),
+                              with_reasons(h, missing_quantities(h), handler_missing_reasons(h))),
       checkable = coverage_text(h, "checkable",
                                 list_or_dash(display_quantities(h, checkable_quantities(h)))),
       not_checkable = with_reasons(h, unreached_quantities(h), h$not_checkable),

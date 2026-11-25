@@ -283,7 +283,7 @@ appendix_block_b <- function(h, vals, labels, digits) {
   if (length(missing) == 0L) {
     return(c(out, "None: the APA numbers in block A determine the result.", ""))
   }
-  reasons <- missing_reasons()
+  reasons <- handler_missing_reasons(h)
   rows <- vapply(missing, function(q) {
     name <- if (q == "r" && length(labels) == 2L) {
       paste0("r between ", labels[1L], " and ", labels[2L])

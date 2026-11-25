@@ -79,17 +79,20 @@ chisq_lost <- function() {
     "any variable other than the ones in the table")
 }
 
-# A cell that is small but not empty could identify a participant; an empty cell
-# says only that nobody falls there.
+# A cell (independence) or category (goodness of fit) that is small but not empty could
+# identify a participant; an empty one says only that nobody falls there, and zeros are
+# not flagged in v1 (ADR 0023 point 3).
 chisq_disclosure <- function(summary, threshold) {
   n <- summary$stats$n
   small <- which(n > 0 & n < threshold)
   labels <- summary$meta$cell_labels
+  unit <- if (length(summary$meta$dims) == 1L) "category" else "cell"
   list(
     passed = length(small) == 0L,
-    checked = "cell counts",
+    checked = paste0(unit, " counts (a count above 0 and below ", threshold,
+                     " is flagged; zeros are not)"),
     problems = if (length(small)) {
-      paste0("cell ", labels[small], " has n = ", n[small], " < ", threshold)
+      paste0(unit, " ", labels[small], " has n = ", n[small], " < ", threshold)
     } else {
       character()
     }

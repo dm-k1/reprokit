@@ -94,6 +94,16 @@ minimum_n_problem <- function(n, threshold) {
   character()
 }
 
+# The disclosure hook of a handler without groups or cells (ADR 0023 point 5): it adds no
+# problems, and says that the general minimum n is the whole check.
+disclosure_sample_size_only <- function(summary, threshold) {
+  list(
+    passed = TRUE,
+    checked = "sample size only (no groups or cells; no individual values stored)",
+    problems = character()
+  )
+}
+
 no_handler_reason <- function(x) {
   hint <- if (inherits(x, "formula")) {
     paste0(" For a formula, say which test with `test =`: ",
