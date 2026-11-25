@@ -30,5 +30,12 @@ lintr::lint_package()
 devtools::check()
 ```
 
-Add a line to `NEWS.md`. Before the first CRAN/rOpenSci submission, run the
+Add a line to `NEWS.md`.
+
+Before a release, run the scripts in `inst/validation/`. `check-false-positives.R` is the
+release gate; `vignette("validation")` explains them.
+
+By taking part you agree to follow the [code of conduct](CODE_OF_CONDUCT.md).
+
+Before the first CRAN/rOpenSci submission, run the
 rOpenSci statistical-software tools: `srr` (standards), `pkgcheck`, `autotest`.
