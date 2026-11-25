@@ -220,10 +220,10 @@ factorial_paper <- function(raw = factorial_raw(), effect = sample(c("A", "B", "
   paper
 }
 
-# check_F() on the named numbers of a factorial paper; an error is returned, not thrown.
+# check_reported("factorial") on the named numbers of a factorial paper; an error is returned, not thrown.
 run_factorial_check <- function(paper, keys) {
   args <- c(paper[keys], list(effect = attr(paper, "effect"), dims = attr(paper, "dims")))
-  tryCatch(suppressWarnings(do.call(check_F, args)), error = function(e) e)
+  tryCatch(suppressWarnings(do.call(check_reported, c(list(test = "factorial"), args))), error = function(e) e)
 }
 
 # Planted errors ----------------------------------------------------------------
@@ -352,14 +352,15 @@ plant_error <- function(paper, handler, type) {
 # handler's types so every type gets the same number of papers; a paper that cannot take
 # its error (p_digit on "< .001") is replaced by another draw.
 planted_groups <- list(
-  t_paired = list(handler = "t_paired", make = function() paired_paper(paired_design())),
-  t_independent_student = list(handler = "t_independent",
+  t_paired = list(handler = "t_paired", test = "paired",
+                  make = function() paired_paper(paired_design())),
+  t_independent_student = list(handler = "t_independent", test = "student",
                                make = function() independent_paper(TRUE)),
-  t_independent_welch = list(handler = "t_independent",
+  t_independent_welch = list(handler = "t_independent", test = "welch",
                              make = function() independent_paper(FALSE)),
-  t_one_sample = list(handler = "t_one_sample", make = one_sample_paper),
-  cor_pearson = list(handler = "cor_pearson", make = pearson_paper),
-  anova_oneway = list(handler = "anova_oneway", make = function() oneway_paper())
+  t_one_sample = list(handler = "t_one_sample", test = "one_sample", make = one_sample_paper),
+  cor_pearson = list(handler = "cor_pearson", test = "pearson", make = pearson_paper),
+  anova_oneway = list(handler = "anova_oneway", test = "oneway", make = function() oneway_paper())
 )
 
 draw_cases <- function(group, n_papers) {
@@ -395,9 +396,9 @@ report_subsets <- function(handler, paper) {
 }
 
 # check_reported() on the named numbers of a paper; an error is returned, not thrown.
-run_check <- function(handler, paper, keys) {
+run_check <- function(test, paper, keys) {
   mu <- attr(paper, "mu")
-  args <- c(list(handler), paper[keys], if (!is.null(mu)) list(mu = mu))
+  args <- c(list(test = test), paper[keys], if (!is.null(mu)) list(mu = mu))
   tryCatch(suppressWarnings(do.call(check_reported, args)), error = function(e) e)
 }
 
@@ -462,11 +463,12 @@ chisq_gof_paper <- function(high_w = runif(1L) < 0.5, k = sample(2:8, 1L)) {
                          w = sqrt(chisq / sum(n)), given = given))
 }
 
-# check_chisq() on the named numbers of a chi-squared paper.
+# check_reported("chisq" / "gof") on the named numbers of a chi-squared paper.
 run_chisq_check <- function(paper, keys, ...) {
-  args <- c(paper[keys], list(handler = attr(paper, "handler"), dims = attr(paper, "dims"),
-                              p0 = attr(paper, "p0")), list(...))
-  tryCatch(suppressWarnings(do.call(check_chisq, args)), error = function(e) e)
+  test <- c(chisq_independence = "chisq", chisq_gof = "gof")[[attr(paper, "handler")]]
+  args <- c(list(test = test), paper[keys], list(dims = attr(paper, "dims")),
+            if (test == "gof") list(p0 = attr(paper, "p0")), list(...))
+  tryCatch(suppressWarnings(do.call(check_reported, args)), error = function(e) e)
 }
 
 chisq_subsets <- function(paper) {
@@ -481,7 +483,7 @@ chisq_subsets <- function(paper) {
 # covariates), unweighted or weighted; lm_paper() prints what a paper would, rounded as printed:
 # b, SE, t and the CI at 2 or 3 decimals (the CI at 90, 95 or 99%), p at 3 decimals or "< .001",
 # R2 at 2, F at 2, n, df1 and df2 exact. Per-term quantities are vectors named by coefficient,
-# which is what check_lm() takes. The paper carries attributes: handler, k (predictor columns),
+# which is what check_reported("lm") takes. The paper carries attributes: handler, k (predictor columns),
 # adj (the adjusted R2 as printed), sd_all (SD of every non-intercept column, then the outcome).
 lm_raw <- function(handler = sample(c("lm_simple", "lm_multiple", "lm_moderation"), 1L),
                    weighted = runif(1L) < 0.3, with_factor = runif(1L) < 0.4, k = NULL) {
@@ -560,7 +562,7 @@ lm_paper <- function(raw, intercept = runif(1L) < 0.3) {
   paper
 }
 
-# check_lm() on the named numbers of a regression paper, with keys as in the paper's names.
+# check_reported("lm" / "lm_simple" / "lm_moderation") on the named numbers of a regression paper, with keys as in the paper's names.
 # `terms_only` keeps only these terms in the per-term vectors (a subset of the table).
 run_lm_check <- function(paper, keys, terms_only = NULL, k = NULL, ...) {
   per_term <- c("b", "se", "t", "p", "ci_lower", "ci_upper", "beta")
@@ -578,7 +580,9 @@ run_lm_check <- function(paper, keys, terms_only = NULL, k = NULL, ...) {
     for (key in intersect(names(args), per_term)) args[[key]] <- args[[key]][setdiff(names(args[[key]]), "(Intercept)")]
     if ("r" %in% keys) args[["r"]] <- attr(paper, "r")
   }
-  tryCatch(suppressWarnings(do.call(check_lm, c(args, list(handler = attr(paper, "handler"), k = k), list(...)))),
+  test <- c(lm_simple = "lm_simple", lm_multiple = "lm", lm_moderation = "lm_moderation")[[
+    attr(paper, "handler")]]
+  tryCatch(suppressWarnings(do.call(check_reported, c(list(test = test), args, list(k = k), list(...)))),
            error = function(e) e)
 }
 
@@ -633,11 +637,13 @@ run_mediation_check <- function(paper, keys, paths = NULL) {
     if (key %in% c("b", "se", "t", "p", "df", "ci_lower", "ci_upper") && !is.null(paths)) v <- v[intersect(names(v), paths)]
     if (length(v) > 0L) args[[key]] <- v
   }
-  tryCatch(suppressWarnings(do.call(check_mediation, args)), error = function(e) e)
+  tryCatch(suppressWarnings(do.call(check_reported, c(list(test = "mediation"), args))), error = function(e) e)
 }
 
-# TRUE when every indirect-effect number came out "not checkable" (never fitting or not fitting).
+# TRUE when no indirect-effect number came out "not coherent" and the bootstrap CI was left
+# "not checkable" (ADR 0028: the indirect is checked against a*b, its CI cannot be checked).
 indirect_untouched <- function(res) {
   rows <- res$numbers[grepl("^indirect", res$numbers$quantity), ]
-  all(rows$status == "not checkable")
+  ci <- grepl("^indirect_ci", rows$quantity)
+  all(rows$status[ci] == "not checkable") && all(rows$status[!ci] %in% c("coherent", "not checkable"))
 }

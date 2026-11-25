@@ -32,14 +32,15 @@ An author shares summaries instead of data (share), writes the appendix, and a
 reader later checks the reported numbers (check):
 
 ```{r}
-s0 <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
-                       sharing_reason = "Consent did not cover public sharing.")
+model <- t.test(extra ~ group, data = sleep)
+s0 <- sufficient_stats(model, data = sleep)
 s0$verdict
-cat(head(strsplit(appendix(s0, choices = list(convention = "pooled")), "\n")[[1]], 8),
-    sep = "\n")
-check_t(handler = "t_independent",
-        n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
-        t = "-1.86", df = "17.8", p = ".079")$consistent
+a0 <- appendix(model, data = sleep, choices = list(convention = "pooled"),
+               sharing_reason = "Consent did not cover public sharing.")
+cat(head(a0, 6), sep = "\n")
+check_reported("welch",
+               n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
+               t = "-1.86", df = "17.8", p = ".079")$consistent
 ```
 
 The rest of this vignette shows each step in full.
@@ -49,14 +50,20 @@ The rest of this vignette shows each step in full.
 The built-in `sleep` data (extra hours of sleep under two drugs, 10 people per
 drug) stand in for data you cannot share.
 
-### Step 1. Triage: do summaries suffice?
+### Step 1. What can be shared: do summaries suffice?
+
+You can start from the result you already have, here a `t.test()` result and
+the data it came from:
 
 ```{r}
-triage(extra ~ group, data = sleep, test = "welch")
+model <- t.test(extra ~ group, data = sleep)
+sufficient_stats(model, data = sleep)
 ```
 
-`triage()` always returns a verdict; it never stops with an error. There are
-three verdicts:
+`sufficient_stats()` never stops with an error on the verdict. "Summaries do not
+suffice, because ..." is an answer, and the printed object narrates it: the
+verdict and why, what to publish, what readers lose, and which group or cell a
+disclosure flag fired for. There are three verdicts:
 
 * `summaries_suffice`: the summary statistics determine the reported results
   exactly, and are not so close to the raw data that sharing them gains nothing.
@@ -71,60 +78,42 @@ cases and the total must be at least 10 (change this with `threshold`).
 verdicts()
 ```
 
-### Step 2. Store the sufficient statistics
+### Step 2. The sufficient statistics
 
 A **sufficient set** is the smallest set of numbers from which the whole result
 can be recomputed. For an independent-samples t-test it is n, mean and SD per
-group. `sufficient_stats()` stores them at full precision, together with the
-reason you do not share the data. You must give the reason; there is no default.
+group. `sufficient_stats()` stores them at full precision. The object also
+states what readers lose compared with the raw data; reprokit derives that from
+the test, so you do not write it.
 
-```{r, error = TRUE}
+The choices the result records (here Welch, two-sided, 95%) are read from it and
+marked as such. A result that does not match its data is refused, and so is a
+`data.name` reprokit cannot map to the data (use the formula route then). The
+same analysis can be given as a formula:
+
+```{r}
 sufficient_stats(extra ~ group, data = sleep, test = "welch")
 ```
 
-```{r}
-s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
-                      sharing_reason = "Consent did not cover public sharing.")
-s
-```
+Fitted `lm`, `aov` and `chisq.test()` results work without `data`. For a
+mediation give the two regressions, `sufficient_stats(lm(M ~ X), lm(Y ~ X + M))`.
 
-The "What readers lose" list is not optional either. It states what a reader
-could have done with the raw data and cannot do with these statistics.
-
-If the request is impossible (for example the groups are too small),
-`sufficient_stats()` stops with an error of class `reprokit_impossible` and
-lists the alternatives: share the raw data, share synthetic data, or offer
-federated analysis. The message says in plain words why the request was
-refused:
+If the groups are too small, the verdict is `needs_raw_data`, the disclosure flag
+is named, and the alternatives are listed: share the raw data, share synthetic
+data, or offer federated analysis.
 
 ```{r}
 tiny <- sleep[c(1:3, 11:13), ]
-refused <- tryCatch(
-  sufficient_stats(extra ~ group, data = tiny, test = "welch",
-                   sharing_reason = "Consent did not cover public sharing."),
-  reprokit_impossible = function(e) e
-)
-class(refused)
-conditionMessage(refused)
+sufficient_stats(extra ~ group, data = tiny, test = "welch")
 ```
 
-### Step 3. Reproduce the result from the statistics alone
+### Step 3. Write the appendix
 
-`reproduce()` recomputes the test using only the stored statistics. If it
-matches your original analysis, readers who have the statistics can get the same
-result.
-
-```{r}
-reproduce(s)
-t.test(extra ~ group, data = sleep)
-```
-
-The values agree to within a scaled difference of 1e-8, which means roughly 8
-significant digits agree. The script `inst/validation/roundtrip-simulation.R`
-checks this over many random designs for every supported test (see
-`vignette("validation")`).
-
-### Step 4. Write the appendix
+`appendix()` reproduces the result from the stored statistics and refuses if
+that does not match your original analysis (scaled difference below 1e-8, roughly
+8 significant digits). So a reader who has the statistics gets the same result.
+The script `inst/validation/roundtrip-simulation.R` checks this over many random
+designs for every supported test (see `vignette("validation")`).
 
 `appendix()` produces Markdown to paste into your paper's supplement. It has
 labelled blocks:
@@ -142,6 +131,11 @@ labelled blocks:
 * **Raw data.** Why they are not shared, what readers lose, and a disclosure
   check.
 
+The reason for not sharing is optional (`sharing_reason`, given to `appendix()`
+only). reprokit never suggests or fills one in. Without it, `appendix()` warns and
+the appendix says "Reason for not sharing the raw data: not stated by the
+author."
+
 The convention for the effect size is yours to declare. A **d convention** is the
 formula behind an effect size such as Cohen's d: for example `"pooled"` divides
 the mean difference by the pooled SD, `"d_av"` by the average of the two SDs,
@@ -149,11 +143,13 @@ and `"d_z"` (paired design) by the SD of the differences. The allowed values
 depend on the test. If you give a wrong one, the error lists the allowed values.
 
 ```{r, error = TRUE}
-appendix(s, choices = list(convention = "d_av"))
+appendix(model, data = sleep, choices = list(convention = "d_av"),
+         sharing_reason = "Consent did not cover public sharing.")
 ```
 
 ```{r}
-appendix(s, choices = list(convention = "pooled"))
+appendix(model, data = sleep, choices = list(convention = "pooled"),
+         sharing_reason = "Consent did not cover public sharing.")
 ```
 
 The disclosure check at the end lowers the risk that a small group identifies a
@@ -161,7 +157,7 @@ participant. It does not remove it, and passing it is not a guarantee. It flags 
 group with fewer than 5 cases (the `threshold`); for a chi-squared test it flags a
 cell or category with a count above 0 and below the threshold (empty cells are not
 flagged), and for a regression with factor predictors a factor level with fewer
-rows than the threshold, counted unweighted. A flag makes `triage()` return
+rows than the threshold, counted unweighted. A flag makes `sufficient_stats()` return
 `needs_raw_data`. Tests with no groups, such as the one-sample t-test, state that
 only the sample size was checked.
 
@@ -174,13 +170,13 @@ correlation is part of the sufficient set (block B of the appendix).
 ```{r}
 wide <- data.frame(drug1 = sleep$extra[sleep$group == 1],
                    drug2 = sleep$extra[sleep$group == 2])
-sp <- sufficient_stats(Pair(drug1, drug2) ~ 1, data = wide, test = "paired",
-                       sharing_reason = "Consent did not cover public sharing.")
+sp <- sufficient_stats(Pair(drug1, drug2) ~ 1, data = wide, test = "paired")
 sp
 ```
 
 ```{r}
-appendix(sp, choices = list(convention = "d_z"))
+appendix(sp, choices = list(convention = "d_z"),
+         sharing_reason = "Consent did not cover public sharing.")
 ```
 
 To see which tests are supported, what each needs, and what each leaves
@@ -202,13 +198,16 @@ anything from 2.845 to 2.855, and reprokit checks against that whole
 **rounding interval**, not against the single number 2.85.
 
 ```{r}
-check_t(handler = "t_independent",
-        n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
-        t = "-1.86", df = "17.8", p = ".079")
+check_reported("welch",
+               n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
+               t = "-1.86", df = "17.8", p = ".079")
 ```
 
-A **handler** is the part of reprokit that knows one test (for example
-`"t_independent"`), and a **relation** is one formula that links reported
+The first argument names the test (see `?check_reported`; the valid ones are
+`"student"`, `"welch"`, `"one_sample"`, `"paired"`, `"pearson"`, `"oneway"`,
+`"factorial"`, `"chisq"`, `"gof"`, `"mediation"`, `"lm"`, `"lm_simple"` and
+`"lm_moderation"`). A **handler** is the part of reprokit that knows one test
+(for example the one behind `"welch"`), and a **relation** is one formula that links reported
 numbers, such as p from t and df. How to read the output:
 
 * The first line is the answer: the numbers are consistent or inconsistent with
@@ -237,11 +236,10 @@ numbers, such as p from t and df. How to read the output:
 ### An inconsistent set
 
 ```{r}
-check_t(n = "20", t = "2.85", df = "19", p = ".050")
+check_reported("paired", n = "20", t = "2.85", df = "19", p = ".050")
 ```
 
-`check_t()` assumes a paired design unless you give `handler`
-(`"t_independent"` or `"t_one_sample"`). With t(19) = 2.85, the two-sided p is
+Here the test is a paired t-test. With t(19) = 2.85, the two-sided p is
 about .010, not .050, so no way of rounding makes these numbers agree.
 
 This does not say which number is wrong, or that the paper is. It could be a typo, a one-sided test reported as two-sided, a different df, or a
@@ -255,8 +253,8 @@ If a number is left out, but the others constrain it, reprokit gives the range i
 must have been in.
 
 ```{r}
-check_t(n = "10", m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
-        t = "-4.06", df = "9", p = ".003")
+check_reported("paired", n = "10", m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
+               t = "-4.06", df = "9", p = ".003")
 ```
 
 Here the paired t-test needs the correlation r between conditions. It was not
@@ -270,15 +268,15 @@ When n is not reported but df is, n is derived from df (for correlations and for
 paired and one-sample t-tests) and shown as such.
 
 ```{r}
-check_r(r = ".41", df = "28", p = ".024")
+check_reported("pearson", r = ".41", df = "28", p = ".024")
 ```
 
 For a one-sample test, give the test value with `mu` if it is not 0. `mu` is a
 plain number, not a string:
 
 ```{r}
-check_t(handler = "t_one_sample", n = "32", m = "20.09", sd = "6.03",
-        t = "0.08", df = "31", p = ".94", mu = 20)
+check_reported("one_sample", n = "32", m = "20.09", sd = "6.03",
+               t = "0.08", df = "31", p = ".94", mu = 20)
 ```
 
 ### Restricting the variants
@@ -288,8 +286,8 @@ check only considers those. Here the one-sample numbers above fit a two-sided
 test only, so restricting to a one-sided test makes them inconsistent:
 
 ```{r}
-check_t(handler = "t_one_sample", n = "32", m = "20.09", sd = "6.03",
-        t = "0.08", df = "31", p = ".94", mu = 20, variants = "greater")
+check_reported("one_sample", n = "32", m = "20.09", sd = "6.03",
+               t = "0.08", df = "31", p = ".94", mu = 20, variants = "greater")
 ```
 
 The values `variants` accepts are codes such as `"welch"`, `"two.sided"`,
@@ -299,24 +297,24 @@ lists the ones it has. See `?check_reported`.
 
 ### A one-way ANOVA
 
-`check_F()` takes per-group n, mean and SD and the reported F (lowercase `f`),
+`check_reported("oneway", ...)` takes per-group n, mean and SD and the reported F (lowercase `f`),
 both degrees of freedom, eta squared and p. These are the PlantGrowth data:
 
 ```{r}
-check_F(n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
-        sd = c("0.58", "0.79", "0.44"),
-        f = "4.85", df1 = "2", df2 = "27", eta2 = "0.26", p = ".016")
+check_reported("oneway", n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
+               sd = c("0.58", "0.79", "0.44"),
+               f = "4.85", df1 = "2", df2 = "27", eta2 = "0.26", p = ".016")
 ```
 
 ### A chi-squared test
 
-`check_chisq()` takes the table as a matrix (a vector for goodness of fit, with
+`check_reported("chisq", ...)` takes the table as a matrix (a vector for goodness of fit, with
 `p0` if the H0 proportions are not equal) and the reported chi-squared, df, p
-and V. A 2 x 2 table has Yates' correction as a variant; V is a convention.
+and V (use `"gof"` for goodness of fit). A 2 x 2 table has Yates' correction as a variant; V is a convention.
 
 ```{r}
-check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
-            p = ".0001", v = ".41")
+check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04",
+               df = "1", p = ".0001", v = ".41")
 ```
 
 ### A two-factor ANOVA
@@ -328,33 +326,37 @@ must settle, and the output lists the types that fit.
 
 ```{r}
 cells <- matrix(rep("10", 4), 2)
-check_F(n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
-        sd = matrix(rep("1.50", 4), 2), effect = "A",
-        f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
+check_reported("factorial", n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
+               sd = matrix(rep("1.50", 4), 2), effect = "A",
+               f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
 ```
 
 ### A regression
 
-`check_lm()` takes one named value per coefficient. Here are the numbers of
+`check_reported("lm", ...)` takes one named value per coefficient. Here are the numbers of
 `mpg ~ wt + hp` in `mtcars` (n = 32); the check tests t = b / SE, p from t and the
 residual df, F from R squared and the df, and so on.
 
 ```{r}
-check_lm(b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
-         t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
-         r2 = ".83", f = "69.21", df1 = "2", df2 = "29", n = "32")
+check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
+               t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
+               r2 = ".83", f = "69.21", df1 = "2", df2 = "29", n = "32")
 ```
 
-Use `handler = "lm_simple"` or `"lm_moderation"` for those designs.
+Use `"lm_simple"` or `"lm_moderation"` as the test for those designs.
 
 ### A simple mediation
 
-`check_mediation()` checks the four paths (a, b, c and c', each a regression
-coefficient). The indirect effect a*b and its bootstrap interval are listed as
-not checkable: a bootstrap resamples cases, and summaries cannot.
+`check_reported("mediation", ...)` checks the four paths (a, b, c and c', each a
+regression coefficient). The reported indirect effect is checked against the
+product of the rounding intervals of a and b. If it falls outside, the result
+says the indirect effect is "not coherent" with a and b (a bootstrap mean can
+differ a little from the product, and the output says so). The indirect effect's
+confidence interval is not checkable: a bootstrap resamples cases, and summaries
+cannot.
 
 ```{r}
-check_mediation(
+check_reported("mediation",
   b = c(a = "46.16", b = "-0.03", c = "-5.34", c_prime = "-3.88"),
   se = c(a = "9.63", b = "0.01", c = "0.56", c_prime = "0.63"),
   t = c(a = "4.80", b = "-3.52", c = "-9.56", c_prime = "-6.13"),
@@ -364,9 +366,7 @@ check_mediation(
   n = "32", indirect = "-1.46", indirect_ci_lower = "-2.28", indirect_ci_upper = "-0.80")
 ```
 
-`check_t()`, `check_r()`, `check_F()`, `check_chisq()`, `check_lm()` and
-`check_mediation()` are shortcuts for `check_reported()`
-with a default handler. `quantity_names()` lists the names you can pass.
+`quantity_names()` lists the names you can pass.
 
 ## Limits
 
@@ -375,10 +375,10 @@ with a default handler. `quantity_names()` lists the names you can pass.
 * Only the tests in `coverage_table()` are covered: chi-squared, t (one-sample,
   independent, paired), Pearson, one-way and factorial ANOVA, and the regression
   family (simple, multiple, moderation, simple mediation). Everything else gets
-  triage only.
+  a verdict only.
 * The check is conservative: ambiguity resolves towards silence, because
   flagging a correct paper would be a false accusation.
 * The disclosure check lowers the risk of identifying a participant; it never
   removes it and is never a guarantee.
-* The share half records a reason and a list of losses; it cannot judge whether
-  the reason is good enough.
+* The share half states what readers lose and records the reason you give, if
+  any; it cannot judge whether the reason is good enough.

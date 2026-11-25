@@ -54,7 +54,7 @@
 #'   error of class `reprokit_impossible` when summaries do not suffice.
 #' @export
 #' @examples
-#' appendix(chisq.test(table(mtcars$cyl, mtcars$am)),
+#' appendix(chisq.test(table(mtcars$am, mtcars$vs)),
 #'          sharing_reason = "Consent did not cover public sharing.")
 #'
 #' sleep_wide <- data.frame(drug1 = sleep$extra[sleep$group == 1],

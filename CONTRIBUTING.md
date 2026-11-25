@@ -15,7 +15,8 @@
 - **No new Imports.** The app runs in the browser via webR (ADR 0002). Heavy
   packages go in Suggests and are used with `requireNamespace()`.
 - **Never round stored statistics.** Rounding is a display concern.
-- **`triage()` never errors.** An unsupported model is a verdict.
+- **The verdict path never errors.** `sufficient_stats()` returns a verdict for an unsupported
+  model; only invalid input (and `appendix()` without summaries) is an `abort_impossible()` error.
 - **Complete cases only**; never impute.
 - **Wording**: "consistent with" and "values that cannot co-occur", never
   "fraud" or "error". Disclosure checks reduce risk; they never "guarantee" it.

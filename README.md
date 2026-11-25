@@ -24,11 +24,12 @@ reprokit works in two directions, using the same statistics.
   reprokit tests whether the reported numbers are consistent with each
   other, taking rounding into account.
 
-Raw data stays the standard. `sufficient_stats()` and `appendix()`
-require you to state why the data are not shared, and they list what
-readers lose by getting summaries instead. reprokit does not make
-withholding data easier to justify; it makes the minimum you owe your
-readers explicit.
+Raw data stays the standard. `sufficient_stats()` and `appendix()` list
+what readers lose by getting summaries instead. `appendix()` records the
+reason you give for not sharing the raw data; without one, it says the
+author did not state one, and reprokit never suggests a reason. reprokit
+does not make withholding data easier to justify; it makes the minimum
+you owe your readers explicit.
 
 reprokit needs R \>= 4.1 and depends only on base R (`stats`, `utils`).
 
@@ -61,8 +62,8 @@ read the sources on GitHub:
 
 ## Share: you cannot share the raw data
 
-`triage()` says whether summaries suffice. It never errors; it always
-returns a verdict, one of:
+`sufficient_stats()` says whether summaries suffice. It never errors on
+the verdict, which is one of:
 
 - `summaries_suffice`: summary statistics determine the reported results
   exactly.
@@ -71,34 +72,34 @@ returns a verdict, one of:
 - `needs_raw_data`: neither works, or the groups are so small that
   summaries are almost the data.
 
-`sufficient_stats()` then stores the statistics. It requires a reason
-for not sharing:
+The printed object narrates the verdict, what to publish, what readers
+lose, and which group or cell a disclosure flag fired for. It stores the
+statistics at full precision:
 
 ``` r
 library(reprokit)
 
-s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
-                      sharing_reason = "Consent did not cover public sharing.")
+s <- sufficient_stats(extra ~ group, data = sleep, test = "welch")
 s
-#> <reprokit sufficient_stats>  handler: t_independent 
-#> Verdict:        summaries_suffice -- Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.
-#> Not shared because: Consent did not cover public sharing. 
-#> Statistics stored: n, mean, sd
-#> What readers lose:
+#> <reprokit sufficient_stats>  handler: t_independent  (input: formula)
+#> Verdict: summaries_suffice
+#> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.
+#> To publish: per-group n, mean and SD (appendix() writes this out).
+#> Disclosure check: passed (group sizes, threshold 5).
+#> What readers lose compared with the raw data:
 #>   * checking the distribution and outliers within each group
 #>   * nonparametric or robust alternatives
+#> Statistics stored: n, mean, sd
 ```
 
-`reproduce(s)` recomputes the test from the stored statistics alone, and
-`appendix(s)` writes the appendix for your paper (Markdown, ready to
-paste):
+`appendix()` writes the appendix for your paper (Markdown, ready to
+paste). Underneath, it reproduces the result from the stored statistics
+and refuses if it does not match your analysis. `sharing_reason` is
+optional:
 
 ``` r
-reproduce(s)
-#>           t          df           p   mean_diff    ci_lower    ci_upper 
-#> -1.86081347 17.77647352  0.07939414 -1.58000000 -3.36548323  0.20548323
-
-appendix(s, choices = list(convention = "pooled"))
+appendix(s, choices = list(convention = "pooled"),
+         sharing_reason = "Consent did not cover public sharing.")
 #> ## Appendix: sufficient statistics for the independent-samples t-test
 #> 
 #> The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (§3.7) and for data that "allow readers to confirm the basic reported analyses" (§6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (§3.7). This is that appendix.
@@ -137,7 +138,7 @@ appendix(s, choices = list(convention = "pooled"))
 #> 
 #> ### Raw data
 #> 
-#> **Why the raw data are not shared.** Consent did not cover public sharing.
+#> Reason for not sharing the raw data: Consent did not cover public sharing.
 #> 
 #> **What readers lose compared with the raw data:**
 #> 
@@ -146,6 +147,43 @@ appendix(s, choices = list(convention = "pooled"))
 #> 
 #> **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: group sizes. This lowers the risk of identifying a participant; it does not remove it.
 ```
+
+### From your fitted result
+
+You can pass the result you already have. A `t.test()` or `cor.test()`
+result needs its `data`; an `lm`, `aov` or `chisq.test()` result does
+not. The choices the result records (tails, confidence level, Student or
+Welch, continuity correction) are read from it and marked as such.
+
+``` r
+sufficient_stats(t.test(extra ~ group, data = sleep), data = sleep)
+#> <reprokit sufficient_stats>  handler: t_independent  (input: t.test)
+#> Verdict: summaries_suffice
+#> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.
+#> To publish: per-group n, mean and SD (appendix() writes this out).
+#> Disclosure check: passed (group sizes, threshold 5).
+#> Choices read from the t.test result: test = Welch.
+#> What readers lose compared with the raw data:
+#>   * checking the distribution and outliers within each group
+#>   * nonparametric or robust alternatives
+#> Statistics stored: n, mean, sd
+sufficient_stats(aov(weight ~ group, data = PlantGrowth))
+#> <reprokit sufficient_stats>  handler: anova_oneway  (input: aov)
+#> Verdict: summaries_suffice
+#> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.
+#> To publish: per-group n, mean and SD (appendix() writes this out).
+#> Disclosure check: passed (group sizes, threshold 5).
+#> What readers lose compared with the raw data:
+#>   * checking the distribution and outliers within each group
+#>   * checking equal variances beyond the group SDs
+#>   * post-hoc comparisons that need the raw data or the error term of a model
+#> Statistics stored: n, mean, sd
+sufficient_stats(chisq.test(table(mtcars$am, mtcars$vs)))$verdict
+#> [1] "summaries_suffice"
+```
+
+For a mediation, give the two regressions:
+`sufficient_stats(lm(M ~ X, data = d), lm(Y ~ X + M, data = d))`.
 
 The appendix lists the numbers APA style asks for, any further numbers a
 reader needs, the analysis choices you made (tails, confidence level,
@@ -159,9 +197,9 @@ Pass the reported numbers as **strings**, so the decimals count:
 `"2.85"` means anything from 2.845 to 2.855.
 
 ``` r
-check_t(handler = "t_independent",
-        n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
-        t = "-1.86", df = "17.8", p = ".079")
+check_reported("welch",
+               n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
+               t = "-1.86", df = "17.8", p = ".079")
 #> The analysis is consistent with the reported statistics.
 #> Level 3: the sufficient set is reported (the numbers contain everything needed to reproduce the analysis; that is not itself a check).
 #> Variants that fit: two-sided
@@ -194,7 +232,7 @@ Reading the check output:
 A set of numbers that cannot all be right is reported as inconsistent:
 
 ``` r
-check_t(n = "20", t = "2.85", df = "19", p = ".050")
+check_reported("paired", n = "20", t = "2.85", df = "19", p = ".050")
 #> The analysis is inconsistent with the reported statistics.
 #> Level 1: internal coherence only (statistic, df, p and CI are checked against each other, not against the descriptives).
 #> Variants that fit: none
@@ -210,9 +248,11 @@ check_t(n = "20", t = "2.85", df = "19", p = ".050")
 
 “Inconsistent” means the numbers cannot all be correct as reported. It
 does not say which number is wrong, or why: a typo, a different test, a
-different rounding or a real mistake all look the same. `check_r()` does
-the same for a Pearson correlation, and `check_reported()` is the
-general function behind both.
+different rounding or a real mistake all look the same.
+`check_reported()` names the test first: `"student"`, `"welch"`,
+`"one_sample"`, `"paired"`, `"pearson"`, `"oneway"`, `"factorial"`,
+`"chisq"`, `"gof"`, `"mediation"`, `"lm"`, `"lm_simple"` or
+`"lm_moderation"`.
 
 ## What it covers
 
@@ -225,7 +265,7 @@ Version 0.1.0 covers, for share, check and appendix alike:
 - one-way and factorial (two-factor) between-subjects ANOVA;
 - simple, multiple and moderation regression, and simple mediation.
 
-Everything else gets triage only: a verdict and advice, but no stored
+Everything else gets a verdict only: a verdict and advice, but no stored
 statistics and no check (repeated-measures ANOVA, logistic and Poisson
 regression, SEM, rank tests and Spearman, standalone effect sizes,
 multilevel and mixed models, GEE).
@@ -242,7 +282,7 @@ this README is built, so it is the reference, not a copy:
 | Paired-samples t-test | n, M, SD per condition, t, df, p, d, CI | n, M, SD per condition, r | r (the SD of the differences depends on the correlation between conditions; per-condition M and SD do not determine it) | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (d_z (SD of the differences), d_rm (repeated measures), d_av (average SD), g_av (average SD, Hedges’ correction)); direction of the difference: first minus second in Pair(first, second) |
 | Moderation | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations, the X·Z moments | the correlations (coefficients depend on how the predictors overlap); the X·Z moments (cannot be derived from X and Z summaries) | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); centering; coding |
 | Multiple regression | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations | the correlations (coefficients depend on how the predictors overlap) | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); factor coding |
-| Simple mediation | n, M, SD per variable, b, SE, t, p, CI, a·b and its CI | n, M, SD and correlations of X, M, Y | the correlations of X, M, Y | a, b, c, c′ (b, SE, t, p, CI each) | a·b and its CI (inferred by bootstrap, which resamples cases; summaries cannot) | confidence level (90%, 95%, 99%) |
+| Simple mediation | n, M, SD per variable, b, SE, t, p, CI, a·b and its CI | n, M, SD and correlations of X, M, Y | the correlations of X, M, Y | a, b, c, c′ (b, SE, t, p, CI each) | the CI of a·b (inferred by bootstrap, which resamples cases; summaries cannot) | confidence level (90%, 95%, 99%) |
 | Simple regression | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, r | — | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²) |
 | Chi-squared goodness of fit | the observed counts, chisq, df, p, N | the observed counts, H0 proportions | H0 proportions (the expected counts depend on them; not needed when they are equal) | chisq, df, p, N | — | effect-size convention (Cohen’s w) |
 | Chi-squared test of independence | the contingency table, chisq, df, p, N, V | the contingency table | — | chisq, df, p, N, V | — | test (Pearson chi-squared, Yates’ continuity correction); effect-size convention (Cramér’s V) |
@@ -251,14 +291,14 @@ this README is built, so it is the reference, not a copy:
 | One-sample t-test | n, M, SD, t, df, p, d, CI | n, M, SD | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (Cohen’s d, Hedges’ g); test value mu (default 0) |
 | One-way ANOVA (between-subjects) | n, M, SD per condition, F, df1, df2, p, eta2 | n, M, SD per condition | — | F, df1, df2, p, eta2 | — | effect-size convention (eta squared, omega squared); variance assumption: equal variances (classical F test, not Welch’s) |
 
-A one-way ANOVA is checked with `check_F()` (note the lowercase `f` for
-the statistic): per-group n, mean and SD, plus F, both df, eta squared
-and p.
+A one-way ANOVA is checked with `check_reported("oneway", ...)` (note
+the lowercase `f` for the statistic): per-group n, mean and SD, plus F,
+both df, eta squared and p.
 
 ``` r
-check_F(n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
-        sd = c("0.58", "0.79", "0.44"),
-        f = "4.85", df1 = "2", df2 = "27", eta2 = "0.26", p = ".016")
+check_reported("oneway", n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
+               sd = c("0.58", "0.79", "0.44"),
+               f = "4.85", df1 = "2", df2 = "27", eta2 = "0.26", p = ".016")
 #> The analysis is consistent with the reported statistics.
 #> Level 3: the sufficient set is reported (the numbers contain everything needed to reproduce the analysis; that is not itself a check).
 #> Effect-size conventions that fit: eta squared
@@ -276,18 +316,19 @@ check_F(n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
 #> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
-A two-factor between-subjects ANOVA is checked with `check_F()` too, one
-effect at a time: pass the cell n, M and SD as a x b matrices (rows are
-the levels of A, columns the levels of B) and name the `effect` (`"A"`,
-`"B"` or `"AB"`). In an unbalanced design the sums of squares type (III,
-II or I) is a choice the report must settle; the output lists the types
-that fit. Partial eta squared and partial omega squared are conventions.
+A two-factor between-subjects ANOVA is checked with
+`check_reported("factorial", ...)`, one effect at a time: pass the cell
+n, M and SD as a x b matrices (rows are the levels of A, columns the
+levels of B) and name the `effect` (`"A"`, `"B"` or `"AB"`). In an
+unbalanced design the sums of squares type (III, II or I) is a choice
+the report must settle; the output lists the types that fit. Partial eta
+squared and partial omega squared are conventions.
 
 ``` r
 cells <- matrix(rep("10", 4), 2)
-check_F(n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
-        sd = matrix(rep("1.50", 4), 2), effect = "A",
-        f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
+check_reported("factorial", n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
+               sd = matrix(rep("1.50", 4), 2), effect = "A",
+               f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
 #> The analysis is consistent with the reported statistics.
 #> Level 3: the sufficient set is reported (the numbers contain everything needed to reproduce the analysis; that is not itself a check).
 #> Effect-size conventions that fit: partial eta squared
@@ -316,13 +357,14 @@ check_F(n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
 #> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
-A chi-squared test is checked with `check_chisq()`: pass the table as a
-matrix (a vector for goodness of fit) and the reported numbers. Yates’
-correction is a variant, Cramer’s V a convention.
+A chi-squared test is checked with `check_reported("chisq", ...)`
+(`"gof"` for goodness of fit): pass the table as a matrix (a vector for
+goodness of fit) and the reported numbers. Yates’ correction is a
+variant, Cramer’s V a convention.
 
 ``` r
-check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
-            p = ".0001", v = ".41")
+check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04",
+               df = "1", p = ".0001", v = ".41")
 #> The analysis is consistent with the reported statistics.
 #> Level 3: the sufficient set is reported (the numbers contain everything needed to reproduce the analysis; that is not itself a check).
 #> Tests that fit: Yates' continuity correction
@@ -338,14 +380,17 @@ check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
 #> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
-A regression is checked with `check_lm()`, with one named value per
-term; pass `handler = "lm_simple"` or `"lm_moderation"` for those rows.
-Simple mediation is checked with `check_mediation()`, which checks the
-paths a, b, c and c’ and says nothing about the indirect effect.
+A regression is checked with `check_reported("lm", ...)`, with one named
+value per term; use `"lm_simple"` or `"lm_moderation"` for those rows.
+Simple mediation is checked with `check_reported("mediation", ...)`,
+which checks the paths a, b, c and c’ and the indirect effect against
+the product of the a and b rounding intervals. It says “not coherent” if
+they cannot co-occur (a bootstrap mean can differ a little); the
+indirect effect’s interval is not checkable.
 
 ``` r
-check_lm(b = c(wt = "-3.19", hp = "-0.04"), se = c(wt = "0.64", hp = "0.01"),
-         t = c(wt = "-5.00", hp = "-3.67"), df2 = "29", k = 2)
+check_reported("lm", b = c(wt = "-3.19", hp = "-0.04"), se = c(wt = "0.64", hp = "0.01"),
+               t = c(wt = "-5.00", hp = "-3.67"), df2 = "29", k = 2)
 #> The analysis is consistent with the reported statistics.
 #> Level 1: internal coherence only (statistic, df, p and CI are checked against each other, not against the descriptives).
 #> 
@@ -382,9 +427,9 @@ version:
   check whether the analysis was appropriate, whether the data are
   plausible, or which number is wrong.
 - It cannot replace the raw data. For analyses where summaries do not
-  suffice, or that are outside the list above, `triage()` says so
-  (`synthetic_possible` or `needs_raw_data`) and `sufficient_stats()`
-  refuses with the alternatives.
+  suffice, or that are outside the list above, `sufficient_stats()` says
+  so (`synthetic_possible` or `needs_raw_data`) and lists the
+  alternatives; `appendix()` refuses.
 - The disclosure check flags groups, cells, categories and factor levels
   with fewer than 5 cases (the default `threshold`). It lowers the risk
   of identifying a participant; it never removes it, and passing it is

@@ -15,7 +15,7 @@ p range is from t's interval 2.8765 to 2.8775
      Cohen's d (pooled SD)    0.840       0.890       0.930           FALSE
  p from t = 2.877 at df 40    0.006       0.006       0.006            TRUE
 
-== The engine: check_reported("t_independent", ...) ==
+== The engine: check_reported("student", ...) and check_reported("welch", ...) ==
 The analysis is consistent with the reported statistics.
 Level 3: the sufficient set is reported (the numbers contain everything needed to reproduce the analysis; that is not itself a check).
 Variants that fit: two-sided
@@ -28,6 +28,30 @@ Effect-size conventions that fit: none
        sd   87, 42         coherent
         t    2.877         verified
        df       40         verified
+        p     .006         coherent
+        d    0.840 not reproducible
+                                         checked_against
+                          df_from_n; t_from_descriptives
+                                     t_from_descriptives
+                          df_from_n; t_from_descriptives
+                           t_from_descriptives; p_from_t
+                                     df_from_n; p_from_t
+                                                p_from_t
+ no convention tried reproduces it (d_from_descriptives)
+
+An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+The analysis is inconsistent with the reported statistics.
+Level 3: the sufficient set is reported (the numbers contain everything needed to reproduce the analysis; that is not itself a check).
+Variants that fit: two-sided
+Tests that fit: none
+Effect-size conventions that fit: none
+
+ quantity reported           status
+        n   24, 18     inconsistent
+        m 759, 694     inconsistent
+       sd   87, 42     inconsistent
+        t    2.877     inconsistent
+       df       40     inconsistent
         p     .006         coherent
         d    0.840 not reproducible
                                          checked_against
@@ -181,23 +205,23 @@ PASS: factorial known answers (10/10)
  c_prime -3.877800    1.59e-15
 
 -- mediation report with a*b and a bootstrap CI --
-          quantity reported        status     checked_against
-               b:a    46.16      coherent       t_from_b_se:a
-               b:b    -0.03      coherent       t_from_b_se:b
-               b:c    -5.34      coherent       t_from_b_se:c
-         b:c_prime    -3.88      coherent t_from_b_se:c_prime
-              se:a     9.63      coherent       t_from_b_se:a
-              se:b     0.01      coherent       t_from_b_se:b
-              se:c     0.56      coherent       t_from_b_se:c
-        se:c_prime     0.63      coherent t_from_b_se:c_prime
-               t:a     4.80      coherent       t_from_b_se:a
-               t:b    -3.52      coherent       t_from_b_se:b
-               t:c    -9.56      coherent       t_from_b_se:c
-         t:c_prime    -6.13      coherent t_from_b_se:c_prime
-                 n       32 not checkable                <NA>
-          indirect    -1.47 not checkable                <NA>
- indirect_ci_lower    -5.00 not checkable                <NA>
- indirect_ci_upper    -1.00 not checkable                <NA>
+          quantity reported        status                 checked_against
+               b:a    46.16      coherent t_from_b_se:a; indirect_from_ab
+               b:b    -0.03      coherent t_from_b_se:b; indirect_from_ab
+               b:c    -5.34      coherent                   t_from_b_se:c
+         b:c_prime    -3.88      coherent             t_from_b_se:c_prime
+              se:a     9.63      coherent                   t_from_b_se:a
+              se:b     0.01      coherent                   t_from_b_se:b
+              se:c     0.56      coherent                   t_from_b_se:c
+        se:c_prime     0.63      coherent             t_from_b_se:c_prime
+               t:a     4.80      coherent                   t_from_b_se:a
+               t:b    -3.52      coherent                   t_from_b_se:b
+               t:c    -9.56      coherent                   t_from_b_se:c
+         t:c_prime    -6.13      coherent             t_from_b_se:c_prime
+                 n       32 not checkable                            <NA>
+          indirect    -1.47      coherent                indirect_from_ab
+ indirect_ci_lower    -5.00 not checkable                            <NA>
+ indirect_ci_upper    -1.00 not checkable                            <NA>
 
 -- mediation path CIs against confint() at three levels --
  level consistent fits_printed_level_only moved_bound_inconsistent
@@ -205,19 +229,19 @@ PASS: factorial known answers (10/10)
   0.95       TRUE                    TRUE                     TRUE
   0.99       TRUE                    TRUE                     TRUE
 
-                                         assertion holds
-            b, SE, t, p equal summary(lm) (3 rows)  TRUE
-              R2, adjusted R2, F equal summary(lm)  TRUE
-                               model p equals pf()  TRUE
-                    each correct report consistent  TRUE
-           no inconsistent row in a correct report  TRUE
-         mediation paths equal the three lm() fits  TRUE
-                       mediation report consistent  TRUE
-       a*b and its CI not checkable (right values)  TRUE
-      a*b and its CI not checkable (absurd values)  TRUE
-          absurd a*b does not make it inconsistent  TRUE
- path CIs from confint() consistent at 90, 95, 99%  TRUE
-       the printed level is the only one that fits  TRUE
-             a moved path CI bound is inconsistent  TRUE
+                                                   assertion holds
+                      b, SE, t, p equal summary(lm) (3 rows)  TRUE
+                        R2, adjusted R2, F equal summary(lm)  TRUE
+                                         model p equals pf()  TRUE
+                              each correct report consistent  TRUE
+                     no inconsistent row in a correct report  TRUE
+                   mediation paths equal the three lm() fits  TRUE
+                                 mediation report consistent  TRUE
+ a*b coherent, its bootstrap CI not checkable (right values)  TRUE
+               a*b and its CI not checkable (b path missing)  TRUE
+                    absurd a*b does not make it inconsistent  TRUE
+           path CIs from confint() consistent at 90, 95, 99%  TRUE
+                 the printed level is the only one that fits  TRUE
+                       a moved path CI bound is inconsistent  TRUE
 
 PASS: regression known answers (13/13)

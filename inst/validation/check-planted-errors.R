@@ -156,7 +156,7 @@ oracle_rdfp <- function(paper) {
                 greater = pt(t, grid$df, lower.tail = FALSE))
   verdict(vapply(tails, function(p) overlap(range(p), pi), ""))
 }
-oracle_desc <- function(handler, paper) {
+oracle_desc <- function(handler, paper, test = NULL) {
   ti <- interval(paper$t)
   pi <- pmin(pmax(interval(paper$p), 0), 1)
   five <- function(s, lower = -Inf, upper = Inf) {
@@ -174,6 +174,8 @@ oracle_desc <- function(handler, paper) {
     tails <- list(2 * pt(-abs(g$t), g$df), pt(g$t, g$df), pt(g$t, g$df, lower.tail = FALSE))
     vapply(tails, function(p) overlap(range(p), pi), "")
   }
+  # check_reported(test = "student" / "welch") fixes the variant, so for the independent t the
+  # oracle below has one variant (the one the paper was drawn under).
   # Each test variant has two paths: t from the descriptives (desc_t) and p from t and df.
   # check_reported() judges each relation on its own, a number fitting if ANY variant fits it,
   # so the matching oracle is per path: a path is detectable when every variant misses on it,
@@ -208,12 +210,15 @@ oracle_desc <- function(handler, paper) {
       v1 <- g$s1^2 / n[1L]
       v2 <- g$s2^2 / n[2L]
       welch_df <- (v1 + v2)^2 / (v1^2 / (n[1L] - 1) + v2^2 / (n[2L] - 1))
-      # df is not reported: check_reported() carries the widest df range over both tests
-      # into p, so p is judged against that hull.
-      all_df <- c(sum(n) - 2, welch_df)
-      hull <- if (all(is.finite(all_df))) seq(min(all_df), max(all_df), length.out = 11L) else NA_real_
-      list(variant((g$m1 - g$m2) / (pooled * sqrt(1 / n[1L] + 1 / n[2L])), hull),
-           variant((g$m1 - g$m2) / sqrt(v1 + v2), hull))
+      # The test name fixes the variant (check_reported("student") / ("welch")): only that
+      # variant's t and df are in play. df is not reported, so p is judged against the df the
+      # variant gives over the box.
+      student_df <- rep(sum(n) - 2, length(welch_df))
+      df_of <- function(df) if (all(is.finite(df))) seq(min(df), max(df), length.out = 11L) else NA_real_
+      switch(test,
+        student = list(variant((g$m1 - g$m2) / (pooled * sqrt(1 / n[1L] + 1 / n[2L])),
+                               df_of(student_df))),
+        welch = list(variant((g$m1 - g$m2) / sqrt(v1 + v2), df_of(welch_df))))
     })
   # nolint end
   path <- function(which) {
@@ -269,7 +274,7 @@ jobs <- do.call(c, lapply(names(cases), function(g) {
     q <- case$planted$quantity
     applicable <- Filter(function(keys) q %in% keys, subsets)
     lapply(names(applicable), function(s) {
-      list(case = paste(g, i), group = g, handler = handler, type = case$type,
+      list(case = paste(g, i), group = g, handler = handler, test = planted_groups[[g]]$test, type = case$type,
            size = case$planted$size, subset = s, quantity = q, paper = case$planted$paper,
            keys = applicable[[s]])
     })
@@ -277,7 +282,7 @@ jobs <- do.call(c, lapply(names(cases), function(g) {
 }))
 
 run_job <- function(job) {
-  res <- run_check(job$handler, job$paper, job$keys) # nolint: object_usage_linter
+  res <- run_check(job$test, job$paper, job$keys) # nolint: object_usage_linter
   if (inherits(res, "error")) return("error")
   if (!res$consistent) return("flagged")
   status <- res$numbers$status[res$numbers$quantity == job$quantity]
@@ -287,7 +292,7 @@ oracle_job <- function(job) {
   if (job$subset == "t/df/p") return(oracle_tdfp(job$paper))
   if (job$subset == "r/df/p") return(oracle_rdfp(job$paper))
   if (job$subset == "desc+t+p" && job$type %in% c("t_digit", "m_change", "r_digit")) {
-    return(oracle_desc(job$handler, job$paper))
+    return(oracle_desc(job$handler, job$paper, job$test))
   }
   if (job$handler == "anova_oneway" && job$subset == "f/df/p") {
     return(oracle_oneway(job$paper, job$subset))
@@ -659,7 +664,7 @@ cat(if (fact_ok) "\nPASS" else "\nFAIL", ": factorial planted errors, errors = "
     fact_dead, "\n", sep = "")
 
 # Regression family planted errors (ADR 0020) ---------------------------------------------------
-# Claim: check_lm() and check_mediation() never error on a paper with ONE planted error, flag it
+# Claim: check_reported() on the regression and mediation tests never errors on a paper with ONE planted error, flag it
 # inconsistent whenever the error is detectable from the reported numbers, and never flag one that
 # is not. Papers: real lm() fits (lm_raw/lm_paper of check-designs.R) and the three regressions of a
 # simple mediation (mediation_raw/mediation_paper), rounded as printed. Error types:

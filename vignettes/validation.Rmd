@@ -45,7 +45,7 @@ knitr::kable(coverage_table())
 
 ## 1. Round trip
 
-Script: `inst/validation/roundtrip-simulation.R`. `reproduce(sufficient_stats(model))` matches the original analysis, for every supported test, over random designs (scaled difference below 1e-8).
+Script: `inst/validation/roundtrip-simulation.R`. The round-trip check (the internal `reproduce`, which `appendix()` uses underneath) on the `sufficient_stats()` result matches the original analysis, for every supported test, over random designs (scaled difference below 1e-8).
 
 ```{r, echo = FALSE}
 show_result("roundtrip-simulation")
@@ -93,9 +93,9 @@ show_result("check-statcheck")
 
 ## What is not validated here
 
-Refusals (requests that need the raw data stop with class `reprokit_impossible`)
+Refusals (invalid input, and `appendix()` when summaries do not suffice, stop with class `reprokit_impossible`)
 and each check rule's behaviour on a known-bad and a known-good input are covered
 by the package's unit tests (`tests/testthat/`), not by these scripts. The
 disclosure check is tested there too, for every handler: a flagged case drops
-`triage()` to `needs_raw_data`, a clean case is unaffected, zero counts are not
+the `sufficient_stats()` verdict to `needs_raw_data`, a clean case is unaffected, zero counts are not
 flagged, and the appendix names what was checked.

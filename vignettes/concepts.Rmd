@@ -20,8 +20,26 @@ Raw data let a reader do anything the author could do: check distributions and
 outliers, try another analysis, combine studies. Summary statistics allow only
 some of that. reprokit is for the cases where sharing raw data is genuinely not
 possible (for example because of consent or privacy rules). In those cases it
-asks for the reason and lists what readers lose, so that withholding data is
-never silent and never free.
+states what readers lose, and the appendix records the reason you give (or says
+that none was stated), so that withholding data is never silent. reprokit never
+suggests a reason.
+
+## The verbs, in order
+
+1. **Coverage table.** `coverage_table()` lists which tests are covered, what each
+   needs and what each leaves uncheckable.
+2. **`sufficient_stats()`.** Given a fitted result (or a formula with `data` and
+   `test`), it gives the verdict, what to publish, what readers lose and the
+   disclosure check, and stores the summaries at full precision. It accepts an
+   `lm`, `aov` or `chisq.test()` result, a `t.test()` or `cor.test()` result with
+   `data`, and for a mediation the two regressions.
+3. **`appendix()`.** Writes the appendix from those summaries. Underneath, it
+   reproduces the result from the stored statistics alone and refuses if that
+   does not match the original analysis (scaled difference below 1e-8). That
+   round trip is why the statistics are called sufficient.
+
+Readers use `check_reported()` with the test named first, for example
+`check_reported("welch", ...)`.
 
 ## Terms for authors
 
@@ -38,18 +56,19 @@ If a test has any, a paper that follows APA style does not give readers enough t
 reproduce the result. For the paired t-test the missing number is the correlation
 between the two conditions. `appendix()` prints these in block B.
 
-**Verdict.** The outcome of `triage()`: `summaries_suffice`,
+**Verdict.** The outcome of `sufficient_stats()`: `summaries_suffice`,
 `synthetic_possible` or `needs_raw_data` (see `verdicts()`). A verdict is advice
 about what is enough; it is not a judgement on the author.
 
-**Triage only.** Version 0.1.0 stores statistics and checks reported numbers for
+**Verdict only.** Version 0.1.0 stores statistics and checks reported numbers for
 the tests in `coverage_table()`. For other analyses (repeated-measures ANOVA,
-logistic and Poisson regression, SEM, rank tests, mixed models, GEE) `triage()`
-gives a verdict and advice and nothing more.
+logistic and Poisson regression, SEM, rank tests, mixed models, GEE)
+`sufficient_stats()` gives a verdict and advice and nothing more.
 
-**Reason and losses.** Every sufficient-statistics object records why the data
-are not shared (`sharing_reason`) and what readers lose (`lost`). Neither may be
-empty.
+**Losses and reason.** reprokit states what readers lose compared with the raw
+data, from the test (`sufficient_stats(...)$lost`, also printed). The reason for
+not sharing is the author's own words, optional, and belongs to `appendix()`
+(`sharing_reason`). Without it the appendix says "not stated by the author".
 
 **Choices.** Decisions that the numbers do not reveal but the result depends on:
 one- or two-sided, confidence level, Student or Welch, and the effect-size
@@ -68,7 +87,7 @@ of people. With the default `threshold` of 5 it flags:
 * a total below twice the threshold (10), for every test.
 
 For tests with no groups (one-sample and paired t, Pearson, simple mediation) the
-check is the total only, and the appendix says so. A flag makes `triage()` return
+check is the total only, and the appendix says so. A flag makes `sufficient_stats()` return
 `needs_raw_data`.
 
 The check is risk reduction, never a guarantee. Counts above the threshold can

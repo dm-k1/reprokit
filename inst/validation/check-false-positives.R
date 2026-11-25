@@ -56,11 +56,11 @@ set.seed(20261123)
 
 source("inst/validation/check-designs.R")
 
-run_checks <- function(handler, paper, subsets) {
+run_checks <- function(test, paper, subsets) {
   out <- list(checks = 0L, fp = list(), err = list())
   mu <- attr(paper, "mu")
   for (keys in subsets) {
-    args <- c(list(handler), paper[keys], if (!is.null(mu)) list(mu = mu))
+    args <- c(list(test = test), paper[keys], if (!is.null(mu)) list(mu = mu))
     res <- tryCatch(suppressWarnings(do.call(check_reported, args)),
                     error = function(e) e)
     out$checks <- out$checks + 1L
@@ -110,7 +110,7 @@ pearson_subsets <- function(paper) {
   subsets
 }
 
-tally <- function(handler, n_designs, make, subsets_of) {
+tally <- function(test, n_designs, make, subsets_of) {
   total <- list(designs = 0L, checks = 0L, fp = list(), err = list(), r_one = 0L, small_n = 0L,
                 zero_dec = 0L)
   for (i in seq_len(n_designs)) {
@@ -121,7 +121,7 @@ tally <- function(handler, n_designs, make, subsets_of) {
     total$small_n <- total$small_n + any(as.numeric(paper$n) <= 6)
     coarse_sd <- length(paper$sd) > 0L && !grepl(".", paper$sd[1L], fixed = TRUE)
     total$zero_dec <- total$zero_dec + coarse_sd
-    res <- run_checks(handler, paper, subsets_of(paper, i))
+    res <- run_checks(test, paper, subsets_of(paper, i))
     total$checks <- total$checks + res$checks
     total$fp <- c(total$fp, res$fp)
     total$err <- c(total$err, res$err)
@@ -129,11 +129,11 @@ tally <- function(handler, n_designs, make, subsets_of) {
   total
 }
 
-paired <- tally("t_paired", n_designs,
+paired <- tally("paired", n_designs,
                 function() paired_paper(paired_design()),
                 function(paper, i) paired_subsets(paper, i %% 15L == 0L))
 # d forced into every paper; every subset below contains d, so each check tests a convention.
-paired_d <- tally("t_paired", n_designs, function() {
+paired_d <- tally("paired", n_designs, function() {
   repeat {
     paper <- paired_paper(paired_design())
     if (!is.null(paper) && !is.null(paper$d)) return(paper)
@@ -143,14 +143,14 @@ paired_d <- tally("t_paired", n_designs, function() {
   list(keep(c("n", "m", "sd", "r", "d")), keep(c("n", "m", "sd", "d")),
        keep(c("m", "sd", "r", "d")), names(paper), keep(c("n", "m", "sd", "r", "t", "d")))
 })
-pearson <- tally("cor_pearson", n_designs, pearson_paper,
+pearson <- tally("pearson", n_designs, pearson_paper,
                  function(paper, i) pearson_subsets(paper))
 
-student <- tally("t_independent", n_designs, function() independent_paper(TRUE),
+student <- tally("student", n_designs, function() independent_paper(TRUE),
                  generic_subsets)
-welch <- tally("t_independent", n_designs, function() independent_paper(FALSE),
+welch <- tally("welch", n_designs, function() independent_paper(FALSE),
                generic_subsets)
-one_sample <- tally("t_one_sample", n_designs, one_sample_paper, generic_subsets)
+one_sample <- tally("one_sample", n_designs, one_sample_paper, generic_subsets)
 
 oneway_subsets <- function(paper, i) {
   keys <- names(paper)
@@ -159,9 +159,9 @@ oneway_subsets <- function(paper, i) {
        c("n", "m", "sd", "f", "eta2"), c("f", "df1", "df2", "eta2"),
        sample(keys, sample(2:length(keys), 1L)))
 }
-oneway <- tally("anova_oneway", n_designs, function() oneway_paper(), oneway_subsets)
+oneway <- tally("oneway", n_designs, function() oneway_paper(), oneway_subsets)
 # F < 1: equal true means, negative omega2 printed with its sign.
-oneway_neg <- tally("anova_oneway", 3L * n_designs,
+oneway_neg <- tally("oneway", 3L * n_designs,
                     function() oneway_paper(oneway_raw(null = TRUE), negative_omega = TRUE),
                     oneway_subsets)
 

@@ -75,5 +75,5 @@ One example per category and group (text; truth/type; verdicts)
   [one-tailed | cor_pearson] t(2) = 22.42, p = .001  (planted/p_digit) statcheck=error check_reported=consistent
 
 check_reported flags, statcheck does not: 0  of which not oracle-detectable: 0 
-runtime (min): 0.3 
+runtime (min): 0.4 
 PASS: check_reported false positives = 0, errors = 0, unexplained statcheck-only errors = 0, check-only flags not oracle-detectable = 0

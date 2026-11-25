@@ -22,8 +22,8 @@
 #   3. Cohen's d = 0.840 is outside the range implied by the descriptives. The
 #      convention for d is not declared (the manual requires none), so the value is
 #      unfalsifiable, not wrong.
-#   4. The same numbers through check_reported("t_independent"): consistent overall,
-#      Student fits and Welch does not, no row is "inconsistent", and d gets the status
+#   4. The same numbers through check_reported("student") and check_reported("welch"): consistent
+#      as Student, not as Welch (the test name fixes the variant), no row is "inconsistent", and d gets the status
 #      "not reproducible" (no effect-size convention reproduces it).
 #   PASS: claims 1 to 4 hold (printed as TRUE).
 #
@@ -51,7 +51,7 @@
 #   reported rounded as a paper prints it (M and SD 2 dp, F 2 dp, p 3 dp, eta2 2 dp), with
 #   the true F and eta2 computed by stats::aov from the raw data (not by reprokit). Claims:
 #   7. the true F and eta2 lie inside the ranges computed from the rounded M and SD;
-#   8. check_F() on the rounded APA report (with descriptives) is consistent and no number
+#   8. check_reported("oneway") on the rounded APA report (with descriptives) is consistent and no number
 #      is inconsistent; the same with only f, df1, df2, p;
 #   9. a planted wrong df2 (29, N instead of N - k) is flagged.
 #   PASS: claims 7 to 9 hold.
@@ -63,12 +63,12 @@
 #   dose F = 92.000, supp x dose F = 4.107, df2 = 54) and the mtcars values are computed here
 #   with stats::anova() (type I, both entry orders) and stats::drop1() (types II and III, the
 #   latter with sum contrasts); car::Anova() is compared when car is installed. Claims:
-#   10. ToothGrowth: every effect's F, df1, df2, p and partial eta2 from reproduce() match the
+#   10. ToothGrowth: every effect's F, df1, df2, p and partial eta2 from reprokit:::reproduce() match the
 #       published/aov values, in all three SS types (one balanced design: all types agree);
-#   11. mtcars: reproduce() at each SS type equals anova()/drop1() to 1e-8 scaled, for F and p
+#   11. mtcars: reprokit:::reproduce() at each SS type equals anova()/drop1() to 1e-8 scaled, for F and p
 #       of both main effects, and the three types differ for the main effects (the SS type is a
 #       real choice) while the interaction is the same in all;
-#   12. check_F() on the correct rounded report of each effect is consistent with no row
+#   12. check_reported("factorial") on the correct rounded report of each effect is consistent with no row
 #       inconsistent, and for mtcars it identifies the type that produced it (and only it);
 #   13. a planted wrong df2 (N - 1 instead of N - cells) is flagged.
 #   PASS: claims 10 to 13 hold.
@@ -79,14 +79,14 @@
 #   multiple (mpg ~ wt + hp + factor(am)) and moderation (mpg ~ wt * hp), and for a simple
 #   mediation (X = wt, M = hp, Y = mpg) the four paths from three separate lm() fits (M ~ X,
 #   Y ~ X, Y ~ X + M). Claims:
-#   12. reproduce() of the stored sufficient statistics equals summary(lm) for every b, SE, t,
+#   12. reprokit:::reproduce() of the stored sufficient statistics equals summary(lm) for every b, SE, t,
 #       p, R2, adjusted R2 and F of the three lm rows, and pf() of the reproduced F, df1, df2
 #       equals the model p (1e-8 scaled);
 #   13. the mediation paths a, b, c and c' (b, SE, t, p, df) equal the three lm() fits;
 #   14. the table of each correct report, printed to the decimals a paper uses, is consistent
 #       and has no inconsistent row;
-#   15. mediation: a*b and its CI are "not checkable" even when they are exactly right, and an
-#       absurd a*b changes nothing;
+#   15. mediation (ADR 0028): a*b is "coherent" with the printed paths when right, its bootstrap
+#       CI is "not checkable", and with the b path missing nothing about the indirect is checked;
 #   16. the CI of each mediation path (b -/+ t_crit SE, df n - 2 for a and c, n - 3 for b and c')
 #       printed from confint() of the three lm() fits at 90, 95 and 99 per cent is consistent, the
 #       level that fits is the printed one, and the same CI with one bound moved is inconsistent.
@@ -149,12 +149,16 @@ cat("n = ", n1, " and ", n2, "; M and SD to the unit (box +/- 0.5);\n",
     "p range is from t's interval 2.8765 to 2.8775\n", sep = "")
 print(ranges, row.names = FALSE)
 
-cat("\n== The engine: check_reported(\"t_independent\", ...) ==\n")
-res_ind <- check_reported("t_independent", n = c("24", "18"), m = row2$m, sd = row2$sd,
+cat("\n== The engine: check_reported(\"student\", ...) and check_reported(\"welch\", ...) ==\n")
+res_ind <- check_reported(test = "student", n = c("24", "18"), m = row2$m, sd = row2$sd,
                           t = row2$t, df = "40", p = row2$p, d = "0.840")
+res_welch <- check_reported(test = "welch", n = c("24", "18"), m = row2$m, sd = row2$sd,
+                            t = row2$t, df = "40", p = row2$p, d = "0.840")
 print(res_ind)
+print(res_welch)
 fits <- function(kind, variant) {
-  v <- res_ind$variants[[kind]]
+  res <- if (variant == "welch") res_welch else res_ind
+  v <- res$variants[[kind]]
   v$fits[v$variant == variant]
 }
 
@@ -203,10 +207,10 @@ two <- function(x) formatC(x, format = "f", digits = 2L)
 level_rows <- do.call(rbind, lapply(c(0.90, 0.95, 0.99), function(level) {
   w <- t.test(g1, g2, conf.level = level)
   pr <- t.test(g1, g2, paired = TRUE, conf.level = level)
-  ind <- check_reported("t_independent", n = c("10", "10"), m = two(c(mean(g1), mean(g2))),
+  ind <- check_reported(test = "welch", n = c("10", "10"), m = two(c(mean(g1), mean(g2))),
                         sd = two(c(sd(g1), sd(g2))), ci_lower = two(w$conf.int[1L]),
                         ci_upper = two(w$conf.int[2L]))
-  pair <- check_reported("t_paired", n = "10", m = two(c(mean(g1), mean(g2))),
+  pair <- check_reported(test = "paired", n = "10", m = two(c(mean(g1), mean(g2))),
                          sd = two(c(sd(g1), sd(g2))), r = two(cor(g1, g2)),
                          ci_lower = two(pr$conf.int[1L]), ci_upper = two(pr$conf.int[2L]))
   want <- sprintf("%.2f", level)
@@ -217,7 +221,7 @@ level_rows <- do.call(rbind, lapply(c(0.90, 0.95, 0.99), function(level) {
 }))
 cat("\n== Case 2: sleep data, CI at its own level ==\n")
 print(level_rows, row.names = FALSE)
-d_args <- list("t_paired", n = "10", m = two(c(mean(g1), mean(g2))),
+d_args <- list(test = "paired", n = "10", m = two(c(mean(g1), mean(g2))),
                sd = two(c(sd(g1), sd(g2))), r = two(cor(g1, g2)))
 d_z <- mean(g1 - g2) / sd(g1 - g2)
 d_good <- do.call(check_reported, c(d_args, list(d = two(d_z))))
@@ -249,10 +253,10 @@ pg_box <- list(n = list(lower = rep(10, 3), upper = rep(10, 3)),
                          upper = as.numeric(two(pg_sd)) + 0.005))
 f_range <- relation_range(get_handler("anova_oneway")$relations[[3L]], pg_box, NULL)
 eta_range <- f_range * 2 / (f_range * 2 + 27)
-full <- check_F(f = paper$f, df1 = paper$df1, df2 = paper$df2, p = paper$p, eta2 = paper$eta2,
+full <- check_reported(test = "oneway", f = paper$f, df1 = paper$df1, df2 = paper$df2, p = paper$p, eta2 = paper$eta2,
                 n = paper$n, m = paper$m, sd = paper$sd)
-slim <- check_F(f = paper$f, df1 = paper$df1, df2 = paper$df2, p = paper$p)
-bad <- check_F(f = paper$f, df1 = paper$df1, df2 = "29", p = paper$p)
+slim <- check_reported(test = "oneway", f = paper$f, df1 = paper$df1, df2 = paper$df2, p = paper$p)
+bad <- check_reported(test = "oneway", f = paper$f, df1 = paper$df1, df2 = "29", p = paper$p)
 cat("\n== Case 3: PlantGrowth one-way ANOVA ==\n")
 print(data.frame(quantity = c("F", "eta2"), true = round(c(true_f, true_eta2), 4L),
                  range_lower = round(c(f_range[[1L]], eta_range[[1L]]), 4L),
@@ -295,7 +299,7 @@ fixtures <- list(
 rows4 <- do.call(rbind, lapply(fixtures, function(f) {
   paper <- chisq_paper(f$tab, isTRUE(f$correct), f$p0)
   gof <- is.null(dim(paper$n))
-  run <- function(p, ...) do.call(check_chisq, c(p, list(p0 = f$p0), list(...)))
+  run <- function(p, ...) do.call(check_reported, c(list(test = if (gof) "gof" else "chisq"), p, list(p0 = f$p0), list(...)))
   ok <- run(paper)
   bad <- run(replace(paper, "df", f$wrong_df), dims = if (gof) length(f$tab) else dim(f$tab))
   fits <- if (!is.null(ok$variants$test)) setNames(ok$variants$test$fits, ok$variants$test$variant)
@@ -324,8 +328,8 @@ tg_fit <- aov(len ~ supp * dose, data = tg)
 tg_tab <- summary(tg_fit)[[1L]]
 published <- c(f_A = 15.572, f_B = 92.000, f_AB = 4.107)
 tg_rep <- lapply(ss_type_codes(), function(type) {
-  reproduce(sufficient_stats(len ~ supp * dose, data = tg, test = "factorial", ss_type = type,
-                             sharing_reason = "validation"))
+  reprokit:::reproduce(sufficient_stats(len ~ supp * dose, data = tg, test = "factorial",
+                                        ss_type = type))
 })
 tg_ok <- vapply(tg_rep, function(r) {
   all(abs(r[c("f_A", "f_B", "f_AB")] - published) < 5e-4) &&
@@ -357,8 +361,8 @@ mt_full <- lm(mpg ~ am * vs, mt)
 sse <- deviance(mt_full)
 df2 <- df.residual(mt_full)
 mt_rows <- lapply(ss_type_codes(), function(type) {
-  r <- reproduce(sufficient_stats(mpg ~ am * vs, data = mt, test = "factorial", ss_type = type,
-                                  sharing_reason = "validation"))
+  r <- reprokit:::reproduce(sufficient_stats(mpg ~ am * vs, data = mt, test = "factorial",
+                                             ss_type = type))
   f <- base_ss(type) / (sse / df2)
   list(type = type, f_match = scaled_close(r[c("f_A", "f_B", "f_AB")], f),
        p_match = scaled_close(r[c("p_A", "p_B", "p_AB")], pf(f, 1, df2, lower.tail = FALSE)),
@@ -390,25 +394,25 @@ fits_of <- function(x) {
   if (is.null(v)) NULL else v$variant[v$fits]
 }
 tg_checks <- do.call(rbind, lapply(c("A", "B", "AB"), function(effect) {
-  ok <- do.call(check_F, paper_for(tg, "supp", "dose", "len", effect, "III"))
+  ok <- do.call(check_reported, c(list(test = "factorial"), paper_for(tg, "supp", "dose", "len", effect, "III")))
   bad <- paper_for(tg, "supp", "dose", "len", effect, "III")
   bad$df2 <- "59"
   data.frame(design = "ToothGrowth", effect = effect, type = "-", consistent = ok$consistent,
              none_inconsistent = !any(ok$numbers$status == "inconsistent"),
              type_identified = is.null(fits_of(ok)),
-             wrong_df2_flagged = !do.call(check_F, bad)$consistent)
+             wrong_df2_flagged = !do.call(check_reported, c(list(test = "factorial"), bad))$consistent)
 }))
 mt_checks <- do.call(rbind, lapply(ss_type_codes(), function(type) {
   do.call(rbind, lapply(c("A", "B", "AB"), function(effect) {
     paper <- paper_for(mt, "am", "vs", "mpg", effect, type)
-    ok <- do.call(check_F, paper)
+    ok <- do.call(check_reported, c(list(test = "factorial"), paper))
     bad <- paper
     bad$df2 <- "31"
     data.frame(design = "mtcars", effect = effect, type = type, consistent = ok$consistent,
                none_inconsistent = !any(ok$numbers$status == "inconsistent"),
                type_identified = if (effect == "AB") is.null(fits_of(ok)) else
                  identical(fits_of(ok), type),
-               wrong_df2_flagged = !do.call(check_F, bad)$consistent)
+               wrong_df2_flagged = !do.call(check_reported, c(list(test = "factorial"), bad))$consistent)
   }))
 }))
 checks5_table <- rbind(tg_checks, mt_checks)
@@ -452,8 +456,8 @@ reg_fits <- list(simple = lm(mpg ~ wt, mt6), multiple = lm(mpg ~ wt + hp + am, m
 reg_rows <- do.call(rbind, lapply(names(reg_fits), function(nm) {
   f <- reg_fits[[nm]]
   sm <- summary(f)
-  s <- sufficient_stats(f, sharing_reason = "known answer")
-  r <- reproduce(s)
+  s <- sufficient_stats(f)
+  r <- reprokit:::reproduce(s)
   cf <- sm$coefficients
   terms <- rownames(cf)
   coef_diff <- max(vapply(seq_along(terms), function(i) {
@@ -472,7 +476,7 @@ reg_rows <- do.call(rbind, lapply(names(reg_fits), function(nm) {
               r2 = sub("^0", "", d2(sm$r.squared)), f = d2(sm$fstatistic[["value"]]),
               df1 = as.character(sm$fstatistic[["numdf"]]),
               df2 = as.character(sm$fstatistic[["dendf"]]), n = as.character(nobs(f)))
-  ck <- do.call(check_lm, c(rep, list(handler = paste0("lm_", nm))))
+  ck <- do.call(check_reported, c(list(test = c(simple = "lm_simple", multiple = "lm", moderation = "lm_moderation")[[nm]]), rep))
   data.frame(row = nm, coef_diff = signif(coef_diff, 3L), model_diff = signif(model_diff, 3L),
              p_model_diff = signif(abs(pm - pf(r[["F"]], r[["numdf"]], r[["dendf"]], lower.tail = FALSE)), 3L),
              report_consistent = ck$consistent,
@@ -484,9 +488,8 @@ cat("
 print(reg_rows, row.names = FALSE)
 
 # mediation: X = wt, M = hp, Y = mpg
-med_s <- sufficient_stats(mpg ~ wt, data = mt6, test = "mediation", mediator = "hp",
-                          sharing_reason = "known answer")
-med_r <- reproduce(med_s)
+med_s <- sufficient_stats(mpg ~ wt, data = mt6, test = "mediation", mediator = "hp")
+med_r <- reprokit:::reproduce(med_s)
 fa <- summary(lm(hp ~ wt, mt6))$coefficients
 fc <- summary(lm(mpg ~ wt, mt6))$coefficients
 fb <- summary(lm(mpg ~ wt + hp, mt6))$coefficients
@@ -503,13 +506,13 @@ cat("
 -- mediation paths against three lm() fits --
 ")
 print(med_rows, row.names = FALSE)
-med_ck <- check_mediation(
+med_ck <- check_reported(test = "mediation",
   b = c(a = d2(fa["wt", 1L]), b = d2(fb["hp", 1L]), c = d2(fc["wt", 1L]), c_prime = d2(fb["wt", 1L])),
   se = c(a = d2(fa["wt", 2L]), b = d2(fb["hp", 2L]), c = d2(fc["wt", 2L]), c_prime = d2(fb["wt", 2L])),
   t = c(a = d2(fa["wt", 3L]), b = d2(fb["hp", 3L]), c = d2(fc["wt", 3L]), c_prime = d2(fb["wt", 3L])),
   n = "32", indirect = d2(fa["wt", 1L] * fb["hp", 1L]),
   indirect_ci_lower = "-5.00", indirect_ci_upper = "-1.00")
-med_odd <- check_mediation(b = c(a = "1.00"), se = c(a = "0.20"), t = c(a = "5.00"),
+med_odd <- check_reported(test = "mediation", b = c(a = "1.00"), se = c(a = "0.20"), t = c(a = "5.00"),
                            indirect = "99", indirect_ci_lower = "-7", indirect_ci_upper = "-6")
 ind_status <- function(ck) ck$numbers$status[grepl("^indirect", ck$numbers$quantity)]
 cat("
@@ -531,11 +534,11 @@ path_paper <- function(level) {
 }
 ci_rows <- do.call(rbind, lapply(c(0.90, 0.95, 0.99), function(level) {
   paper <- path_paper(level)
-  ok <- do.call(check_mediation, paper)
+  ok <- do.call(check_reported, c(list(test = "mediation"), paper))
   fit <- ok$variants$level
   bad <- paper
   bad$ci_upper[["b"]] <- d2(as.numeric(bad$ci_upper[["b"]]) + 0.05)
-  bad <- do.call(check_mediation, bad)
+  bad <- do.call(check_reported, c(list(test = "mediation"), bad))
   data.frame(level = level, consistent = ok$consistent,
              fits_printed_level_only = identical(fit$variant[fit$fits], sprintf("%.2f", level)),
              moved_bound_inconsistent = !bad$consistent)
@@ -549,15 +552,15 @@ checks6 <- c(all(reg_rows$coef_diff < 1e-8), all(reg_rows$model_diff < 1e-8),
              all(reg_rows$p_model_diff < 1e-8),
              all(reg_rows$report_consistent), all(reg_rows$no_inconsistent_row),
              all(med_rows$scaled_diff < 1e-8), med_ck$consistent,
-             all(ind_status(med_ck) == "not checkable"), all(ind_status(med_odd) == "not checkable"),
+             identical(ind_status(med_ck), c("coherent", "not checkable", "not checkable")), all(ind_status(med_odd) == "not checkable"),
              med_odd$consistent, all(ci_rows$consistent), all(ci_rows$fits_printed_level_only),
              all(ci_rows$moved_bound_inconsistent))
 names(checks6) <- c("b, SE, t, p equal summary(lm) (3 rows)", "R2, adjusted R2, F equal summary(lm)",
                     "model p equals pf()", "each correct report consistent",
                     "no inconsistent row in a correct report",
                     "mediation paths equal the three lm() fits", "mediation report consistent",
-                    "a*b and its CI not checkable (right values)",
-                    "a*b and its CI not checkable (absurd values)", "absurd a*b does not make it inconsistent",
+                    "a*b coherent, its bootstrap CI not checkable (right values)",
+                    "a*b and its CI not checkable (b path missing)", "absurd a*b does not make it inconsistent",
                     "path CIs from confint() consistent at 90, 95, 99%",
                     "the printed level is the only one that fits",
                     "a moved path CI bound is inconsistent")

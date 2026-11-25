@@ -5,8 +5,8 @@
 # (the categories are tested for below; a case in none of them is "unexplained").
 # Papers: the same 360-paper-per-group draw as check-planted-errors.R (same seed, same draw),
 # correct and with one planted error, restricted to the numbers an APA string carries:
-#   t(df) = t, p = p   for t_paired, t_independent (Student, Welch), t_one_sample, cor_pearson
-#   r(df) = r, p = p   for cor_pearson_r, passed as check_reported(cor_pearson, r =, df =, p =):
+#   t(df) = t, p = p   for the paired, student, welch, one_sample and pearson tests
+#   r(df) = r, p = p   for cor_pearson_r, passed as check_reported("pearson", r =, df =, p =):
 #                      n is not reported, so check_reported implies it from df (n = df + 2) and
 #                      the script counts any string left at level 0 (not checkable)
 # Planted papers are those whose planted number is in the string (t, df, p; for cor_pearson_r
@@ -64,10 +64,10 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
 
   # One row per APA string: group, truth (correct / planted), type, text, handler, keys, paper.
   rows <- list()
-  add <- function(group, handler, truth, type, paper, form) {
+  add <- function(group, handler, test, truth, type, paper, form) {
     # statcheck cannot compute a p for |r| = 1 (it stops with an error): such a string is left out
     if (form == "r" && abs(as.numeric(paper$r)) >= 1) return(invisible())
-    row <- list(group = group, handler = handler, truth = truth, type = type, paper = paper,
+    row <- list(group = group, handler = handler, test = test, truth = truth, type = type, paper = paper,
                 form = form, text = if (form == "t") apa_t(paper) else apa_r(paper),
                 keys = if (form == "t") c("t", "df", "p") else c("r", "df", "p"))
     rows[[length(rows) + 1L]] <<- row # nolint: assignment_linter
@@ -77,15 +77,16 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
   # They are drawn but left out, so the t and r draws stay the same as check-planted-errors.R.
   for (g in setdiff(names(cases), "anova_oneway")) {
     handler <- planted_groups[[g]]$handler
+    test <- planted_groups[[g]]$test
     for (case in cases[[g]]) {
-      add(g, handler, "correct", "none", case$paper, "t")
+      add(g, handler, test, "correct", "none", case$paper, "t")
       if (case$planted$quantity %in% c("t", "df", "p")) {
-        add(g, handler, "planted", case$type, case$planted$paper, "t")
+        add(g, handler, test, "planted", case$type, case$planted$paper, "t")
       }
       if (g == "cor_pearson") {
-        add("cor_pearson_r", handler, "correct", "none", case$paper, "r")
+        add("cor_pearson_r", handler, test, "correct", "none", case$paper, "r")
         if (case$planted$quantity %in% c("r", "df", "p")) {
-          add("cor_pearson_r", handler, "planted", case$type, case$planted$paper, "r")
+          add("cor_pearson_r", handler, test, "planted", case$type, case$planted$paper, "r")
         }
       }
     }
@@ -99,7 +100,7 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
   sc_computed[as.integer(sc$source)] <- sc$computed_p
 
   check_one <- function(row) {
-    res <- run_check(row$handler, row$paper, row$keys)
+    res <- run_check(row$test, row$paper, row$keys)
     if (inherits(res, "error")) "error" else if (res$consistent) "consistent" else "inconsistent"
   }
   cr <- unlist(parallel::mclapply(rows, check_one, mc.cores = 6L))
@@ -169,7 +170,7 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
   }
   raw_r <- Filter(function(row) row$form == "r", rows)
   raw_level <- unlist(parallel::mclapply(raw_r, function(row) {
-    res <- run_check(row$handler, row$paper, row$keys)
+    res <- run_check(row$test, row$paper, row$keys)
     if (inherits(res, "error")) NA_integer_ else res$level
   }, mc.cores = 6L))
   cat("\nr(df), p strings passed as r, df, p (n implied from df): level 0 (not checkable) for",

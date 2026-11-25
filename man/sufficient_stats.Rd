@@ -62,7 +62,7 @@ sufficient_stats(extra ~ group, data = sleep, test = "welch")
 
 # From the result you already have:
 sufficient_stats(t.test(extra ~ group, data = sleep), data = sleep)
-sufficient_stats(chisq.test(table(mtcars$cyl, mtcars$am)))
+sufficient_stats(chisq.test(table(mtcars$am, mtcars$vs)))
 
 # A verdict, not an error, when summaries cannot do it:
 sufficient_stats(glm(am ~ wt, data = mtcars, family = binomial))

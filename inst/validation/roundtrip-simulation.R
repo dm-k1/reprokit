@@ -1,5 +1,5 @@
 # Round-trip simulation: for each exact handler, random designs ->
-# sufficient_stats() -> reproduce() and compare with the base-R result on the raw data.
+# sufficient_stats() -> reprokit:::reproduce() and compare with the base-R result on the raw data.
 # PASS criterion, worst over all designs and all reported numbers:
 #   scaled difference |original - reproduced| / max(1, |original|) < 1e-8
 #   (= absolute for numbers up to 1, relative for larger ones such as a big F).
@@ -13,6 +13,8 @@
 # and mediation_simple (small paths, large paths, and a mediator that is nearly X); every design
 # is also checked to reach the intended handler, against summary(lm) on the raw data (for mediation,
 # against the paths of the three lm() fits through the handler's own reported()).
+# Result route (ADR 0026): t, cor, chi-squared and aov results, and two-model mediation (ADR 0028),
+# shared from the fitted objects and round-tripped the same way.
 # Run: Rscript inst/validation/roundtrip-simulation.R   (after devtools::load_all())
 
 source("inst/validation/record.R")
@@ -227,8 +229,8 @@ rows <- lapply(names(designs), function(name) {
   h <- get_handler(handler_of(name))
   diffs <- vapply(seq_len(n_designs), function(i) {
     ex <- designs[[name]]()
-    s <- do.call(sufficient_stats, c(list(ex$x), ex$args, list(sharing_reason = "simulation")))
-    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reproduce(s))
+    s <- do.call(sufficient_stats, c(list(ex$x), ex$args))
+    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reprokit:::reproduce(s))
   }, numeric(2))
   worst <- apply(diffs, 1L, max)
   data.frame(handler = name, designs = n_designs,
@@ -236,6 +238,74 @@ rows <- lapply(names(designs), function(name) {
              worst_scaled = signif(worst[["scaled"]], 3),
              result = if (worst[["scaled"]] < tolerance) "PASS" else "FAIL")
 })
-print(do.call(rbind, rows), row.names = FALSE)
+# Result route (ADR 0026): the same designs, shared from the fitted result instead of the
+# formula. The stored summaries must reproduce what the formula route reports on the raw data,
+# and the object must say which route it came from.
+result_of <- function(name, ex) {
+  d <- ex$args$data
+  a <- ex$args
+  switch(name,
+    t_independent = stats::t.test(y ~ g, data = d, var.equal = a$test == "student",
+                                  alternative = a$alternative, conf.level = a$conf_level),
+    t_one_sample = with(d, stats::t.test(y, mu = a$mu, alternative = a$alternative,
+                                      conf.level = a$conf_level)),
+    t_paired = stats::t.test(Pair(pre, post) ~ 1, data = d, mu = a$mu,
+                             alternative = a$alternative, conf.level = a$conf_level),
+    cor_pearson = stats::cor.test(~ a + b, data = d, alternative = a$alternative,
+                                  conf.level = a$conf_level),
+    chisq_independence = suppressWarnings(stats::chisq.test(table(a = d$a, b = d$b), correct = a$correct)),
+    anova_oneway = stats::aov(y ~ g, data = d),
+    anova_factorial = stats::aov(y ~ a * b, data = d))
+}
+result_args <- function(name, ex) {
+  if (name %in% c("t_independent", "t_one_sample", "t_paired", "cor_pearson")) {
+    list(data = ex$args$data)
+  } else {
+    list()
+  }
+}
+result_designs <- list(t_independent = t_design, t_one_sample = t_one_sample_design,
+                       t_paired = t_paired_design, cor_pearson = cor_pearson_design,
+                       chisq_independence = chisq_independence_design,
+                       anova_oneway = function() oneway_design(FALSE),
+                       anova_factorial = function() factorial_design(TRUE, "III"))
+route_of <- c(t_independent = "t.test", t_one_sample = "t.test", t_paired = "t.test",
+              cor_pearson = "cor.test", chisq_independence = "chisq.test",
+              anova_oneway = "aov", anova_factorial = "aov")
+result_rows <- lapply(names(result_designs), function(name) {
+  h <- get_handler(name)
+  diffs <- vapply(seq_len(n_designs), function(i) {
+    ex <- result_designs[[name]]()
+    if (name == "chisq_independence") ex$args$threshold <- 1
+    s <- do.call(sufficient_stats, c(list(result_of(name, ex)), result_args(name, ex),
+                                     list(threshold = if (is.null(ex$args$threshold)) 5 else ex$args$threshold)))
+    if (!identical(s$verdict, "summaries_suffice") || !identical(s$meta$route, route_of[[name]])) stop(name, ": ", s$verdict, " | ", s$verdict_reason, " | ", s$meta$route)
+    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reprokit:::reproduce(s))
+  }, numeric(2))
+  worst <- apply(diffs, 1L, max)
+  data.frame(handler = paste0(name, "_from_result"), designs = n_designs,
+             worst_absolute = signif(worst[["absolute"]], 3),
+             worst_scaled = signif(worst[["scaled"]], 3),
+             result = if (worst[["scaled"]] < tolerance) "PASS" else "FAIL")
+})
+
+# Mediation from two models: sufficient_stats(lm(M ~ X), lm(Y ~ X + M)) must give the same
+# summaries as the formula route (same handler, same round trip).
+med_rows <- lapply(c("small", "large", "near"), function(size) {
+  h <- get_handler("mediation_simple")
+  diffs <- vapply(seq_len(n_designs), function(i) {
+    ex <- mediation_design(size)
+    d <- ex$args$data
+    s <- sufficient_stats(stats::lm(m ~ x, data = d), stats::lm(y ~ x + m, data = d))
+    stopifnot(identical(s$verdict, "summaries_suffice"), identical(s$handler, "mediation_simple"))
+    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reprokit:::reproduce(s))
+  }, numeric(2))
+  worst <- apply(diffs, 1L, max)
+  data.frame(handler = paste0("mediation_two_models_", size), designs = n_designs,
+             worst_absolute = signif(worst[["absolute"]], 3),
+             worst_scaled = signif(worst[["scaled"]], 3),
+             result = if (worst[["scaled"]] < tolerance) "PASS" else "FAIL")
+})
+print(do.call(rbind, c(rows, result_rows, med_rows)), row.names = FALSE)
 
 record_stop()
