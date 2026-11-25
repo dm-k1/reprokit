@@ -210,8 +210,10 @@ lm_simple_relations <- function(term) {
 # the number of predictor columns, when known; simple regression has k = 1.
 lm_relations <- function(terms, k = NULL, simple = FALSE) {
   if (simple && length(terms) != 1L) {
-    abort_input("Simple regression has one coefficient (the slope); got ",
-         paste0("'", terms, "'", collapse = ", "), ".")
+    abort_input(
+      "Simple regression has one coefficient (the slope); got ",
+      paste0("'", terms, "'", collapse = ", "), "."
+    )
   }
   c(unlist(lapply(terms, lm_term_relations), recursive = FALSE),
     lm_model_relations(),
@@ -318,7 +320,7 @@ lm_appendix_table <- function(s, digits = 2L) {
                    appendix_p(reproduced[[paste0("p:", term)]])))
   }, character(1), USE.NAMES = FALSE)
   c(paste0("n = ", s$stats$n, if (weighted) paste0(" (weighted fit, sum of weights ",
-                                                    appendix_number(cp$w, digits), ")")), "",
+                                                   appendix_number(cp$w, digits), ")")), "",
     appendix_row(c("Variable", "M", paste0("SD", if (weighted) " (weighted)"))),
     appendix_row(rep("---", 3L)),
     vapply(seq_along(vars), function(i) {
@@ -345,12 +347,12 @@ lm_appendix_effects <- function(s, answers, digits) {
   if (is.null(reproduced[["F"]])) return(character())
   c(appendix_row(c("Model", "Value")), appendix_row(c("---", "---")),
     appendix_row(c("R\u00b2", appendix_number(reproduced[["r.squared"]], digits,
-                                                leading_zero = FALSE))),
+                                              leading_zero = FALSE))),
     appendix_row(c("Adjusted R\u00b2", appendix_number(reproduced[["adj.r.squared"]], digits,
-                                                         leading_zero = FALSE))),
+                                                       leading_zero = FALSE))),
     appendix_row(c(paste0("F(", appendix_df(reproduced[["numdf"]], digits), ", ",
                           appendix_df(reproduced[["dendf"]], digits), ")"),
                    appendix_number(reproduced[["F"]], digits))),
     appendix_row(c("p (model)", appendix_p(stats::pf(reproduced[["F"]], reproduced[["numdf"]],
-                                                    reproduced[["dendf"]], lower.tail = FALSE)))))
+                                                     reproduced[["dendf"]], lower.tail = FALSE)))))
 }

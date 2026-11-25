@@ -17,7 +17,7 @@ require_summaries <- function(s, what) {
   if (!identical(s$verdict, "summaries_suffice") || is.null(s$stats)) {
     abort_impossible(what, paste0("the verdict is ", s$verdict, ".\n",
                                   paste(sufficient_stats_narration(s), collapse = "\n")),
-                  alternatives = character())
+                     alternatives = character())
   }
   invisible(s)
 }

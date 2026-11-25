@@ -10,7 +10,8 @@ sufficient_stats(x, ..., threshold = 5)
 \item{x}{A fitted model, a test result, or a formula; see above.}
 
 \item{...}{Passed on: the second \code{lm} fit of a mediation, \code{data} for a formula or a
-\code{t.test} / \code{cor.test} result, \code{test} for a formula, and the choices of the analysis for a formula (\code{alternative},
+\code{t.test} / \code{cor.test} result, \code{test} for a formula, and the choices of the analysis for a
+formula (\code{alternative},
 \code{conf_level}, \code{mu}, \code{correct}, \code{p0}, \code{ss_type}).}
 
 \item{threshold}{Smallest group or cell size whose summaries are clearly less

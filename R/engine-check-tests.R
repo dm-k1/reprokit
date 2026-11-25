@@ -1,5 +1,6 @@
 # check_lm() and check_mediation(): internal helpers behind check_reported() for the
-# regression family (ADR 0020 point 5); they are not exported. A regression reports a number per coefficient, so these take named vectors
+# regression family (ADR 0020 point 5); they are not exported. A regression reports a number per
+# coefficient, so these take named vectors
 # (`b = c(wt = "-3.19", hp = "-0.03")`) and turn them into the per-term quantity names
 # check_reported() reads ("b:wt").
 
@@ -7,7 +8,8 @@
 #
 # These helpers are reached through `check_reported("lm", ...)` and
 # `check_reported("mediation", ...)`. `check_lm()` tests whether the numbers a paper reports
-# for a simple regression, a multiple regression or a moderation analysis agree with each other. They are
+# for a simple regression, a multiple regression or a moderation analysis agree with each other.
+# They are
 # all coherence checks, within what rounding allows: t = b / SE; p from t and the
 # residual df; the confidence interval from b, SE, the residual df and the level
 # (90%, 95% or 99%); F from R-squared and the two df, and the model p from F; n
@@ -36,7 +38,8 @@
 #   coefficient (named) plus the outcome's under a name that is not a coefficient
 #   (`sd = c(wt = "0.98", mpg = "6.03")`), or for a simple regression the unnamed pair
 #   (predictor, outcome). `check_mediation()` takes `b`, `se`, `t`, `p`, `df`, `ci_lower`
-#   and `ci_upper` named by path (`a`, `b`, `c`, `c_prime`), and `n`, `indirect`, `indirect_ci_lower` and
+#   and `ci_upper` named by path (`a`, `b`, `c`, `c_prime`), and `n`, `indirect`,
+#   `indirect_ci_lower` and
 #   `indirect_ci_upper` as plain strings.
 # @param handler For `check_lm()`, `"lm_multiple"` (the default), `"lm_simple"` or
 #   `"lm_moderation"`.
@@ -46,11 +49,7 @@
 #   never guessed from the number of coefficients reported, because a paper may
 #   leave some out. A simple regression has k = 1.
 # @return A `reprokit_check` object, see [check_reported()].
-# @examples
-# # mpg ~ wt + hp on mtcars (n = 32)
-# check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
-#                t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
-#          r2 = ".83", f = "69.21", df1 = "2", df2 = "29", n = "32")
+# Worked example: mpg ~ wt + hp on mtcars (n = 32), see test-engine-check-tests.R.
 check_lm <- function(..., handler = "lm_multiple", variants = NULL, k = NULL) {
   if (!handler %in% c("lm_simple", "lm_multiple", "lm_moderation")) {
     abort_input("`handler` must be \"lm_simple\", \"lm_multiple\" or \"lm_moderation\".")
@@ -62,7 +61,9 @@ check_lm <- function(..., handler = "lm_multiple", variants = NULL, k = NULL) {
 # Named vectors per coefficient become "base:term". Everything else passes through.
 flatten_lm_report <- function(dots, handler) {
   if (length(dots) > 0L && (is.null(names(dots)) || any(!nzchar(names(dots))))) {
-    abort_input("Every reported number must be named by its quantity, for example t = c(wt = \"-6.13\").")
+    abort_input(
+      "Every reported number must be named by its quantity, for example t = c(wt = \"-6.13\")."
+    )
   }
   per_term <- c("b", "se", "t", "p", "ci_lower", "ci_upper", "beta")
   terms <- character()
@@ -70,8 +71,10 @@ flatten_lm_report <- function(dots, handler) {
     nm <- names(dots[[q]])
     if (is.null(nm)) {
       if (length(dots[[q]]) != 1L || handler != "lm_simple") {
-        abort_input("`", q, "` has one value per coefficient: name them, ",
-             "e.g. ", q, " = c(wt = \"...\", hp = \"...\").")
+        abort_input(
+          "`", q, "` has one value per coefficient: name them, ",
+          "e.g. ", q, " = c(wt = \"...\", hp = \"...\")."
+        )
       }
     } else {
       terms <- union(terms, nm)
@@ -103,33 +106,28 @@ flatten_lm_sd <- function(value, terms, handler) {
     if (handler == "lm_simple" && length(value) == 2L && length(terms) == 1L) {
       return(stats::setNames(as.list(unname(value)), c(paste0("sd:", terms), "sd:(response)")))
     }
-    abort_input("`sd` needs names: the coefficients' and the outcome's, ",
-         "e.g. sd = c(wt = \"0.98\", mpg = \"6.03\").")
+    abort_input(
+      "`sd` needs names: the coefficients' and the outcome's, ",
+      "e.g. sd = c(wt = \"0.98\", mpg = \"6.03\")."
+    )
   }
   outcome <- setdiff(nm, terms)
-  if (length(outcome) > 1L) return(list())
+  if (length(outcome) > 1L) {
+    return(list())
+  }
   nm[nm %in% outcome] <- "(response)"
   stats::setNames(as.list(unname(value)), paste0("sd:", nm))
 }
 
-# @examples
-# # Simple mediation (mpg ~ wt through hp, mtcars): the paths are checked, a*b is not.
-# check_mediation(
-#   b = c(a = "46.16", b = "-0.03", c = "-5.34", c_prime = "-3.88"),
-#   se = c(a = "9.63", b = "0.01", c = "0.56", c_prime = "0.63"),
-#   t = c(a = "4.80", b = "-3.52", c = "-9.56", c_prime = "-6.13"),
-#   df = c(a = "30", b = "29", c = "30", c_prime = "29"),
-#   ci_lower = c(a = "26.50", b = "-0.05", c = "-6.49", c_prime = "-5.17"),
-#   ci_upper = c(a = "65.82", b = "-0.01", c = "-4.20", c_prime = "-2.58"),
-#   n = "32", indirect = "-1.46", indirect_ci_lower = "-2.28", indirect_ci_upper = "-0.80")
+# Worked example: simple mediation (mpg ~ wt through hp, mtcars), see the vignette.
 check_mediation <- function(..., variants = NULL, indirect_type = NULL, estimator = NULL) {
   dots <- list(...)
   if (length(dots) > 0L && (is.null(names(dots)) || any(!nzchar(names(dots))))) {
     abort_input("Every reported number must be named by its quantity, for example n = \"32\".")
   }
   types <- c("unstandardized", "standardized", "partially_standardized")
-  if (!is.null(indirect_type) && !(is.character(indirect_type) && length(indirect_type) == 1L &&
-                                   indirect_type %in% types)) {
+  type_ok <- is.character(indirect_type) && length(indirect_type) == 1L && indirect_type %in% types
+  if (!is.null(indirect_type) && !type_ok) {
     abort_input("`indirect_type` must be one of: ", paste0("\"", types, "\"", collapse = ", "), ".")
   }
   # ADR 0028 point 1: ML/SEM estimation (z tests for the paths, or declared) is never
@@ -142,7 +140,8 @@ check_mediation <- function(..., variants = NULL, indirect_type = NULL, estimato
       "Not evaluable: the reported numbers come from ML/SEM estimation (z tests for the paths,",
       "or a declared lavaan/SEM fit). Its standard errors use the divisor n and its tests are",
       "z tests, so checking them as a regression could report a mismatch that is only an",
-      "estimator difference. reprokit checks regression-based mediation only."))
+      "estimator difference. reprokit checks regression-based mediation only."
+    ))
     return(res)
   }
   per_path <- c("b", "se", "t", "p", "df", "ci_lower", "ci_upper", "beta")
@@ -152,8 +151,10 @@ check_mediation <- function(..., variants = NULL, indirect_type = NULL, estimato
     if (q %in% per_path) {
       paths <- names(value)
       if (is.null(paths) || !all(nzchar(paths))) {
-        abort_input("`", q, "` has one value per path: name them a, b, c and c_prime, ",
-             "e.g. ", q, " = c(a = \"...\", b = \"...\").")
+        abort_input(
+          "`", q, "` has one value per path: name them a, b, c and c_prime, ",
+          "e.g. ", q, " = c(a = \"...\", b = \"...\")."
+        )
       }
       paths <- sub("^c'$|^c\u2032$", "c_prime", paths)
       out[paste0(q, ":", paths)] <- as.list(unname(value))
@@ -175,34 +176,45 @@ check_mediation <- function(..., variants = NULL, indirect_type = NULL, estimato
       indirect_type
     }
     if (type == "undeclared") {
-      notes <- paste("The indirect effect is not evaluable: the plain paths a and b are not",
-                     "reported, and its type (standardized or not) is not declared. Declare",
-                     "`indirect_type` and report the matching a and b.")
+      notes <- paste(
+        "The indirect effect is not evaluable: the plain paths a and b are not",
+        "reported, and its type (standardized or not) is not declared. Declare",
+        "`indirect_type` and report the matching a and b."
+      )
       out$indirect <- NULL
     } else if (type == "partially_standardized") {
-      notes <- paste("A partially standardized indirect effect is not evaluable: it needs the",
-                     "standard deviations of the variables as well as a and b.")
+      notes <- paste(
+        "A partially standardized indirect effect is not evaluable: it needs the",
+        "standard deviations of the variables as well as a and b."
+      )
       out$indirect <- NULL
     } else if (type == "standardized") {
       if (all(c("beta:a", "beta:b") %in% names(out))) {
         standardized_check <- check_handler(
-          "mediation_simple", `b:a` = out[["beta:a"]], `b:b` = out[["beta:b"]],
-          indirect = out$indirect, variants = variants)
+          "mediation_simple",
+          `b:a` = out[["beta:a"]], `b:b` = out[["beta:b"]],
+          indirect = out$indirect, variants = variants
+        )
       } else {
-        notes <- paste("A standardized indirect effect is not evaluable without the",
-                       "standardized paths: report `beta` for a and b.")
+        notes <- paste(
+          "A standardized indirect effect is not evaluable without the",
+          "standardized paths: report `beta` for a and b."
+        )
       }
       out$indirect <- NULL
     }
   }
   out[grepl("^beta:", names(out))] <- NULL
-  res <- do.call(check_handler, c(list(handler = "mediation_simple"), out,
-                                  list(variants = variants)))
+  res <- do.call(check_handler, c(
+    list(handler = "mediation_simple"), out,
+    list(variants = variants)
+  ))
   if (!is.null(standardized_check)) {
     ok <- standardized_check$consistent
     notes <- c(notes, paste0(
       "The standardized indirect effect is ", if (ok) "coherent" else "not coherent",
-      " with beta_a * beta_b within rounding."))
+      " with beta_a * beta_b within rounding."
+    ))
     res$consistent <- res$consistent && ok
   }
   status <- res$numbers$status[res$numbers$quantity == "indirect"]
@@ -210,14 +222,17 @@ check_mediation <- function(..., variants = NULL, indirect_type = NULL, estimato
     notes <- c(notes, paste(
       "The reported indirect effect is not coherent with a\u00b7b as reported: it lies outside",
       "the product of the rounding intervals of a and b. A bootstrap mean (instead of the",
-      "sample a\u00b7b) is one possible reason; this says nothing about significance."))
+      "sample a\u00b7b) is one possible reason; this says nothing about significance."
+    ))
   }
   res$notes <- c(res$notes, notes)
   if (any(c("indirect_ci_lower", "indirect_ci_upper") %in% names(out))) {
-    res$notes <- c(res$notes, paste("The confidence interval of the indirect effect is not",
-                                    "checkable: it is inferred by bootstrap, which resamples",
-                                    "cases; summaries cannot. No Sobel, Aroian or Goodman test",
-                                    "is computed."))
+    res$notes <- c(res$notes, paste(
+      "The confidence interval of the indirect effect is not",
+      "checkable: it is inferred by bootstrap, which resamples",
+      "cases; summaries cannot. No Sobel, Aroian or Goodman test",
+      "is computed."
+    ))
   }
   res
 }
@@ -237,39 +252,52 @@ check_F <- function(..., handler = NULL, variants = NULL, effect = NULL, # nolin
     (is.null(handler) && (!is.null(effect) || !is.null(dims)))
   if (is.null(handler)) handler <- if (factorial) "anova_factorial" else "anova_oneway"
   if (!factorial) {
-    return(check_handler(handler = handler, ..., variants = variants, effect = effect,
-                          dims = dims))
+    return(check_handler(
+      handler = handler, ..., variants = variants, effect = effect,
+      dims = dims
+    ))
   }
   # The cells are a x b matrices: read their shape, check that they agree, flatten.
   shapes <- lapply(dots[intersect(names(dots), c("n", "m", "sd"))], dim)
   shapes <- Filter(Negate(is.null), shapes)
   if (length(shapes) > 0L) {
     if (any(vapply(shapes, length, integer(1)) != 2L)) {
-      abort_input("`n`, `m` and `sd` must be matrices with one row per level of the first factor ",
-           "and one column per level of the second, or plain vectors.")
+      abort_input(
+        "`n`, `m` and `sd` must be matrices with one row per level of the first factor ",
+        "and one column per level of the second, or plain vectors."
+      )
     }
     if (length(unique(shapes)) > 1L) {
-      abort_input("`n`, `m` and `sd` must have the same dimensions; got ",
-           paste0(names(shapes), " = ", vapply(shapes, paste, character(1), collapse = " x "),
-                  collapse = ", "), ".")
+      abort_input(
+        "`n`, `m` and `sd` must have the same dimensions; got ",
+        paste0(names(shapes), " = ", vapply(shapes, paste, character(1), collapse = " x "),
+          collapse = ", "
+        ), "."
+      )
     }
     shape <- shapes[[1L]]
     if (!is.null(dims) && !identical(as.integer(dims), as.integer(shape))) {
-      abort_input("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of ",
-           "the matrices (", paste(shape, collapse = " x "), ").")
+      abort_input(
+        "`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of ",
+        "the matrices (", paste(shape, collapse = " x "), ")."
+      )
     }
     dims <- shape
   }
   for (q in intersect(names(dots), c("n", "m", "sd"))) {
     dots[[q]] <- as.vector(unclass(dots[[q]]))
     if (!is.null(dims) && length(dots[[q]]) != prod(dims)) {
-      abort_input("`", q, "` has ", length(dots[[q]]), " values, but `dims` says ",
-           paste(dims, collapse = " x "), " = ", prod(dims), " cells.")
+      abort_input(
+        "`", q, "` has ", length(dots[[q]]), " values, but `dims` says ",
+        paste(dims, collapse = " x "), " = ", prod(dims), " cells."
+      )
     }
   }
   if (!is.null(dims)) check_factorial_dims(dims)
-  out <- do.call(check_handler, c(list(handler = handler), dots,
-                                   list(variants = variants, dims = dims, effect = effect)))
+  out <- do.call(check_handler, c(
+    list(handler = handler), dots,
+    list(variants = variants, dims = dims, effect = effect)
+  ))
   out$notes <- c(out$notes, paste0("Effect checked: ", factorial_effect_words(effect), "."))
   out
 }
@@ -283,13 +311,17 @@ check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = 
     # A 1-d table is a vector of counts.
     if (length(shape) == 1L) shape <- NULL
     if (length(shape) > 2L) {
-      abort_input("`n` must be a matrix or a vector, not an array of ", length(shape),
-           " dimensions.")
+      abort_input(
+        "`n` must be a matrix or a vector, not an array of ", length(shape),
+        " dimensions."
+      )
     }
     if (!is.null(shape)) {
       if (!is.null(dims) && !identical(as.integer(dims), as.integer(shape))) {
-        abort_input("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of `n` (",
-             paste(shape, collapse = " x "), ").")
+        abort_input(
+          "`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of `n` (",
+          paste(shape, collapse = " x "), ")."
+        )
       }
       dims <- shape
     }
@@ -321,8 +353,10 @@ check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = 
     dots[["v"]] <- abs(dots[["v"]])
     notes <- "A negative V (phi) is compared by absolute value; V is not signed."
   }
-  out <- do.call(check_handler, c(list(handler = handler), dots,
-                                   list(variants = variants, dims = dims, p0 = p0)))
+  out <- do.call(check_handler, c(
+    list(handler = handler), dots,
+    list(variants = variants, dims = dims, p0 = p0)
+  ))
   out$notes <- c(out$notes, notes)
   out
 }
@@ -344,9 +378,11 @@ test_arguments <- function(mu = 0, dims = NULL, p0 = NULL, effect = NULL, k = NU
 # The vocabulary of `test`: sufficient_stats(test=) plus the regression and mediation
 # checks, each mapped to the handler that carries its relations.
 check_tests <- function() {
-  c(student = "t_independent", welch = "t_independent", one_sample = "t_one_sample",
+  c(
+    student = "t_independent", welch = "t_independent", one_sample = "t_one_sample",
     paired = "t_paired", pearson = "cor_pearson", oneway = "anova_oneway",
     factorial = "anova_factorial", chisq = "chisq_independence", gof = "chisq_gof",
     mediation = "mediation_simple", lm = "lm_multiple", lm_simple = "lm_simple",
-    lm_moderation = "lm_moderation")
+    lm_moderation = "lm_moderation"
+  )
 }

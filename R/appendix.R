@@ -65,15 +65,17 @@
 appendix <- function(x, ..., sharing_reason, choices = list(), digits = 2L,
                      digits_added = 4L, threshold = 5) {
   reason <- if (!missing(sharing_reason) && is.character(sharing_reason) &&
-                length(sharing_reason) == 1L && !is.na(sharing_reason) &&
-                nzchar(trimws(sharing_reason))) trimws(sharing_reason) else NA_character_
+                  length(sharing_reason) == 1L && !is.na(sharing_reason) &&
+                  nzchar(trimws(sharing_reason))) trimws(sharing_reason) else NA_character_
   if (is.na(reason)) {
     warning("No `sharing_reason` was given. The appendix says the author did not state one; ",
             "reprokit never writes a reason for you.", call. = FALSE)
   }
   if ("lost" %in% names(list(...))) {
-    abort_input("`lost` is not an argument of appendix(): reprokit states what readers lose, ",
-         "from the test.")
+    abort_input(
+      "`lost` is not an argument of appendix(): reprokit states what readers lose, ",
+      "from the test."
+    )
   }
   s <- if (is_sufficient_stats(x)) x else sufficient_stats(x, ..., threshold = threshold)
   require_summaries(s, "write an appendix")
@@ -124,7 +126,9 @@ appendix_answers <- function(h, s, choices) {
   kinds <- unique(unlist(lapply(h$relations, function(rel) names(rel$variants))))
   convention_codes <- variant_codes(h, "convention")
   if (!is.null(choices$convention) && length(convention_codes) == 0L) {
-    abort_input("`", h$name, "` has no effect-size convention to declare; drop `choices$convention`.")
+    abort_input(
+      "`", h$name, "` has no effect-size convention to declare; drop `choices$convention`."
+    )
   }
   # A handler with one convention (V, w) has nothing for the author to choose.
   convention <- if (!is.null(choices$convention)) {
@@ -135,8 +139,10 @@ appendix_answers <- function(h, s, choices) {
     NA_character_
   }
   if (!is.na(convention) && !convention %in% convention_codes) {
-    abort_input("`choices$convention` must be one of: ",
-         paste0("\"", convention_codes, "\"", collapse = ", "), ".")
+    abort_input(
+      "`choices$convention` must be one of: ",
+      paste0("\"", convention_codes, "\"", collapse = ", "), "."
+    )
   }
   test <- if (is.null(s$meta$test_variant)) s$meta$test else s$meta$test_variant
   ss_codes <- variant_codes(h, "test")
@@ -147,8 +153,10 @@ appendix_answers <- function(h, s, choices) {
     test <- if (!is.null(choices$ss_type)) choices$ss_type else
       if (!is.null(s$meta$ss_type)) s$meta$ss_type else ss_type_codes()[1L]
     if (!is.na(test) && !test %in% ss_codes) {
-      abort_input("`choices$ss_type` must be one of: ",
-           paste0("\"", ss_codes, "\"", collapse = ", "), ".")
+      abort_input(
+        "`choices$ss_type` must be one of: ",
+        paste0("\"", ss_codes, "\"", collapse = ", "), "."
+      )
     }
   } else if (!is.null(choices$ss_type)) {
     abort_input("`", h$name, "` has no SS type to declare; drop `choices$ss_type`.")
@@ -163,8 +171,10 @@ appendix_answers <- function(h, s, choices) {
     sprintf("%.2f", s$meta$conf_level)
   }
   if (is.null(h$design$terms) && !is.null(choices$level) &&
-      is.null(attr(s$choices_read, "fn"))) {
-    abort_input("`", h$name, "` takes its confidence level from the analysis; drop `choices$level`.")
+        is.null(attr(s$choices_read, "fn"))) {
+    abort_input(
+      "`", h$name, "` takes its confidence level from the analysis; drop `choices$level`."
+    )
   }
   answers <- list(
     tail = s$meta$alternative,
@@ -182,8 +192,10 @@ appendix_level <- function(level) {
   if (is.null(level)) return(NA_character_)
   code <- if (is.numeric(level)) sprintf("%.2f", level) else level
   if (length(code) != 1L || !code %in% confidence_levels()) {
-    abort_input("`choices$level` must be one of: ",
-         paste0("\"", confidence_levels(), "\"", collapse = ", "), " (or 0.90, 0.95, 0.99).")
+    abort_input(
+      "`choices$level` must be one of: ",
+      paste0("\"", confidence_levels(), "\"", collapse = ", "), " (or 0.90, 0.95, 0.99)."
+    )
   }
   code
 }
@@ -354,7 +366,7 @@ appendix_block_c <- function(h, s, answers, labels) {
       text <- paste0(text, " (declaring it is a reprokit rule; APA does not require it)")
     }
     if (!is.null(fn) && kind %in% c("tail", "level") ||
-        !is.null(fn) && kind == "test" && !has_ss_types(h)) {
+          !is.null(fn) && kind == "test" && !has_ss_types(h)) {
       text <- paste0(text, " (read from the ", fn, " result)")
     }
     appendix_row(c(kind_labels[[kind]], text))
@@ -380,8 +392,8 @@ appendix_choice_row <- function(choice, s, labels) {
   }
   if (is.na(answer) && grepl("test value", name, fixed = TRUE) && !is.null(s$meta$mu)) {
     fn <- attr(s$choices_read, "fn")
-    return(appendix_row(c("Test value mu", paste0(
-      s$meta$mu, if (!is.null(fn)) paste0(" (read from the ", fn, " result)")))))
+    from <- if (!is.null(fn)) paste0(" (read from the ", fn, " result)")
+    return(appendix_row(c("Test value mu", paste0(s$meta$mu, from))))
   }
   if (is.na(answer) && grepl("coding", name, fixed = TRUE)) {
     # The contrasts the fit used, as stored; none when there is no factor predictor.

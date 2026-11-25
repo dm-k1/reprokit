@@ -16,7 +16,8 @@
 #'   `"student"`, `"welch"` (two independent groups; the name fixes the variant),
 #'   `"one_sample"`, `"paired"`, `"pearson"`, `"oneway"`, `"factorial"`, `"chisq"`,
 #'   `"gof"`, `"mediation"` and `"lm"` (a multiple regression; `"lm_simple"` and
-#'   `"lm_moderation"` for a simple regression and a moderation analysis). It can be given by name or as the first unnamed argument. Any other
+#'   `"lm_moderation"` for a simple regression and a moderation analysis). It can be given by name
+#'   or as the first unnamed argument. Any other
 #'   value is refused with the list of valid ones.
 #' @param ... Reported numbers, named by quantity (see [quantity_names()]).
 #'   Pass strings, so the decimals count: `t = "2.85"`, `p = "< .001"`,
@@ -148,12 +149,14 @@ check_reported <- function(..., test, variants = NULL, mu = 0, dims = NULL, p0 =
     nm <- names(dots)
     unnamed <- if (is.null(nm)) seq_along(dots) else which(!nzchar(nm))
     if (length(unnamed) > 0L && is.character(dots[[unnamed[1L]]]) &&
-        length(dots[[unnamed[1L]]]) == 1L && !is.na(dots[[unnamed[1L]]])) {
+          length(dots[[unnamed[1L]]]) == 1L && !is.na(dots[[unnamed[1L]]])) {
       test <- dots[[unnamed[1L]]]
       dots <- dots[-unnamed[1L]]
     } else {
-      abort_input("Name the test first: check_reported(\"paired\", t = ...). Valid tests: ",
-                  paste0("\"", names(tests), "\"", collapse = ", "), ".")
+      abort_input(
+        "Name the test first: check_reported(\"paired\", t = ...). Valid tests: ",
+        paste0("\"", names(tests), "\"", collapse = ", "), "."
+      )
     }
   }
   if (!is.character(test) || length(test) != 1L || is.na(test) || !test %in% names(tests)) {
@@ -167,9 +170,9 @@ check_reported <- function(..., test, variants = NULL, mu = 0, dims = NULL, p0 =
   given <- c(mu = !(is.numeric(mu) && length(mu) == 1L && isTRUE(mu == 0)), dims = !is.null(dims),
              p0 = !is.null(p0), effect = !is.null(effect), k = !is.null(k))
   allowed <- switch(test,
-    one_sample = , paired = "mu", chisq = "dims", gof = c("dims", "p0"),
-    oneway = c("effect", "dims"), factorial = c("effect", "dims"),
-    lm = , lm_simple = , lm_moderation = "k", character())
+                    one_sample = , paired = "mu", chisq = "dims", gof = c("dims", "p0"),
+                    oneway = c("effect", "dims"), factorial = c("effect", "dims"),
+                    lm = , lm_simple = , lm_moderation = "k", character())
   unused <- setdiff(names(given)[given], allowed)
   if (length(unused) > 0L) {
     abort_input("`", unused[1L], "` does not apply to test \"", test, "\".")

@@ -333,10 +333,12 @@ handler_choices <- function(h) {
     of_kind <- Filter(function(rel) kind %in% names(rel$variants), h$relations)
     if (length(of_kind) == 0L) return(NULL)
     codes <- unique(unlist(lapply(of_kind, function(rel) rel$variants[[kind]])))
-    if (kind == "test" && all(codes %in% ss_type_codes())) {
-      labels[["test"]] <- "SS type for unbalanced designs"
+    label <- if (kind == "test" && all(codes %in% ss_type_codes())) {
+      "SS type for unbalanced designs"
+    } else {
+      labels[[kind]]
     }
-    paste0(labels[[kind]], " (", paste(variant_label(codes), collapse = ", "), ")")
+    paste0(label, " (", paste(variant_label(codes), collapse = ", "), ")")
   }))
   c(from_relations, h$choices)
 }
@@ -376,7 +378,8 @@ display_quantities <- function(h, quantities) {
       # The indirect effect and its CI read as one item (ADR 0020 point 7).
       if ("indirect" %in% quantities) next
       items <- c(items, if (q == "indirect_ci_lower") "the CI of a\u00b7b" else next)
-    } else if (q == "indirect" && any(c("indirect_ci_lower", "indirect_ci_upper") %in% quantities)) {
+    } else if (q == "indirect" &&
+                 any(c("indirect_ci_lower", "indirect_ci_upper") %in% quantities)) {
       items <- c(items, "a\u00b7b and its CI")
     } else {
       items <- c(items, if (q == "ci_lower" && "ci_upper" %in% quantities) "CI" else label(q))

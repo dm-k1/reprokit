@@ -162,8 +162,10 @@ anova_oneway_summarise <- function(x, data, test, ...) {
   }
   n <- c(table(g))
   if (any(n < 2L)) {
-    abort_input("Every group needs at least 2 observations (its SD must be defined); group ",
-         paste0("'", names(n)[n < 2L], "'", collapse = ", "), " has fewer.")
+    abort_input(
+      "Every group needs at least 2 observations (its SD must be defined); group ",
+      paste0("'", names(n)[n < 2L], "'", collapse = ", "), " has fewer."
+    )
   }
   list(
     stats = list(

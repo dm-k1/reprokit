@@ -119,8 +119,10 @@ check_p0 <- function(p0, k = NULL) {
     abort_input("`p0` must be non-negative numbers, one proportion per category.")
   }
   if (!is.null(k) && length(p0) != k) {
-    abort_input("`p0` must have one proportion per category: length ", k, ", but got ", length(p0),
-         ".")
+    abort_input(
+      "`p0` must have one proportion per category: length ", k, ", but got ", length(p0),
+      "."
+    )
   }
   if (abs(sum(p0) - 1) > 1e-8) {
     abort_input("`p0` must sum to 1 (within 1e-8), but sums to ", format(sum(p0)), ".")
@@ -130,8 +132,10 @@ check_p0 <- function(p0, k = NULL) {
 
 table_matrix <- function(n, dims) {
   if (length(n) != prod(dims)) {
-    abort_input("`n` has ", length(n), " counts, but a table of ", dims[1L], " x ", dims[2L],
-         " has ", prod(dims), ".")
+    abort_input(
+      "`n` has ", length(n), " counts, but a table of ", dims[1L], " x ", dims[2L],
+      " has ", prod(dims), "."
+    )
   }
   matrix(n, nrow = dims[1L], ncol = dims[2L])
 }

@@ -10,7 +10,8 @@ register_anova_factorial <- function() {
     analysis = "Factorial ANOVA, two factors (between-subjects)",
     verdict = "summaries_suffice",
     needs = "per-cell n, mean and SD",
-    catch = "declare the SS type (unbalanced designs) and partial eta squared or partial omega squared",
+    catch = paste0("declare the SS type (unbalanced designs) and partial eta squared or ",
+                   "partial omega squared"),
     lost = c("equal variances assumed (pooled error term)",
              "checking the distribution and outliers within each cell",
              paste("simple effects, post-hoc comparisons and contrasts that need the raw data",
@@ -44,7 +45,7 @@ register_anova_factorial <- function() {
     labels = c(eta2 = "partial eta2"),
     relations = anova_factorial_relations,
     appendix_table = anova_factorial_appendix_table,
-    appendix_effects = anova_factorial_appendix_effects,
+    appendix_effects = anova_factorial_appx_effects,
     example = function() {
       d <- base_data("ToothGrowth")
       d$dose <- factor(d$dose)
@@ -101,7 +102,7 @@ factorial_adjust <- function(effect, type) {
 # whose sum of squares is (L mu)' (L D^-1 L')^-1 (L mu) with D = diag(n). L = Z' W, where
 # Z is the effect's coded columns after removing what the adjusted columns explain
 # under the cell sizes W = D. NULL when the cell sizes leave nothing to test.
-factorial_L <- function(effect, dims, n, type) {
+factorial_l <- function(effect, dims, n, type) {
   cm <- factorial_contrasts(dims)
   e <- cm[[effect]]
   x <- do.call(cbind, cm[factorial_adjust(effect, type)])
@@ -115,7 +116,7 @@ factorial_L <- function(effect, dims, n, type) {
 
 # Sum of squares of an effect from the cell sizes and means.
 factorial_ss <- function(effect, dims, n, m, type) {
-  l <- factorial_L(effect, dims, n, type)
+  l <- factorial_l(effect, dims, n, type)
   if (is.null(l)) return(NaN)
   lm_ <- l %*% m
   drop(crossprod(lm_, solve(l %*% (t(l) / n), lm_)))
@@ -163,7 +164,7 @@ factorial_f_range <- function(effect, dims) {
     sse_low <- factorial_sse(counts, pmax(sd$lower, 0))
     if (df2 < 1 || sse_high <= 0) return(unbounded)
     if (df1 == 1) {
-      l <- factorial_L(effect, dims, counts, type)
+      l <- factorial_l(effect, dims, counts, type)
       if (is.null(l)) return(unbounded)
       l <- l[1L, ]
       scale <- sum(l^2 / counts)
@@ -286,8 +287,10 @@ factorial_vector <- function(effects, df2) {
 anova_factorial_summarise <- function(x, data, test, ss_type = NULL, ...) {
   if (!is.null(ss_type) && !(is.character(ss_type) && length(ss_type) == 1L &&
                                ss_type %in% ss_type_codes())) {
-    abort_input("`ss_type` must be one of ", paste0("\"", ss_type_codes(), "\"", collapse = ", "),
-         ".")
+    abort_input(
+      "`ss_type` must be one of ", paste0("\"", ss_type_codes(), "\"", collapse = ", "),
+      "."
+    )
   }
   mf <- factorial_frame(x, data)
   y <- mf[[1L]]
@@ -300,13 +303,17 @@ anova_factorial_summarise <- function(x, data, test, ss_type = NULL, ...) {
     abort_input("Both factors need at least 2 levels; got ", dims[1L], " and ", dims[2L], ".")
   }
   if (any(tab == 0L)) {
-    abort_input("Every cell needs observations; the cell (",
-         paste(c(rownames(tab)[which(tab == 0L, arr.ind = TRUE)[1L, 1L]],
-                 colnames(tab)[which(tab == 0L, arr.ind = TRUE)[1L, 2L]]), collapse = ", "),
-         ") is empty.")
+    abort_input(
+      "Every cell needs observations; the cell (",
+      paste(c(rownames(tab)[which(tab == 0L, arr.ind = TRUE)[1L, 1L]],
+              colnames(tab)[which(tab == 0L, arr.ind = TRUE)[1L, 2L]]), collapse = ", "),
+      ") is empty."
+    )
   }
   if (any(tab < 2L)) {
-    abort_input("Every cell needs at least 2 observations (its SD must be defined); some cells have fewer.")
+    abort_input(
+      "Every cell needs at least 2 observations (its SD must be defined); some cells have fewer."
+    )
   }
   cell_mean <- tapply(y, list(a, b), mean)
   cell_sd <- tapply(y, list(a, b), stats::sd)
@@ -329,7 +336,8 @@ anova_factorial_summarise <- function(x, data, test, ss_type = NULL, ...) {
 factorial_frame <- function(x, data) {
   mf <- stats::model.frame(x, data)
   labels <- attr(stats::terms(x), "term.labels")
-  if (ncol(mf) != 3L || !setequal(labels, c(names(mf)[2:3], paste(names(mf)[2:3], collapse = ":")))) {
+  expected_labels <- c(names(mf)[2:3], paste(names(mf)[2:3], collapse = ":"))
+  if (ncol(mf) != 3L || !setequal(labels, expected_labels)) {
     abort_input("The formula must be `outcome ~ a * b`: two factors and their interaction.")
   }
   mf[[2L]] <- factor(mf[[2L]])
@@ -399,7 +407,7 @@ anova_factorial_appendix_table <- function(s) {
 # The three F tests with their df, p and the declared effect size. A main effect of an
 # unbalanced design needs the declared SS type; without it the row says so instead of
 # guessing (the interaction does not depend on it).
-anova_factorial_appendix_effects <- function(s, answers, digits) {
+anova_factorial_appx_effects <- function(s, answers, digits) {
   type <- answers$test
   balanced <- isTRUE(s$meta$balanced)
   names_ <- s$meta$factor_names

@@ -37,7 +37,8 @@
 #'
 #' @param x A fitted model, a test result, or a formula; see above.
 #' @param ... Passed on: the second `lm` fit of a mediation, `data` for a formula or a
-#'   `t.test` / `cor.test` result, `test` for a formula, and the choices of the analysis for a formula (`alternative`,
+#'   `t.test` / `cor.test` result, `test` for a formula, and the choices of the analysis for a
+#'   formula (`alternative`,
 #'   `conf_level`, `mu`, `correct`, `p0`, `ss_type`).
 #' @param threshold Smallest group or cell size whose summaries are clearly less
 #'   identifying than the raw data. Default 5. The total sample size must also be at

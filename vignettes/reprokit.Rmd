@@ -356,14 +356,17 @@ confidence interval is not checkable: a bootstrap resamples cases, and summaries
 cannot.
 
 ```{r}
-check_reported("mediation",
+check_reported(
+  "mediation",
   b = c(a = "46.16", b = "-0.03", c = "-5.34", c_prime = "-3.88"),
   se = c(a = "9.63", b = "0.01", c = "0.56", c_prime = "0.63"),
   t = c(a = "4.80", b = "-3.52", c = "-9.56", c_prime = "-6.13"),
   df = c(a = "30", b = "29", c = "30", c_prime = "29"),
   ci_lower = c(a = "26.50", b = "-0.05", c = "-6.49", c_prime = "-5.17"),
   ci_upper = c(a = "65.82", b = "-0.01", c = "-4.20", c_prime = "-2.58"),
-  n = "32", indirect = "-1.46", indirect_ci_lower = "-2.28", indirect_ci_upper = "-0.80")
+  n = "32", indirect = "-1.46",
+  indirect_ci_lower = "-2.28", indirect_ci_upper = "-0.80"
+)
 ```
 
 `quantity_names()` lists the names you can pass.

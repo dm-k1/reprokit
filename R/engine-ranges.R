@@ -1,10 +1,12 @@
 # The range engine: one handler's relations against the reported numbers.
 check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL,
-                           effect = NULL, k = NULL) {
+                          effect = NULL, k = NULL) {
   entry <- get_handler(handler)
   if ("effect" %in% entry$test_args && is.null(effect)) {
-    abort_input("A factorial ANOVA is checked one effect at a time: name it with ",
-                "`effect = \"A\"`, `\"B\"` or `\"AB\"`.")
+    abort_input(
+      "A factorial ANOVA is checked one effect at a time: name it with ",
+      "`effect = \"A\"`, `\"B\"` or `\"AB\"`."
+    )
   }
   args <- test_arguments(mu = mu, dims = dims, p0 = p0, effect = effect, k = k)
   dots <- list(...)
@@ -17,9 +19,11 @@ check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0
   }
   entry$relations <- relations_at(entry, args)
   if (length(entry$relations) == 0L) {
-    abort_input("reprokit has no relations to check ", analysis_name(entry),
-                " against reported numbers. Tests it can check: ",
-                paste(names(check_tests()), collapse = ", "), ".")
+    abort_input(
+      "reprokit has no relations to check ", analysis_name(entry),
+      " against reported numbers. Tests it can check: ",
+      paste(names(check_tests()), collapse = ", "), "."
+    )
   }
   reported <- dots
   if (length(reported) > 0L && (is.null(names(reported)) || any(!nzchar(names(reported))))) {
@@ -112,18 +116,22 @@ relations_at <- function(entry, args = list()) {
         abort_input("`balanced` must be TRUE or FALSE.")
       }
     } else if (!is.numeric(value) || length(value) < 1L || any(!is.finite(value))) {
-      abort_input("`", name, "` must be ", if (name == "mu") "one finite number" else
-             "finite numbers", ".")
+      abort_input(
+        "`", name, "` must be ", if (name == "mu") "one finite number" else
+          "finite numbers", "."
+      )
     }
     if (name == "mu" && length(value) != 1L) abort_input("`mu` must be one finite number.")
     if (!name %in% entry$test_args) {
-      abort_input("`", name, "` does not apply to ", analysis_name(entry),
-           if (length(setdiff(entry$test_args, "terms")) > 0L) {
-             paste0("; it takes ", paste0("`", setdiff(entry$test_args, "terms"), "`",
-                                          collapse = ", "))
-           } else {
-             " (it takes none)"
-           }, ".")
+      abort_input(
+        "`", name, "` does not apply to ", analysis_name(entry),
+        if (length(setdiff(entry$test_args, "terms")) > 0L) {
+          paste0("; it takes ", paste0("`", setdiff(entry$test_args, "terms"), "`",
+                                       collapse = ", "))
+        } else {
+          " (it takes none)"
+        }, "."
+      )
     }
   }
   if (is.null(entry$relations_at)) return(entry$relations)
@@ -188,8 +196,10 @@ evaluate_relations <- function(relations, intervals, variants, implied = list())
   known_variants <- unique(unlist(lapply(relations, `[[`, "variants")))
   unknown <- setdiff(variants, known_variants)
   if (length(unknown) > 0L) {
-    abort_input("Unknown variant: ", paste0("'", unknown, "'", collapse = ", "),
-         ". This test has: ", paste(known_variants, collapse = ", "), ".")
+    abort_input(
+      "Unknown variant: ", paste0("'", unknown, "'", collapse = ", "),
+      ". This test has: ", paste(known_variants, collapse = ", "), "."
+    )
   }
   rows <- list()
   # Shared by the variants of one call (never across calls): see sd_stationary().

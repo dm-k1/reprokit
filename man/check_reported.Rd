@@ -44,7 +44,8 @@ partially standardized one is not evaluable) and \code{estimator} (\code{"sem"},
 \code{"student"}, \code{"welch"} (two independent groups; the name fixes the variant),
 \code{"one_sample"}, \code{"paired"}, \code{"pearson"}, \code{"oneway"}, \code{"factorial"}, \code{"chisq"},
 \code{"gof"}, \code{"mediation"} and \code{"lm"} (a multiple regression; \code{"lm_simple"} and
-\code{"lm_moderation"} for a simple regression and a moderation analysis). It can be given by name or as the first unnamed argument. Any other
+\code{"lm_moderation"} for a simple regression and a moderation analysis). It can be given by name
+or as the first unnamed argument. Any other
 value is refused with the list of valid ones.}
 
 \item{variants}{Character vector restricting which variants to try (such as

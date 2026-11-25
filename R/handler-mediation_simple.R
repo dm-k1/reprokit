@@ -69,8 +69,10 @@ register_mediation_simple <- function() {
 relations_mediation <- function(terms = mediation_paths()) {
   unknown <- setdiff(terms, mediation_paths())
   if (length(unknown) > 0L) {
-    abort_input("Unknown mediation path ", paste0("'", unknown, "'", collapse = ", "),
-         ". The paths are a, b, c and c_prime.")
+    abort_input(
+      "Unknown mediation path ", paste0("'", unknown, "'", collapse = ", "),
+      ". The paths are a, b, c and c_prime."
+    )
   }
   # ADR 0028: the point estimate of the indirect effect is the product a*b, so a reported
   # indirect effect must lie in the interval product of the rounding intervals of a and b. It
@@ -99,8 +101,10 @@ mediation_columns <- function(x, data, mediator) {
   y_name <- deparse(x[[2L]])
   x_name <- deparse(x[[3L]])
   if (!all(c(y_name, x_name, mediator) %in% names(data))) {
-    abort_input("The formula must be `y ~ x` with plain column names, and the mediator a column ",
-         "of the data.")
+    abort_input(
+      "The formula must be `y ~ x` with plain column names, and the mediator a column ",
+      "of the data."
+    )
   }
   if (anyDuplicated(c(y_name, x_name, mediator))) {
     abort_input("X, M and Y must be three different columns.")

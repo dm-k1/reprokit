@@ -16,19 +16,28 @@
 prepare_input <- function(x, dots) {
   route <- if (inherits(x, "formula")) "formula" else if (inherits(x, "lm")) "lm" else "model"
   out <- list(x = x, dots = dots, route = route, read = list(), expected = NULL, problem = NULL)
-  if (inherits(x, "formula")) return(check_formula_input(out))
+  if (inherits(x, "formula")) {
+    return(check_formula_input(out))
+  }
   second <- unnamed_models(dots)
-  if (inherits(x, "lm") && length(second) > 0L) return(prepare_mediation(out, second))
+  if (inherits(x, "lm") && length(second) > 0L) {
+    return(prepare_mediation(out, second))
+  }
   if (inherits(x, "aovlist")) {
     return(refuse_result(out, paste0(
       "An aov with Error() strata (repeated measures or nested error terms) is not a design ",
-      "reprokit can evaluate: its F tests use several error terms.")))
+      "reprokit can evaluate: its F tests use several error terms."
+    )))
   }
   if (inherits(x, "maov")) {
     return(refuse_result(out, "A multivariate aov (several outcomes) is not evaluable."))
   }
-  if (inherits(x, "aov")) return(prepare_aov(out))
-  if (inherits(x, "htest")) return(prepare_htest(out))
+  if (inherits(x, "aov")) {
+    return(prepare_aov(out))
+  }
+  if (inherits(x, "htest")) {
+    return(prepare_htest(out))
+  }
   out
 }
 
@@ -114,14 +123,20 @@ prepare_aov <- function(out) {
     "An aov without an intercept is not evaluable."
   } else if (!is.numeric(mf[[1L]]) || is.matrix(mf[[1L]])) {
     "The aov outcome must be one numeric variable."
-  } else if (!all(vapply(preds, function(p) is.factor(p) || is.character(p) || is.logical(p),
-                         logical(1)))) {
-    paste0("An aov with a numeric covariate (an ANCOVA) is not evaluable; ",
-           "reprokit handles factors only.")
+  } else if (!all(vapply(
+    preds, function(p) is.factor(p) || is.character(p) || is.logical(p),
+    logical(1)
+  ))) {
+    paste0(
+      "An aov with a numeric covariate (an ANCOVA) is not evaluable; ",
+      "reprokit handles factors only."
+    )
   } else {
     NULL
   }
-  if (!is.null(why)) return(refuse_result(out, why))
+  if (!is.null(why)) {
+    return(refuse_result(out, why))
+  }
   labels <- attr(stats::terms(x), "term.labels")
   p <- names(preds)
   test <- if (length(p) == 1L && setequal(labels, p)) {
@@ -131,17 +146,23 @@ prepare_aov <- function(out) {
   } else if (length(p) > 2L) {
     return(refuse_result(out, paste0(
       "An aov with ", length(p), " factors is not evaluable: reprokit handles one factor, ",
-      "or two factors with their interaction.")))
+      "or two factors with their interaction."
+    )))
   } else {
     return(refuse_result(out, paste0(
       "This aov (terms ", paste(labels, collapse = ", "), ") is not one factor, or two ",
-      "factors with their interaction; reprokit does not evaluate other designs.")))
+      "factors with their interaction; reprokit does not evaluate other designs."
+    )))
   }
   if (!is.null(out$dots[["test"]]) && !identical(out$dots[["test"]], test)) {
-    abort_input("`test = \"", out$dots[["test"]], "\"` conflicts with this aov: it is a ", test,
-                " design.")
+    abort_input(
+      "`test = \"", out$dots[["test"]], "\"` conflicts with this aov: it is a ", test,
+      " design."
+    )
   }
-  rhs <- if (test == "oneway") as.name(p) else {
+  rhs <- if (test == "oneway") {
+    as.name(p)
+  } else {
     call("*", as.name(p[1L]), as.name(p[2L]))
   }
   out$x <- name_formula(as.name(names(mf)[1L]), rhs)
@@ -173,7 +194,8 @@ prepare_htest <- function(out) {
   }
   refuse_result(out, paste0(
     "The result of '", method, "' is not a test reprokit evaluates (t.test, cor.test with ",
-    "Pearson, chisq.test, aov and lm are)."))
+    "Pearson, chisq.test, aov and lm are)."
+  ))
 }
 
 prepare_chisq <- function(out, method) {
@@ -181,7 +203,8 @@ prepare_chisq <- function(out, method) {
   if (grepl("simulated", method, fixed = TRUE)) {
     return(refuse_result(out, paste0(
       "A chi-squared test with a simulated p value cannot be reproduced exactly: the p value ",
-      "depends on random draws, so summaries do not suffice.")))
+      "depends on random draws, so summaries do not suffice."
+    )))
   }
   obs <- x$observed
   if (is.null(obs) || !is.numeric(obs)) {
@@ -196,22 +219,27 @@ prepare_chisq <- function(out, method) {
     out$x <- name_formula(rhs = call("+", as.name("row"), as.name("column")))
     out <- set_test(out, "chisq")
     out <- read_choice(out, "correct", correct, "the continuity correction")
-    out <- record_read(out, test = if (all(dim(obs) == 2L)) {
-      if (yates) "Yates" else "Pearson"
-    } else "Pearson")
-    out$expected <- list(kind = "stat", values = c(chisq = unname(x$statistic),
-                                                    df = unname(x$parameter),
-                                                    p = unname(x$p.value)))
+    read_test <- if (all(dim(obs) == 2L) && yates) "Yates" else "Pearson"
+    out <- record_read(out, test = read_test)
+    out$expected <- list(kind = "stat", values = c(
+      chisq = unname(x$statistic),
+      df = unname(x$parameter),
+      p = unname(x$p.value)
+    ))
   } else {
     expected <- x$expected
     out$x <- name_formula(rhs = as.name("category"))
     out <- set_test(out, "gof")
-    out <- read_choice(out, "p0", as.numeric(expected) / sum(expected),
-                       "the H0 proportions")
+    out <- read_choice(
+      out, "p0", as.numeric(expected) / sum(expected),
+      "the H0 proportions"
+    )
     out <- record_read(out, test = "Pearson (given probabilities)")
-    out$expected <- list(kind = "stat", values = c(chisq = unname(x$statistic),
-                                                    df = unname(x$parameter),
-                                                    p = unname(x$p.value)))
+    out$expected <- list(kind = "stat", values = c(
+      chisq = unname(x$statistic),
+      df = unname(x$parameter),
+      p = unname(x$p.value)
+    ))
   }
   out
 }
@@ -222,26 +250,37 @@ htest_columns <- function(data_name, data) {
   data_name <- paste(data_name, collapse = " ")
   in_data <- function(v) length(v) > 0L && all(nzchar(v)) && all(v %in% names(data))
   by <- strsplit(data_name, " by ", fixed = TRUE)[[1L]]
-  if (length(by) == 2L && in_data(by)) return(list(kind = "by", cols = by))
+  if (length(by) == 2L && in_data(by)) {
+    return(list(kind = "by", cols = by))
+  }
   pair <- regmatches(data_name, regexec("^Pair\\((.+), (.+)\\)$", data_name))[[1L]]
-  if (length(pair) == 3L && in_data(pair[2:3])) return(list(kind = "and", cols = pair[2:3]))
+  if (length(pair) == 3L && in_data(pair[2:3])) {
+    return(list(kind = "and", cols = pair[2:3]))
+  }
   and <- strsplit(data_name, " and ", fixed = TRUE)[[1L]]
-  if (length(and) == 2L && in_data(and)) return(list(kind = "and", cols = and))
-  if (in_data(data_name)) return(list(kind = "one", cols = data_name))
+  if (length(and) == 2L && in_data(and)) {
+    return(list(kind = "and", cols = and))
+  }
+  if (in_data(data_name)) {
+    return(list(kind = "one", cols = data_name))
+  }
   NULL
 }
 
 unmappable <- function(out, fn, hint) {
   refuse_result(out, paste0(
     "The data.name of the ", fn, " result ('", paste(out$x$data.name, collapse = " "),
-    "') cannot be mapped to columns of `data`, so reprokit cannot rebuild the test. ", hint))
+    "') cannot be mapped to columns of `data`, so reprokit cannot rebuild the test. ", hint
+  ))
 }
 
 result_data <- function(out, fn) {
   data <- out$dots[["data"]]
   if (!is.data.frame(data)) {
-    abort_input("A ", fn, " result does not contain the data. Pass the data frame it was ",
-                "computed from as `data = `.")
+    abort_input(
+      "A ", fn, " result does not contain the data. Pass the data frame it was ",
+      "computed from as `data = `."
+    )
   }
   data
 }
@@ -249,8 +288,12 @@ result_data <- function(out, fn) {
 read_alternative_and_level <- function(out, x, level = TRUE) {
   out <- read_choice(out, "alternative", x$alternative, "the alternative")
   conf <- attr(x$conf.int, "conf.level")
-  if (level) out <- read_choice(out, "conf_level", if (is.null(conf)) 0.95 else conf,
-                                "the confidence level")
+  if (level) {
+    out <- read_choice(
+      out, "conf_level", if (is.null(conf)) 0.95 else conf,
+      "the confidence level"
+    )
+  }
   out
 }
 
@@ -258,32 +301,45 @@ prepare_t <- function(out, method) {
   x <- out$x
   data <- result_data(out, "t.test")
   cols <- htest_columns(x$data.name, data)
-  formula_hint <- paste0('Use the formula route instead, e.g. sufficient_stats(y ~ group, ',
-                         'data = d, test = "welch").')
+  formula_hint <- paste0(
+    "Use the formula route instead, e.g. sufficient_stats(y ~ group, ",
+    "data = d, test = \"welch\")."
+  )
   mu <- unname(x$null.value)
   if (grepl("^Paired", method)) {
-    if (is.null(cols) || cols$kind != "and") return(unmappable(out, "t.test", paste0(
-      "Use the formula route instead: sufficient_stats(Pair(first, second) ~ 1, data = d, ",
-      'test = "paired").')))
-    out$x <- name_formula(rhs = 1, lhs = call("Pair", as.name(cols$cols[1L]),
-                                              as.name(cols$cols[2L])))
+    if (is.null(cols) || cols$kind != "and") {
+      return(unmappable(out, "t.test", paste0(
+        "Use the formula route instead: sufficient_stats(Pair(first, second) ~ 1, data = d, ",
+        'test = "paired").'
+      )))
+    }
+    out$x <- name_formula(rhs = 1, lhs = call(
+      "Pair", as.name(cols$cols[1L]),
+      as.name(cols$cols[2L])
+    ))
     out <- set_test(out, "paired")
     out <- read_choice(out, "mu", mu, "the test value mu")
     variant <- "paired"
   } else if (grepl("^One Sample", method)) {
-    if (is.null(cols) || cols$kind != "one") return(unmappable(out, "t.test", paste0(
-      "Use the formula route instead: sufficient_stats(y ~ 1, data = d, ",
-      'test = "one_sample").')))
+    if (is.null(cols) || cols$kind != "one") {
+      return(unmappable(out, "t.test", paste0(
+        "Use the formula route instead: sufficient_stats(y ~ 1, data = d, ",
+        'test = "one_sample").'
+      )))
+    }
     out$x <- name_formula(rhs = 1, lhs = as.name(cols$cols))
     out <- set_test(out, "one_sample")
     out <- read_choice(out, "mu", mu, "the test value mu")
     variant <- "one-sample"
   } else {
-    if (is.null(cols) || cols$kind != "by") return(unmappable(out, "t.test", formula_hint))
+    if (is.null(cols) || cols$kind != "by") {
+      return(unmappable(out, "t.test", formula_hint))
+    }
     if (!isTRUE(all.equal(mu, 0))) {
       return(refuse_result(out, paste0(
         "A two-sample t.test with a null value of ", mu, " (mu) is not evaluable: reprokit ",
-        "tests a difference of 0.")))
+        "tests a difference of 0."
+      )))
     }
     out$x <- name_formula(as.name(cols$cols[1L]), as.name(cols$cols[2L]))
     welch <- grepl("^Welch", method)
@@ -292,9 +348,11 @@ prepare_t <- function(out, method) {
   }
   out <- read_alternative_and_level(out, x)
   out <- record_read(out, test = variant)
-  out$expected <- list(kind = "stat", values = c(t = unname(x$statistic),
-                                                  df = unname(x$parameter),
-                                                  p = unname(x$p.value)))
+  out$expected <- list(kind = "stat", values = c(
+    t = unname(x$statistic),
+    df = unname(x$parameter),
+    p = unname(x$p.value)
+  ))
   out
 }
 
@@ -303,21 +361,25 @@ prepare_cor <- function(out, method) {
   if (!grepl("Pearson", method, fixed = TRUE)) {
     return(refuse_result(out, paste0(
       "The ", sub("'s.*$", "", method), " correlation is a rank test and not evaluable: ",
-      "the correlation of ranks needs the raw data, not summaries.")))
+      "the correlation of ranks needs the raw data, not summaries."
+    )))
   }
   data <- result_data(out, "cor.test")
   cols <- htest_columns(x$data.name, data)
   if (is.null(cols) || cols$kind != "and") {
     return(unmappable(out, "cor.test", paste0(
-      'Use the formula route instead: sufficient_stats(~ x + y, data = d, test = "pearson").')))
+      'Use the formula route instead: sufficient_stats(~ x + y, data = d, test = "pearson").'
+    )))
   }
   out$x <- name_formula(rhs = call("+", as.name(cols$cols[1L]), as.name(cols$cols[2L])))
   out <- set_test(out, "pearson")
   out <- read_alternative_and_level(out, x)
   out <- record_read(out, test = "Pearson")
-  out$expected <- list(kind = "stat", values = c(t = unname(x$statistic),
-                                                  df = unname(x$parameter),
-                                                  p = unname(x$p.value)))
+  out$expected <- list(kind = "stat", values = c(
+    t = unname(x$statistic),
+    df = unname(x$parameter),
+    p = unname(x$p.value)
+  ))
   out
 }
 
@@ -326,19 +388,26 @@ prepare_cor <- function(out, method) {
 # NULL when the summaries reproduce the result's own numbers, otherwise the reason.
 match_problem <- function(handler, summary, prep) {
   expected <- prep$expected
-  if (is.null(expected) || is.null(handler$reproduce)) return(NULL)
+  if (is.null(expected) || is.null(handler$reproduce)) {
+    return(NULL)
+  }
   s <- list(stats = summary$stats, meta = utils::modifyList(default_meta(), summary$meta))
-  if (expected$kind == "aov") return(match_aov(handler, s, expected$table, prep$route))
+  if (expected$kind == "aov") {
+    return(match_aov(handler, s, expected$table, prep$route))
+  }
   got <- handler$reproduce(s)
   differences <- scaled_differences(expected$values, got[names(expected$values)])
-  if (all(differences < match_tolerance)) return(NULL)
+  if (all(differences < match_tolerance)) {
+    return(NULL)
+  }
   worst <- names(differences)[which.max(differences)]
   paste0(
     "The ", attr(prep$read, "fn"), " result does not follow from this data: ", worst, " is ",
     format(expected$values[[worst]], digits = 10), " in the result but ",
     format(got[[worst]], digits = 10), " from the data. Check that `data` is the data frame ",
     "the result was computed from, with the same rows (no subset, same missing-value ",
-    "handling), or use the formula route.")
+    "handling), or use the formula route."
+  )
 }
 
 # ADR 0005's tolerance: scaled difference |a - b| / max(1, |a|) below 1e-8.
@@ -378,22 +447,29 @@ match_aov <- function(handler, s, table, route) {
     effects <- c("A", "B", "AB")
     expected <- c(
       unlist(lapply(seq_along(effects), function(i) {
-        stats::setNames(c(f_of[i], df_of[i], p_of[i]),
-                        paste0(c("f", "df1", "p"), "_", effects[i]))
+        stats::setNames(
+          c(f_of[i], df_of[i], p_of[i]),
+          paste0(c("f", "df1", "p"), "_", effects[i])
+        )
       })),
-      df2 = df_of[length(df_of)])
+      df2 = df_of[length(df_of)]
+    )
   } else {
     expected <- c(f = f_of[1L], df1 = df_of[1L], df2 = df_of[2L], p = p_of[1L])
     names(expected) <- c("f", "df1", "df2", "p")
   }
   got <- reproduced[names(expected)]
   if (anyNA(got)) {
-    return("The aov table could not be compared with the stored summaries, so reprokit does not evaluate this fit.")
+    return(paste0("The aov table could not be compared with the stored summaries, ",
+                  "so reprokit does not evaluate this fit."))
   }
   differences <- scaled_differences(expected, got)
-  if (all(differences < match_tolerance)) return(NULL)
+  if (all(differences < match_tolerance)) {
+    return(NULL)
+  }
   paste0("The aov table does not follow from its model frame (", names(differences)[
-    which.max(differences)], " differs); reprokit does not evaluate this fit.")
+    which.max(differences)
+  ], " differs); reprokit does not evaluate this fit.")
 }
 
 # Two models: mediation (ADR 0028) -----------------------------------------------------
@@ -404,8 +480,10 @@ match_aov <- function(handler, s, table, route) {
 prepare_mediation <- function(out, second) {
   fits <- c(list(out$x), second)
   if (length(fits) != 2L) {
-    abort_input("A simple mediation is two models, M ~ X and Y ~ X + M; got ",
-                length(fits), ".")
+    abort_input(
+      "A simple mediation is two models, M ~ X and Y ~ X + M; got ",
+      length(fits), "."
+    )
   }
   out$route <- "lm"
   nm <- names(out$dots)
@@ -415,7 +493,9 @@ prepare_mediation <- function(out, second) {
     if (!identical(class(f), "lm")) {
       return(not_simple("both must be plain lm fits."))
     }
-    if (!is.null(f$weights)) return(not_simple("weights are not evaluable."))
+    if (!is.null(f$weights)) {
+      return(not_simple("weights are not evaluable."))
+    }
     if (attr(stats::terms(f), "intercept") != 1L) {
       return(not_simple("a model without an intercept is not evaluable."))
     }
@@ -423,8 +503,9 @@ prepare_mediation <- function(out, second) {
       return(not_simple("the outcome of each model must be one numeric variable."))
     }
   }
-  info <- lapply(fits, function(f) list(response = names(f$model)[1L],
-                                         predictors = names(f$model)[-1L]))
+  info <- lapply(fits, function(f) {
+    list(response = names(f$model)[1L], predictors = names(f$model)[-1L])
+  })
   fits_roles <- function(med, out_) {
     length(info[[med]]$predictors) == 1L &&
       setequal(info[[out_]]$predictors, c(info[[med]]$predictors, info[[med]]$response)) &&
@@ -434,14 +515,18 @@ prepare_mediation <- function(out, second) {
   if (is.null(roles)) {
     related <- function(med, out_) info[[med]]$response %in% info[[out_]]$predictors
     if (related(1L, 2L) || related(2L, 1L)) {
-      return(not_simple(paste0("covariates, extra mediators or other terms are outside the ",
-                               "simple mediation (M ~ X and Y ~ X + M), so it is not evaluable.")))
+      return(not_simple(paste0(
+        "covariates, extra mediators or other terms are outside the ",
+        "simple mediation (M ~ X and Y ~ X + M), so it is not evaluable."
+      )))
     }
     abort_input(
       "These two models fit neither role: the mediator model M ~ X and the outcome model ",
       "Y ~ X + M, where M is the response of the first. Got ",
-      paste(vapply(fits, function(f) paste(deparse(stats::formula(f)), collapse = ""),
-                   character(1)), collapse = " and "), "."
+      paste(vapply(
+        fits, function(f) paste(deparse(stats::formula(f)), collapse = ""),
+        character(1)
+      ), collapse = " and "), "."
     )
   }
   med <- fits[[roles[1L]]]
@@ -456,10 +541,13 @@ prepare_mediation <- function(out, second) {
   if (!same) {
     abort_impossible(
       "share a mediation from these two models",
-      paste0("they were not fitted to the same cases: the two fits need the same n, identical ",
-             "values of X (", xn, ") and the mediator (", mn, ") in the outcome model equal to ",
-             "the mediator model's response. Fit both on the same rows."),
-      alternatives = character())
+      paste0(
+        "they were not fitted to the same cases: the two fits need the same n, identical ",
+        "values of X (", xn, ") and the mediator (", mn, ") in the outcome model equal to ",
+        "the mediator model's response. Fit both on the same rows."
+      ),
+      alternatives = character()
+    )
   }
   if (anyDuplicated(c(xn, mn, yn))) {
     return(not_simple("X, M and Y must be three different variables."))
