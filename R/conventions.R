@@ -8,7 +8,7 @@
 #' validates against, so the list cannot drift from the package.
 #'
 #' `default` is `TRUE` for the code reprokit uses when the argument is left out.
-#' The sums of squares type has one on the share side: type III (ADR 0025), shown
+#' The sums of squares type has one on the share side: type III, because a fitted `aov` does not record it, shown
 #' in the appendix as reprokit's default, not the author's answer. Checking a paper
 #' never assumes a type. An effect-size convention with several codes has no
 #' default: leaving it out means "not declared". A handler with a single code (V,
@@ -27,9 +27,8 @@
 conventions <- function(handler = NULL) {
   if (!is.null(handler) &&
         !(is.character(handler) && length(handler) == 1L && handler %in% handlers())) {
-    abort_impossible(
-      "list conventions for an unknown handler",
-      paste0("`handler` must be one of: ", paste0("\"", handlers(), "\"", collapse = ", "), ".")
+    abort_input(
+      "`handler` must be one of: ", paste0("\"", handlers(), "\"", collapse = ", "), "."
     )
   }
   rows <- lapply(if (is.null(handler)) handlers() else handler, function(name) {

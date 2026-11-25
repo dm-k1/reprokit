@@ -7,12 +7,12 @@
 2. Add `R/handler-<name>.R` that calls `register_handler()` from `.onLoad()`.
 3. A `summaries_suffice` handler must supply `summarise`, `reproduce`, `reported` and an `example`
    model; the round-trip test in `test-infra-registry.R` then covers it automatically.
-4. Add refusal tests for what the handler cannot do (`class = "reprokit_impossible"`).
+4. Add refusal tests for what the handler cannot do (`class = "reprokit_impossible"`; a wrong call is `reprokit_error_input`).
 5. Document the evidence in `vignettes/validation.Rmd`.
 
 ## Rules
 
-- **No new Imports.** The app runs in the browser via webR (ADR 0002). Heavy
+- **No new Imports.** The app runs in the browser via webR, which keeps the dependencies small. Heavy
   packages go in Suggests and are used with `requireNamespace()`.
 - **Never round stored statistics.** Rounding is a display concern.
 - **The verdict path never errors.** `sufficient_stats()` returns a verdict for an unsupported

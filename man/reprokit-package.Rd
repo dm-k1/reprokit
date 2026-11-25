@@ -18,9 +18,12 @@ Two directions use the same statistics.
 \itemize{
 \item \code{\link[=sufficient_stats]{sufficient_stats()}} says whether summary statistics suffice and what to publish, and
 stores them. It never errors on the verdict, and its print narrates the verdict,
-what to publish and what readers lose. It takes a fitted model or result, or a formula.
-\item \code{\link[=appendix]{appendix()}} writes the appendix for the paper. It requires a reason for not sharing
-and a non-empty list of what readers lose.
+what to publish and what readers lose. It takes a fitted model or result, a formula,
+or, for a mediation, two \code{lm} fits.
+\item \code{\link[=appendix]{appendix()}} writes the appendix for the paper from the same input. reprokit states
+what readers lose, from the test; you do not fill that in. A \code{sharing_reason}, in
+your own words, is optional: without one \code{appendix()} gives a warning and the
+appendix says that no reason was stated.
 }
 
 \strong{Check} (you are reading a paper):
@@ -32,8 +35,9 @@ allowing for rounding, for the \code{test} you name.
 An inconsistency means the numbers cannot all be correct as reported. It does
 not say which number is wrong or why.
 
-Which tests are covered, and what each needs, is in \code{\link[=coverage_table]{coverage_table()}}. See
-also \code{\link[=handlers]{handlers()}}, \code{\link[=quantity_names]{quantity_names()}} and \code{\link[=verdicts]{verdicts()}}.
+Reference: \code{\link[=coverage_table]{coverage_table()}} lists which tests are covered and what each needs, and
+\code{\link[=conventions]{conventions()}} the effect-size conventions and sums-of-squares types you can declare.
+See also \code{\link[=handlers]{handlers()}}, \code{\link[=quantity_names]{quantity_names()}} and \code{\link[=verdicts]{verdicts()}}.
 }
 \section{Vignettes}{
 

@@ -43,10 +43,11 @@ First release (lifecycle: experimental). Not on CRAN; names and output may chang
   - `mediation_simple` lists the bootstrap CI of the indirect effect as lost, and
     gives the missing correlations of X, M and Y their own reason (the paths b and c'
     depend on how X and M overlap).
-* Disclosure check per handler (ADR 0023). The default threshold is 5 and applies to
+* Disclosure check per test. The default threshold is 5 and applies to
   groups, cells, counts and factor levels; the general minimum n stays 2 x threshold.
   - `chisq_independence` flags a cell and `chisq_gof` a category with
-    0 < count < threshold. A count of 0 is not flagged (ADR 0023 point 3, still open).
+    0 < count < threshold. A count of 0 is not flagged: a zero can reveal an attribute of a whole group,
+    but flagging it would also flag every sparse table.
   - `lm_multiple`, `lm_moderation` and the general `lm` flag every factor level with
     fewer than `threshold` rows in the fit, counted unweighted (rows with weight 0 are
     not in the fit). The check of 0/1 columns and their pairwise tables stays.
@@ -83,7 +84,7 @@ First release (lifecycle: experimental). Not on CRAN; names and output may chang
   used for one-df effects and balanced main effects; other effects are checked for
   coherence only.
 * One-way ANOVA: a negative omega squared (F < 1) reported in the `eta2` slot is
-  accepted; the `eta2` domain is [-1, 1], as for the factorial handler (ADR 0022).
+  accepted; the `eta2` domain is [-1, 1], as for the factorial ANOVA.
 * Regression (`"lm"`, `"lm_simple"`, `"lm_moderation"`): t = b / SE, p from t and the
   residual df, the CI at 90, 95 or 99 per cent, F from R squared with df1 and df2, p
   from F, and the n implied by df2 = n - k - 1. Per-term numbers are vectors named by
@@ -119,7 +120,7 @@ First release (lifecycle: experimental). Not on CRAN; names and output may chang
   sums-of-squares types (`choices$ss_type`) each handler accepts, with the default and
   the appendix label. It reads the registry that `appendix()` validates against.
 * `appendix()` uses type III when a factorial ANOVA's SS type is not declared and says
-  so: "type III (reprokit default, not stated by the author)" (ADR 0025). Checking a
+  so: "type III (reprokit default, not stated by the author)", because a fitted `aov` does not record it. Checking a
   paper still tries III, II and I. An undeclared effect-size convention of a one-way
   ANOVA is shown as not declared.
 
