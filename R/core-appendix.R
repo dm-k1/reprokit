@@ -22,7 +22,17 @@
 #' It ends with the reason for not sharing the raw data, what readers lose, and
 #' the disclosure check.
 #'
-#' @param s A `reprokit_sufficient_stats` object from [sufficient_stats()].
+#' @param x A fitted model or test result (what [sufficient_stats()] accepts: `lm`, `aov`,
+#'   `chisq.test`, `t.test` / `cor.test` with `data`; two `lm` fits for a mediation, the
+#'   second one in `...`), a formula with `data` and `test`, or an object made by
+#'   [sufficient_stats()].
+#' @param ... Passed to [sufficient_stats()] when `x` is not already its object (`data`,
+#'   `test`, the second model of a mediation, the choices of a formula analysis).
+#' @param sharing_reason Optional: why the raw data are not shared, in the author's
+#'   words. reprokit does not suggest reasons. A missing or blank one gives a warning and
+#'   the appendix line "not stated by the author". What
+#'   readers lose is not an argument: reprokit states it, from the test (see
+#'   `sufficient_stats(...)$lost`).
 #' @param choices Named list of answers the object cannot know. `convention`:
 #'   the effect-size convention, as a variant code (e.g. `"d_z"`, `"d_av"`).
 #'   Declaring it is a reprokit rule, not an APA requirement. `ss_type`: for a
@@ -32,24 +42,42 @@
 #'   never assumes a type. `level`: for a regression or mediation, the
 #'   confidence level of the paper's intervals (`"0.95"`, `"0.90"` or `"0.99"`);
 #'   for a regression, `convention` is `"r2"` or `"adj_r2"` (the R-squared the paper
-#'   reports).
+#'   reports). Choices recorded in a fitted result (tails, level, test variant, test value,
+#'   continuity correction, H0 proportions) are read from it and marked "read from the
+#'   result"; an explicit choice that conflicts with one is refused.
 #' @param digits Decimals for the APA numbers in block A (p always gets 3).
 #' @param digits_added Decimals for the added numbers in block B. They feed
 #'   back into the result, so they get more decimals than APA's two; the object
 #'   itself keeps full precision.
-#' @return A character vector of markdown lines, class `reprokit_appendix`.
+#' @param threshold Passed to [sufficient_stats()] when it is called here.
+#' @return A character vector of markdown lines, class `reprokit_appendix`. Refuses with an
+#'   error of class `reprokit_impossible` when summaries do not suffice.
 #' @export
 #' @examples
+#' appendix(chisq.test(table(mtcars$cyl, mtcars$am)),
+#'          sharing_reason = "Consent did not cover public sharing.")
+#'
 #' sleep_wide <- data.frame(drug1 = sleep$extra[sleep$group == 1],
 #'                          drug2 = sleep$extra[sleep$group == 2])
-#' s <- sufficient_stats(Pair(drug1, drug2) ~ 1, data = sleep_wide, test = "paired",
-#'                       sharing_reason = "Consent did not cover public sharing.")
-#' appendix(s, choices = list(convention = "d_z"))
-appendix <- function(s, choices = list(), digits = 2L, digits_added = 4L) {
-  if (!inherits(s, "reprokit_sufficient_stats")) {
-    stop("`s` must be a reprokit_sufficient_stats object from sufficient_stats().",
-         call. = FALSE)
+#' appendix(Pair(drug1, drug2) ~ 1, data = sleep_wide, test = "paired",
+#'          sharing_reason = "Consent did not cover public sharing.",
+#'          choices = list(convention = "d_z"))
+appendix <- function(x, ..., sharing_reason, choices = list(), digits = 2L,
+                     digits_added = 4L, threshold = 5) {
+  reason <- if (!missing(sharing_reason) && is.character(sharing_reason) &&
+                length(sharing_reason) == 1L && !is.na(sharing_reason) &&
+                nzchar(trimws(sharing_reason))) trimws(sharing_reason) else NA_character_
+  if (is.na(reason)) {
+    warning("No `sharing_reason` was given. The appendix says the author did not state one; ",
+            "reprokit never writes a reason for you.", call. = FALSE)
   }
+  if ("lost" %in% names(list(...))) {
+    stop("`lost` is not an argument of appendix(): reprokit states what readers lose, ",
+         "from the test.", call. = FALSE)
+  }
+  s <- if (is_sufficient_stats(x)) x else sufficient_stats(x, ..., threshold = threshold)
+  require_summaries(s, "write an appendix")
+  choices <- appendix_choices(s, choices)
   h <- get_handler(s$handler)
   if (is.null(h$design)) {
     stop("No appendix for `", s$handler, "` yet: its APA set is not declared.", call. = FALSE)
@@ -70,7 +98,7 @@ appendix <- function(s, choices = list(), digits = 2L, digits_added = 4L) {
     appendix_block_b(h, vals, labels, digits_added),
     appendix_block_c(h, s, answers, labels),
     appendix_block_d(h),
-    appendix_sharing(s)
+    appendix_sharing(s, reason)
   )
   structure(lines, class = "reprokit_appendix")
 }
@@ -135,7 +163,8 @@ appendix_answers <- function(h, s, choices) {
   } else {
     sprintf("%.2f", s$meta$conf_level)
   }
-  if (is.null(h$design$terms) && !is.null(choices$level)) {
+  if (is.null(h$design$terms) && !is.null(choices$level) &&
+      is.null(attr(s$choices_read, "fn"))) {
     stop("`", h$name, "` takes its confidence level from the analysis; drop `choices$level`.",
          call. = FALSE)
   }
@@ -313,6 +342,7 @@ appendix_block_c <- function(h, s, answers, labels) {
   kind_labels <- c(tail = "Tails", level = "Confidence level", test = "Test",
                    convention = "Effect-size convention")
   if (has_ss_types(h)) kind_labels[["test"]] <- "SS type"
+  fn <- attr(s$choices_read, "fn")
   rows <- vapply(names(answers), function(kind) {
     answer <- answers[[kind]]
     text <- if (is.na(answer)) "not declared" else variant_label(answer)
@@ -325,6 +355,10 @@ appendix_block_c <- function(h, s, answers, labels) {
     }
     if (kind == "convention") {
       text <- paste0(text, " (declaring it is a reprokit rule; APA does not require it)")
+    }
+    if (!is.null(fn) && kind %in% c("tail", "level") ||
+        !is.null(fn) && kind == "test" && !has_ss_types(h)) {
+      text <- paste0(text, " (read from the ", fn, " result)")
     }
     appendix_row(c(kind_labels[[kind]], text))
   }, character(1), USE.NAMES = FALSE)
@@ -348,7 +382,9 @@ appendix_choice_row <- function(choice, s, labels) {
     answer <- paste(labels[1L], "minus", labels[2L])
   }
   if (is.na(answer) && grepl("test value", name, fixed = TRUE) && !is.null(s$meta$mu)) {
-    return(appendix_row(c("Test value mu", s$meta$mu)))
+    fn <- attr(s$choices_read, "fn")
+    return(appendix_row(c("Test value mu", paste0(
+      s$meta$mu, if (!is.null(fn)) paste0(" (read from the ", fn, " result)")))))
   }
   if (is.na(answer) && grepl("coding", name, fixed = TRUE)) {
     # The contrasts the fit used, as stored; none when there is no factor predictor.
@@ -372,11 +408,31 @@ appendix_block_d <- function(h) {
   c("### D. APA numbers a reader cannot check from these statistics", "", text, "")
 }
 
-appendix_sharing <- function(s) {
+# Explicit choices against the ones the result records: a conflict is refused.
+appendix_choices <- function(s, choices) {
+  if (!is.list(choices)) stop("`choices` must be a named list.", call. = FALSE)
+  fn <- attr(s$choices_read, "fn")
+  level <- choices[["level"]]
+  if (!is.null(level) && !is.null(s$meta$conf_level)) {
+    given <- if (is.numeric(level)) level else suppressWarnings(as.numeric(level))
+    if (is.na(given) || abs(given - s$meta$conf_level) > 1e-8) {
+      abort_impossible(
+        paste0("use `choices$level = ", format(level), "`"),
+        paste0("the analysis was run with confidence level ", s$meta$conf_level,
+               if (!is.null(fn)) paste0(" (read from the ", fn, " result)"), "."),
+        alternatives = character())
+    }
+  }
+  choices
+}
+
+appendix_sharing <- function(s, reason) {
   threshold <- s$disclosure$threshold
   checked <- s$disclosure$checked
   c("### Raw data", "",
-    paste0("**Why the raw data are not shared.** ", s$sharing_reason), "",
+    if (is.na(reason)) "Reason for not sharing the raw data: not stated by the author." else
+      paste0("Reason for not sharing the raw data: ", reason),
+    "",
     "**What readers lose compared with the raw data:**", "",
     paste0("- ", s$lost), "",
     paste0("**Disclosure check.** No summary rests on fewer than ", threshold,

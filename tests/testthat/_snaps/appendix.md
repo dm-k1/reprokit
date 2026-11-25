@@ -1,7 +1,8 @@
 # the paired appendix matches t.test()
 
     Code
-      print(appendix(paired_stats(), choices = list(convention = "d_z")))
+      print(appendix(paired_stats(), sharing_reason = sharing, choices = list(
+        convention = "d_z")))
     Output
       ## Appendix: sufficient statistics for the paired-samples t-test
       
@@ -44,7 +45,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -56,7 +57,7 @@
 # the one-sample appendix is stable
 
     Code
-      print(appendix(s, choices = list(convention = "cohen")))
+      print(appendix(s, sharing_reason = sharing, choices = list(convention = "cohen")))
     Output
       ## Appendix: sufficient statistics for the one-sample t-test
       
@@ -94,7 +95,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -106,7 +107,7 @@
 # the independent-samples appendix is stable
 
     Code
-      print(appendix(s, choices = list(convention = "pooled")))
+      print(appendix(s, sharing_reason = sharing, choices = list(convention = "pooled")))
     Output
       ## Appendix: sufficient statistics for the independent-samples t-test
       
@@ -146,7 +147,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -158,7 +159,7 @@
 # the Pearson appendix is stable
 
     Code
-      print(appendix(s))
+      print(appendix(s, sharing_reason = sharing))
     Output
       ## Appendix: sufficient statistics for the Pearson correlation test
       
@@ -196,7 +197,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -208,7 +209,7 @@
 # the one-way appendix is stable
 
     Code
-      print(appendix(s, choices = list(convention = "eta2")))
+      print(appendix(s, sharing_reason = sharing, choices = list(convention = "eta2")))
     Output
       ## Appendix: sufficient statistics for the one-way ANOVA
       
@@ -245,7 +246,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -258,7 +259,7 @@
 # the chi-squared independence appendix is stable
 
     Code
-      print(appendix(s))
+      print(appendix(s, sharing_reason = sharing))
     Output
       ## Appendix: sufficient statistics for the chi-squared test of independence
       
@@ -295,7 +296,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -308,7 +309,7 @@
 # the chi-squared goodness-of-fit appendix is stable
 
     Code
-      print(appendix(s))
+      print(appendix(s, sharing_reason = sharing))
     Output
       ## Appendix: sufficient statistics for the chi-squared goodness of fit
       
@@ -344,7 +345,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -357,7 +358,7 @@
 # the factorial appendix is stable: balanced, then unbalanced with and without the SS type
 
     Code
-      print(appendix(s, choices = list(convention = "partial_eta2")))
+      print(appendix(s, sharing_reason = sharing, choices = list(convention = "partial_eta2")))
     Output
       ## Appendix: sufficient statistics for the factorial ANOVA, two factors
       
@@ -397,7 +398,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -411,7 +412,7 @@
 ---
 
     Code
-      print(appendix(su))
+      print(appendix(su, sharing_reason = sharing))
     Output
       ## Appendix: sufficient statistics for the factorial ANOVA, two factors
       
@@ -451,7 +452,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -465,7 +466,8 @@
 ---
 
     Code
-      print(appendix(su, choices = list(ss_type = "II", convention = "partial_omega2")))
+      print(appendix(su, sharing_reason = sharing, choices = list(ss_type = "II",
+        convention = "partial_omega2")))
     Output
       ## Appendix: sufficient statistics for the factorial ANOVA, two factors
       
@@ -505,7 +507,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -519,7 +521,7 @@
 # the regression-family appendices are stable
 
     Code
-      print(appendix(sufficient_stats(lm(mpg ~ wt, mt), sharing_reason = sr)))
+      print(appendix(sufficient_stats(lm(mpg ~ wt, mt)), sharing_reason = sharing))
     Output
       ## Appendix: sufficient statistics for the simple regression
       
@@ -572,7 +574,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -585,7 +587,7 @@
 ---
 
     Code
-      print(appendix(sufficient_stats(lm(mpg ~ wt, mt), sharing_reason = sr),
+      print(appendix(sufficient_stats(lm(mpg ~ wt, mt)), sharing_reason = sharing,
       choices = list(level = "0.95", convention = "r2")))
     Output
       ## Appendix: sufficient statistics for the simple regression
@@ -639,7 +641,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -652,7 +654,7 @@
 ---
 
     Code
-      print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt), sharing_reason = sr),
+      print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt)), sharing_reason = sharing,
       choices = list(level = "0.99", convention = "adj_r2", coding = "treatment")))
     Output
       ## Appendix: sufficient statistics for the multiple regression
@@ -715,7 +717,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -728,7 +730,7 @@
 ---
 
     Code
-      print(appendix(sufficient_stats(lm(mpg ~ wt * hp, mt), sharing_reason = sr),
+      print(appendix(sufficient_stats(lm(mpg ~ wt * hp, mt)), sharing_reason = sharing,
       choices = list(level = 0.9, convention = "r2", centering = "none", coding = "none")))
     Output
       ## Appendix: sufficient statistics for the moderation
@@ -793,7 +795,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -807,7 +809,7 @@
 
     Code
       print(appendix(sufficient_stats(mpg ~ wt, data = mt, test = "mediation",
-      mediator = "hp", sharing_reason = sr), choices = list(level = "0.95")))
+      mediator = "hp"), sharing_reason = sharing, choices = list(level = "0.95")))
     Output
       ## Appendix: sufficient statistics for the simple mediation
       
@@ -831,6 +833,8 @@
       | hp | .66 | 1.00 | -.78 |
       | mpg | -.87 | -.78 | 1.00 |
       
+      Indirect effect a·b (computed from the stored summaries): -1.4666. Its confidence interval is not reproducible from summaries (block D).
+      
       | Path | b | SE | t | df | p |
       | --- | --- | --- | --- | --- | --- |
       | a (X to M) | 46.16 | 9.63 | 4.80 | 30 | < .001 |
@@ -853,11 +857,11 @@
       
       ### D. APA numbers a reader cannot check from these statistics
       
-      a·b and its CI (inferred by bootstrap, which resamples cases; summaries cannot)
+      the CI of a·b (inferred by bootstrap, which resamples cases; summaries cannot)
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
@@ -870,7 +874,7 @@
 # an undeclared effect-size convention is shown as not declared (one-way ANOVA)
 
     Code
-      print(appendix(s))
+      print(appendix(s, sharing_reason = sharing))
     Output
       ## Appendix: sufficient statistics for the one-way ANOVA
       
@@ -907,7 +911,7 @@
       
       ### Raw data
       
-      **Why the raw data are not shared.** Consent did not cover public sharing.
+      Reason for not sharing the raw data: Consent did not cover public sharing.
       
       **What readers lose compared with the raw data:**
       
