@@ -1,0 +1,257 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Edit README.Rmd, then run devtools::build_readme(). -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+# reprokit
+
+<!-- badges: start -->
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![R-CMD-check](https://github.com/dm-k1/reprokit/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/dm-k1/reprokit/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
+
+> Sharing raw data remains the standard. When sharing is genuinely impossible,
+> reprokit says what the minimum is that authors owe their readers, and what
+> those readers lose.
+
+reprokit works in two directions, using the same statistics.
+
+* **Share.** If you cannot share your raw data, reprokit tells you whether
+  summary statistics are enough for readers to reproduce your result exactly,
+  stores those statistics, and writes an appendix that lists them.
+* **Check.** If you are reading a paper that reports its statistics, reprokit
+  tests whether the reported numbers are consistent with each other, taking
+  rounding into account.
+
+Raw data stays the standard. `sufficient_stats()` and `appendix()` require you
+to state why the data are not shared, and they list what readers lose by getting
+summaries instead. reprokit does not make withholding data easier to justify; it
+makes the minimum you owe your readers explicit.
+
+reprokit needs R >= 4.1 and depends only on base R (`stats`, `utils`).
+
+## Installation
+
+reprokit is not on CRAN. Install the development version from GitHub:
+
+```{r, eval = FALSE}
+# install.packages("pak")
+pak::pak("dm-k1/reprokit")
+
+# or
+# install.packages("remotes")
+remotes::install_github("dm-k1/reprokit")
+```
+
+The vignettes are not built by default. To get them, install with:
+
+```{r, eval = FALSE}
+pak::pak("dm-k1/reprokit", dependencies = TRUE, build_vignettes = TRUE)
+# or
+remotes::install_github("dm-k1/reprokit", build_vignettes = TRUE)
+```
+
+Then open them with `vignette("reprokit")`. Without installing, you can read
+the sources on GitHub:
+[reprokit.Rmd](https://github.com/dm-k1/reprokit/blob/main/vignettes/reprokit.Rmd),
+[concepts.Rmd](https://github.com/dm-k1/reprokit/blob/main/vignettes/concepts.Rmd),
+[validation.Rmd](https://github.com/dm-k1/reprokit/blob/main/vignettes/validation.Rmd).
+
+## Share: you cannot share the raw data
+
+`triage()` says whether summaries suffice. It never errors; it always returns a
+verdict, one of:
+
+* `summaries_suffice`: summary statistics determine the reported results exactly.
+* `synthetic_possible`: summaries do not suffice, but synthetic data could.
+* `needs_raw_data`: neither works, or the groups are so small that summaries are
+  almost the data.
+
+`sufficient_stats()` then stores the statistics. It requires a reason for not
+sharing:
+
+```{r}
+library(reprokit)
+
+s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
+                      sharing_reason = "Consent did not cover public sharing.")
+s
+```
+
+`reproduce(s)` recomputes the test from the stored statistics alone, and
+`appendix(s)` writes the appendix for your paper (Markdown, ready to paste):
+
+```{r}
+reproduce(s)
+
+appendix(s, choices = list(convention = "pooled"))
+```
+
+The appendix lists the numbers APA style asks for, any further numbers a reader
+needs, the analysis choices you made (tails, confidence level, which test,
+which effect-size convention), the numbers a reader cannot check from these
+statistics, why the raw data are not shared, what readers lose, and a
+disclosure check on small groups.
+
+## Check: you are reading a paper
+
+Pass the reported numbers as **strings**, so the decimals count: `"2.85"`
+means anything from 2.845 to 2.855.
+
+```{r}
+check_t(handler = "t_independent",
+        n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
+        t = "-1.86", df = "17.8", p = ".079")
+```
+
+Reading the check output:
+
+| Part | Meaning |
+| --- | --- |
+| First line | The numbers are consistent or inconsistent with each other. |
+| Level 0 to 3 | How much could be checked: 0 nothing; 1 statistic, df and p against each other; 2 the statistic recomputed from the descriptives; 3 the whole sufficient set is reported. |
+| `verified` | An output (t, df) was recomputed from more basic numbers and matches. |
+| `coherent` | The number fits the others, but only as an input to a check, or through numbers derived from other numbers. |
+| `inconsistent` | The number is in a relation that fails under every variant, or in relations no single analysis choice satisfies together. |
+| `not checkable` | No relation of this test reaches the number. |
+| `unconfirmed` | The number's relation could not be evaluated because another input is missing. |
+| Missing numbers | If a number was not reported but the others constrain it, its implied range is shown. |
+
+A set of numbers that cannot all be right is reported as inconsistent:
+
+```{r}
+check_t(n = "20", t = "2.85", df = "19", p = ".050")
+```
+
+"Inconsistent" means the numbers cannot all be correct as reported. It does not
+say which number is wrong, or why: a typo, a different test, a different
+rounding or a real mistake all look the same. `check_r()` does the same for a
+Pearson correlation, and `check_reported()` is the general function behind both.
+
+## What it covers
+
+Version 0.1.0 covers, for share, check and appendix alike:
+
+* chi-squared tests of independence and goodness of fit;
+* one-sample, independent-samples (Student and Welch) and paired-samples t;
+* Pearson correlation;
+* one-way and factorial (two-factor) between-subjects ANOVA;
+* simple, multiple and moderation regression, and simple mediation.
+
+Everything else gets triage only: a verdict and advice, but no stored statistics
+and no check (repeated-measures ANOVA, logistic and Poisson regression, SEM, rank
+tests and Spearman, standalone effect sizes, multilevel and mixed models, GEE).
+
+`coverage_table()` lists, for each test, the numbers APA style reports, the
+sufficient set, what is missing from the APA set, what can be checked and what
+cannot (with the reason), and the choices you have to declare. The table below is
+generated from the handler registry when this README is built, so it is the
+reference, not a copy:
+
+```{r coverage, echo = FALSE}
+knitr::kable(coverage_table())
+```
+
+A one-way ANOVA is checked with `check_F()` (note the lowercase `f` for the
+statistic): per-group n, mean and SD, plus F, both df, eta squared and p.
+
+```{r}
+check_F(n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
+        sd = c("0.58", "0.79", "0.44"),
+        f = "4.85", df1 = "2", df2 = "27", eta2 = "0.26", p = ".016")
+```
+
+A two-factor between-subjects ANOVA is checked with `check_F()` too, one effect
+at a time: pass the cell n, M and SD as a x b matrices (rows are the levels of A,
+columns the levels of B) and name the `effect` (`"A"`, `"B"` or `"AB"`). In an
+unbalanced design the sums of squares type (III, II or I) is a choice the report
+must settle; the output lists the types that fit. Partial eta squared and partial
+omega squared are conventions.
+
+```{r}
+cells <- matrix(rep("10", 4), 2)
+check_F(n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
+        sd = matrix(rep("1.50", 4), 2), effect = "A",
+        f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
+```
+
+A chi-squared test is checked with `check_chisq()`: pass the table as a matrix
+(a vector for goodness of fit) and the reported numbers. Yates' correction is a
+variant, Cramer's V a convention.
+
+```{r}
+check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
+            p = ".0001", v = ".41")
+```
+
+A regression is checked with `check_lm()`, with one named value per term; pass
+`handler = "lm_simple"` or `"lm_moderation"` for those rows. Simple mediation is
+checked with `check_mediation()`, which checks the paths a, b, c and c' and says
+nothing about the indirect effect.
+
+```{r}
+check_lm(b = c(wt = "-3.19", hp = "-0.04"), se = c(wt = "0.64", hp = "0.01"),
+         t = c(wt = "-5.00", hp = "-3.67"), df2 = "29", k = 2)
+```
+
+## Documentation
+
+* `vignette("reprokit")`: getting started, one worked example for authors and
+  one for readers.
+* `vignette("concepts")`: what the terms mean (sufficient set, APA set,
+  coverage level, verdicts, rounding intervals, and so on).
+* `vignette("validation")`: the evidence behind the claims, and the scripts that
+  produce it.
+
+## Status and limits
+
+reprokit is version 0.1.0, the first release, with lifecycle "experimental":
+function names and output may still change. In this version:
+
+* It checks whether reported numbers agree with each other. It does not check
+  whether the analysis was appropriate, whether the data are plausible, or
+  which number is wrong.
+* It cannot replace the raw data. For analyses where summaries do not suffice,
+  or that are outside the list above, `triage()` says so (`synthetic_possible`
+  or `needs_raw_data`) and `sufficient_stats()` refuses with the alternatives.
+* The disclosure check flags groups, cells, categories and factor levels with
+  fewer than 5 cases (the default `threshold`). It lowers the risk of
+  identifying a participant; it never removes it, and passing it is not a
+  guarantee of anonymity.
+* The evidence for the claims is in `inst/validation/`; each script writes its
+  result to `inst/validation/results/`, and `vignette("validation")` shows them.
+
+## Reporting bugs
+
+Please open an issue at <https://github.com/dm-k1/reprokit/issues>. A minimal
+example with the reported numbers as strings helps most.
+
+## Citation
+
+Run `citation("reprokit")` for the citation.
+
+## Licence
+
+MIT, see the file `LICENSE`.
+
+## Prior art
+
+reprokit builds on these rather than replacing them:
+
+* [statcheck](https://github.com/MicheleNuijten/statcheck) (Nuijten and Epskamp):
+  recomputes p values from reported test statistics.
+* JATSdecoder `get.stats()` (Böschen): extracts statistical results from articles.
+* scrutiny (Jung): error detection for reported summary statistics, including GRIM.
+* rsprite2 (Wallrich): SPRITE, reconstructing possible samples from a mean and SD.
+* unsum and CLOSURE (Jung): the same reconstruction, by exhaustive search.
+* Nick Brown's `f_range()`: the range of F values consistent with rounded means and SDs.
+* RIVETS (Brown and Heathers): a checklist for detecting problems in a study report.
+* [synthpop](https://www.synthpop.org.uk/) (Nowok, Raab and Dibben): synthetic data.
+* faux (DeBruine): simulating data from a specified structure.
+* DataSHIELD: analysis without moving the data.
+* metacheck (DeBruine, Lakens and others): automated checks of reported results.
