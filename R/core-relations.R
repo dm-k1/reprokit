@@ -355,3 +355,10 @@ relation_p_from_statistic <- function(statistic = c("t", "F", "chisq")) {
            fn = function(vals, variant) t_p(vals$t, vals$df, variant),
            variants = c("two.sided", "less", "greater"), stationary = at_zero)
 }
+
+# The codes of one kind of variant that a handler's registered relations vary over, in
+# registration order. The one place the accepted codes live: appendix() validates against
+# it and conventions() lists it.
+variant_codes <- function(h, kind) {
+  unique(unlist(lapply(h$relations, function(rel) rel$variants[[kind]])))
+}

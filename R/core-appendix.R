@@ -92,7 +92,7 @@ appendix_analysis_name <- function(h) {
 # convention only the author knows.
 appendix_answers <- function(h, s, choices) {
   kinds <- unique(unlist(lapply(h$relations, function(rel) names(rel$variants))))
-  convention_codes <- unique(unlist(lapply(h$relations, function(rel) rel$variants$convention)))
+  convention_codes <- variant_codes(h, "convention")
   if (!is.null(choices$convention) && length(convention_codes) == 0L) {
     stop("`", h$name, "` has no effect-size convention to declare; drop `choices$convention`.",
          call. = FALSE)
@@ -110,7 +110,7 @@ appendix_answers <- function(h, s, choices) {
          paste0("\"", convention_codes, "\"", collapse = ", "), ".", call. = FALSE)
   }
   test <- if (is.null(s$meta$test_variant)) s$meta$test else s$meta$test_variant
-  ss_codes <- unique(unlist(lapply(h$relations, function(rel) rel$variants$test)))
+  ss_codes <- variant_codes(h, "test")
   if (has_ss_types(h)) {
     # The SS type is the author's to declare (never inferred); a stored one counts.
     test <- if (!is.null(choices$ss_type)) choices$ss_type else
@@ -158,7 +158,7 @@ appendix_level <- function(level) {
 
 # Whether the handler's `test` variants are SS types (a factorial ANOVA).
 has_ss_types <- function(h) {
-  codes <- unique(unlist(lapply(h$relations, function(rel) rel$variants$test)))
+  codes <- variant_codes(h, "test")
   length(codes) > 0L && all(codes %in% ss_type_codes())
 }
 

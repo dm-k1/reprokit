@@ -118,6 +118,9 @@ First release (lifecycle: experimental). Not on CRAN; names and output may chang
 * `coverage_table()` lists, per test, what APA style asks to report, what the
   result needs, what is missing and why, what can be checked, and which choices
   must be declared. It is generated from the registry.
+* `conventions()` lists the effect-size conventions (`choices$convention`) and sums-of-squares
+  types (`choices$ss_type`) each handler accepts, with the default and the appendix label. It
+  reads the registry that `appendix()` validates against.
 
 ## Documentation
 
