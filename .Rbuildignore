@@ -12,3 +12,5 @@
 ^pkgdown$
 ^\.git$
 ^codemeta\.json$
+^CODE_OF_CONDUCT\.md$
+^SECURITY\.md$
