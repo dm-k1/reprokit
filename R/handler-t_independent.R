@@ -32,6 +32,7 @@ register_t_independent <- function() {
     },
     formula_tests = c("student", "welch"),
     design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
+    fractional = list(df = "welch"),
     sufficient = c("n", "m", "sd"),
     per_cell = c("n", "m", "sd"),
     relations = t_independent_relations(),

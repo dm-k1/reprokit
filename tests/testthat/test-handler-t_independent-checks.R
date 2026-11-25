@@ -136,3 +136,52 @@ test_that("a variant that cannot be evaluated makes the relation not evaluable, 
   expect_true(res$consistent)
   expect_false(any(res$numbers$status == "inconsistent"))
 })
+
+welch_paper <- list(n = c("30", "10"), m = c("0.50", "-0.72"), sd = c("3.50", "3.29"),
+                    t = "1.01", p = "0.329")
+
+test_that("a Welch df printed without decimals is a rounded number, not an exact count", {
+  # The true Welch df is 16.349: a paper printing "16" is honest.
+  for (df in c("16", "16.3", "16.35")) {
+    checked <- do.call(check_reported, c(list("welch"), welch_paper, list(df = df)))
+    expect_true(checked$consistent, info = df)
+    expect_false(any(checked$numbers$status == "inconsistent"), info = df)
+  }
+  without_df <- do.call(check_reported, c(list("welch"), welch_paper))
+  expect_true(without_df$consistent)
+  # Without a declared test, the Welch reading keeps an honest Welch paper consistent.
+  open <- do.call(check_handler, c(list("t_independent"), welch_paper, list(df = "16")))
+  expect_true(open$consistent)
+  expect_true(fits(open, "welch"))
+  expect_false(fits(open, "student"))
+  # A df that rounds to a different whole number is still caught.
+  wrong <- do.call(check_reported, c(list("welch"), welch_paper, list(df = "18")))
+  expect_false(wrong$consistent)
+})
+
+test_that("Student df stays an exact count", {
+  paper <- paper_independent(TRUE)
+  expect_true(run_check("student", paper)$consistent)
+  off_by_one <- modifyList(paper, list(df = "19"))
+  expect_false(run_check("student", off_by_one)$consistent)
+})
+
+test_that("the printed summary agrees with the rows", {
+  said <- function(checked) paste(utils::capture.output(print(checked)), collapse = "\n")
+  honest <- do.call(check_reported, c(list("welch"), welch_paper, list(df = "16")))
+  expect_false(any(honest$numbers$status == "inconsistent"))
+  expect_match(said(honest), "The analysis is consistent with the reported statistics.",
+               fixed = TRUE)
+  planted <- modifyList(welch_paper, list(t = "2.50"))
+  for (test in c("welch", "student")) {
+    checked <- do.call(check_reported, c(list(test), planted, list(df = "16")))
+    expect_true(any(checked$numbers$status == "inconsistent"))
+    expect_false(checked$consistent)
+    expect_match(said(checked), "The analysis is inconsistent with the reported statistics.",
+                 fixed = TRUE)
+    expect_no_match(said(checked), "is consistent with the reported", fixed = TRUE)
+  }
+  # No test declared: inconsistent under every variant.
+  open <- do.call(check_handler, c(list("t_independent"), planted, list(df = "16")))
+  expect_match(said(open), "inconsistent with the reported statistics", fixed = TRUE)
+})

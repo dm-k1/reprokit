@@ -1,4 +1,18 @@
 # The range engine: one handler's relations against the reported numbers.
+
+# Can a count-like quantity be non-integer here (Welch's df)? Only under the variants the
+# handler lists for it, and not when `variants` fixes the choice to others (Student).
+is_fractional <- function(entry, quantity, variants) {
+  fractional_under <- entry$fractional[[quantity_base(quantity)]]
+  if (is.null(fractional_under)) return(FALSE)
+  # The other variants of the same kind (Student, next to Welch) keep the count exact:
+  # fixing one of those, and none of the fractional ones, makes the count exact.
+  kinds <- unlist(lapply(entry$relations, function(rel) rel$variants), recursive = FALSE)
+  same_kind <- Find(function(kind) any(fractional_under %in% kind), kinds)
+  exact_under <- setdiff(same_kind, fractional_under)
+  !(any(exact_under %in% variants) && !any(fractional_under %in% variants))
+}
+
 check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL,
                           effect = NULL, k = NULL) {
   entry <- get_handler(handler)
@@ -32,7 +46,8 @@ check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0
   check_quantity_names(names(reported), "reported quantity", terms = has_terms)
   check_arity(reported, entry$cells, entry$per_cell)
   intervals <- Map(function(x, quantity) {
-    as_count <- quantity_base(quantity) %in% c("n", "df", "df1", "df2", "n_total")
+    as_count <- quantity_base(quantity) %in% c("n", "df", "df1", "df2", "n_total") &&
+      !is_fractional(entry, quantity, variants)
     restrict_to_domain(interval_bounds(reported_value(x, as_count = as_count)), quantity, x,
                        entry$domains)
   }, reported, names(reported))

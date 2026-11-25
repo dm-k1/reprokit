@@ -67,6 +67,10 @@
 #' @param domains Named list of quantity domains that replace the default
 #'   `quantity_domain()` for this handler (`n = c(0, Inf)` for counts that may
 #'   be 0), or `NULL`.
+#' @param fractional Named list: a count-like quantity (`df`) to the variants of this
+#'   handler under which it can be non-integer (`list(df = "welch")`). Under those variants,
+#'   or when no variant is fixed, a reported value of it without decimals is a number
+#'   rounded to a whole unit, not an exact count. `NULL` when every count is exact.
 #' @param labels Named character vector, quantity name to the words the coverage
 #'   table and the appendix use for it (`n = "the contingency table"`), or `NULL`.
 #' @param appendix_table `function(s)` returning the markdown lines of the
@@ -99,7 +103,8 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                              sufficient = NULL, relations = NULL, per_cell = NULL,
                              not_checkable = NULL, test_args = NULL, domains = NULL,
                              labels = NULL, appendix_table = NULL, appendix_effects = NULL,
-                             fallback = FALSE, coverage = NULL, missing_why = NULL) {
+                             fallback = FALSE, coverage = NULL, missing_why = NULL,
+                             fractional = NULL) {
   check_verdict(verdict)
   relations_at <- NULL
   if (is.function(relations)) {
@@ -129,6 +134,8 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(domains) || (is.list(domains) && !is.null(names(domains)) &&
                            all(vapply(domains, function(d) is.numeric(d) && length(d) == 2L,
                                       logical(1)))),
+    is.null(fractional) || (is.list(fractional) && !is.null(names(fractional)) &&
+                              all(vapply(fractional, is.character, logical(1)))),
     is.null(labels) || (is.character(labels) && !is.null(names(labels))),
     is.null(appendix_table) || is.function(appendix_table),
     is.null(appendix_effects) || is.function(appendix_effects),
@@ -151,6 +158,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
   }
   if (!is.null(per_cell)) check_quantity_names(per_cell, "quantity name in `per_cell`")
   if (!is.null(domains)) check_quantity_names(names(domains), "quantity name in `domains`")
+  if (!is.null(fractional)) check_quantity_names(names(fractional), "quantity name in `fractional`")
   exact_parts <- list(summarise = summarise, reproduce = reproduce, reported = reported,
                       example = example)
   missing_parts <- names(exact_parts)[vapply(exact_parts, is.null, logical(1))]
@@ -168,7 +176,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     cells = design$cells, sufficient = sufficient, relations = relations,
     relations_at = relations_at, test_args = test_args, domains = domains,
     labels = labels, appendix_table = appendix_table, appendix_effects = appendix_effects,
-    coverage = coverage, missing_why = missing_why,
+    coverage = coverage, missing_why = missing_why, fractional = fractional,
     per_cell = if (is.null(per_cell)) per_cell_quantities() else per_cell
   ), envir = .registry)
   invisible(name)
