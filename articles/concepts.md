@@ -1,0 +1,168 @@
+# Concepts and terms
+
+This is a short glossary of the words reprokit uses in its output. For
+worked examples see
+[`vignette("reprokit")`](https://dm-k1.github.io/reprokit/articles/reprokit.md).
+
+## Why raw data stay the standard
+
+Raw data let a reader do anything the author could do: check
+distributions and outliers, try another analysis, combine studies.
+Summary statistics allow only some of that. reprokit is for the cases
+where sharing raw data is genuinely not possible (for example because of
+consent or privacy rules). In those cases it states what readers lose,
+and the appendix records the reason you give (or says that none was
+stated), so that withholding data is never silent. reprokit never
+suggests a reason.
+
+## The verbs, in order
+
+1.  **Coverage table.**
+    [`coverage_table()`](https://dm-k1.github.io/reprokit/reference/coverage_table.md)
+    lists which tests are covered, what each needs and what each leaves
+    uncheckable.
+2.  **[`sufficient_stats()`](https://dm-k1.github.io/reprokit/reference/sufficient_stats.md).**
+    Given a fitted result (or a formula with `data` and `test`), it
+    gives the verdict, what to publish, what readers lose and the
+    disclosure check, and stores the summaries at full precision. It
+    accepts an `lm`, `aov` or
+    [`chisq.test()`](https://rdrr.io/r/stats/chisq.test.html) result, a
+    [`t.test()`](https://rdrr.io/r/stats/t.test.html) or
+    [`cor.test()`](https://rdrr.io/r/stats/cor.test.html) result with
+    `data`, and for a mediation the two regressions.
+3.  **[`appendix()`](https://dm-k1.github.io/reprokit/reference/appendix.md).**
+    Writes the appendix from those summaries. Underneath, it reproduces
+    the result from the stored statistics alone and refuses if that does
+    not match the original analysis (scaled difference below 1e-8). That
+    round trip is why the statistics are called sufficient.
+
+Readers use
+[`check_reported()`](https://dm-k1.github.io/reprokit/reference/check_reported.md)
+with the test named first, for example `check_reported("welch", ...)`.
+
+## Terms for authors
+
+**Sufficient set.** The smallest set of numbers from which the whole
+result of a test can be recomputed exactly. For an independent-samples
+t-test: n, mean and SD of each group. For a Pearson correlation: n and
+r.
+
+**APA set.** The numbers APA style conventionally asks authors to report
+for a test (for the independent t-test: n, M and SD per condition, t,
+df, p, d and a confidence interval).
+
+**Missing.** The numbers in the sufficient set that the APA set does not
+contain. If a test has any, a paper that follows APA style does not give
+readers enough to reproduce the result. For the paired t-test the
+missing number is the correlation between the two conditions.
+[`appendix()`](https://dm-k1.github.io/reprokit/reference/appendix.md)
+prints these in block B.
+
+**Verdict.** The outcome of
+[`sufficient_stats()`](https://dm-k1.github.io/reprokit/reference/sufficient_stats.md):
+`summaries_suffice`, `synthetic_possible` or `needs_raw_data` (see
+[`verdicts()`](https://dm-k1.github.io/reprokit/reference/verdicts.md)).
+A verdict is advice about what is enough; it is not a judgement on the
+author.
+
+**Verdict only.** Version 0.1.0 stores statistics and checks reported
+numbers for the tests in
+[`coverage_table()`](https://dm-k1.github.io/reprokit/reference/coverage_table.md).
+For other analyses (repeated-measures ANOVA, logistic and Poisson
+regression, SEM, rank tests, mixed models, GEE)
+[`sufficient_stats()`](https://dm-k1.github.io/reprokit/reference/sufficient_stats.md)
+gives a verdict and advice and nothing more.
+
+**Losses and reason.** reprokit states what readers lose compared with
+the raw data, from the test (`sufficient_stats(...)$lost`, also
+printed). The reason for not sharing is the author’s own words,
+optional, and belongs to
+[`appendix()`](https://dm-k1.github.io/reprokit/reference/appendix.md)
+(`sharing_reason`). Without it the appendix says “not stated by the
+author”.
+
+**Choices.** Decisions that the numbers do not reveal but the result
+depends on: one- or two-sided, confidence level, Student or Welch, and
+the effect-size convention (for example Cohen’s d with a pooled SD or
+Hedges’ g). The appendix asks you to declare them (block C);
+[`coverage_table()`](https://dm-k1.github.io/reprokit/reference/coverage_table.md)
+lists them per test.
+
+**Disclosure check.** A check that the summaries do not single out a
+small group of people. With the default `threshold` of 5 it flags:
+
+- a group with fewer than 5 cases (t tests, one-way and factorial
+  ANOVA);
+- a chi-squared cell (independence) or category (goodness of fit) with a
+  count above 0 and below 5; empty cells are not flagged, because a zero
+  count says that nobody is there;
+- a factor level with fewer than 5 rows in the fit (multiple and
+  moderation regression, and any regression with a factor predictor),
+  counted unweighted;
+- a total below twice the threshold (10), for every test.
+
+For tests with no groups (one-sample and paired t, Pearson, simple
+mediation) the check is the total only, and the appendix says so. A flag
+makes
+[`sufficient_stats()`](https://dm-k1.github.io/reprokit/reference/sufficient_stats.md)
+return `needs_raw_data`.
+
+The check is risk reduction, never a guarantee. Counts above the
+threshold can still identify someone (a rare combination known to a
+reader, or a summary that is close to one person’s data), and the check
+cannot know what a reader already knows. Passing it is not permission to
+share; a flag is a reason to share the raw data under controlled access
+or not at all.
+
+## Terms for readers
+
+**Rounding interval.** A reported number stands for the range of values
+that round to it: “2.85” means 2.845 to 2.855. reprokit takes reported
+numbers as strings and checks against the whole interval. A reported “\<
+.001” is the range 0 to .001. An interval is cut to the values the
+quantity can take (r lies between -1 and 1, p between 0 and 1).
+
+**Relation.** A formula that links reported numbers, such as p from t
+and df. The check evaluates each relation whose inputs are reported and
+asks whether the reported output falls in the range the inputs allow.
+
+**Consistent / inconsistent.** The numbers can, or cannot, all be
+correct as reported, after allowing for rounding and for the analysis
+choices. Inconsistent does not say which number is wrong, nor why. It
+does not say that the authors made a mistake.
+
+**Checkable / not checkable.** A number is checkable if some relation
+connects it to other numbers.
+[`coverage_table()`](https://dm-k1.github.io/reprokit/reference/coverage_table.md)
+lists, per test, what is checkable and what is not, with the reason.
+
+**Coverage level.** How much of the sufficient set the reported numbers
+cover, 0 to 3. Level 0: nothing could be checked. Level 1: internal
+coherence only (test statistic, df, p and CI against each other). Level
+2: the test statistic was recomputed from the descriptives. Level 3: the
+whole sufficient set is reported. Level 3 is not itself a check; the
+checks are the comparisons in the table.
+
+**Status of a number.** `verified`, `coherent`, `inconsistent`,
+`unconfirmed`, `not reproducible` or `not checkable`. See
+[`vignette("reprokit")`](https://dm-k1.github.io/reprokit/articles/reprokit.md)
+for what each means.
+
+**Implied range.** If a number needed by a relation is not reported, but
+the others constrain it, the range it must have been in. It is a derived
+value, not a claim that it was the true value.
+
+**Variant.** One way of making the analysis choices (for instance
+Welch’s t, two-sided, 95%). The check tries all variants and keeps those
+that fit, with one shared choice per result. The values you pass to
+`variants=` are codes (such as `"welch"`, `"two.sided"`, `"0.99"`); the
+output prints readable labels for them (see
+[`?check_reported`](https://dm-k1.github.io/reprokit/reference/check_reported.md)).
+
+## What a check can and cannot tell you
+
+A check can show that a set of reported numbers cannot all be right. It
+cannot show that they are right, that the analysis was appropriate, or
+which number is at fault. Where the answer is ambiguous, reprokit stays
+silent rather than flagging, because failing to check a correct paper is
+a limitation while flagging one is a false accusation.

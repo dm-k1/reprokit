@@ -1,0 +1,11 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  concepts: concepts.html
+  reprokit: reprokit.html
+  validation: validation.html
+last_built: 2026-11-25T16:56Z
+urls:
+  reference: https://dm-k1.github.io/reprokit/reference
+  article: https://dm-k1.github.io/reprokit/articles
