@@ -18,30 +18,35 @@ paired_stats <- function() {
 }
 
 test_that("the paired appendix matches t.test()", {
-  expect_snapshot(print(appendix(paired_stats(), sharing_reason = sharing, choices = list(convention = "d_z"))),
+  expect_snapshot(print(appendix(paired_stats(), sharing_reason = sharing,
+                                 choices = list(convention = "d_z"))),
                   transform = ascii_safe)
 })
 
 test_that("the one-sample appendix is stable", {
   s <- sufficient_stats(extra ~ 1, data = sleep, test = "one_sample", mu = 0.5)
-  expect_snapshot(print(appendix(s, sharing_reason = sharing, choices = list(convention = "cohen"))),
+  expect_snapshot(print(appendix(s, sharing_reason = sharing,
+                                 choices = list(convention = "cohen"))),
                   transform = ascii_safe)
 })
 
 test_that("the independent-samples appendix is stable", {
   s <- sufficient_stats(extra ~ group, data = sleep, test = "welch")
-  expect_snapshot(print(appendix(s, sharing_reason = sharing, choices = list(convention = "pooled"))),
+  expect_snapshot(print(appendix(s, sharing_reason = sharing,
+                                 choices = list(convention = "pooled"))),
                   transform = ascii_safe)
 })
 
 test_that("numeric group levels print as 'group 1' and 'group 2'", {
   s <- sufficient_stats(extra ~ group, data = sleep, test = "welch")
-  text <- paste(appendix(s, sharing_reason = sharing, choices = list(convention = "pooled")), collapse = "\n")
+  text <- paste(appendix(s, sharing_reason = sharing, choices = list(convention = "pooled")),
+                collapse = "\n")
   expect_match(text, paste0("group 1 ", intToUtf8(0x2212), " group 2"), fixed = TRUE)
 })
 
 test_that("non-numeric condition labels are left unchanged", {
-  text <- paste(appendix(paired_stats(), sharing_reason = sharing, choices = list(convention = "d_z")), collapse = "\n")
+  text <- paste(appendix(paired_stats(), sharing_reason = sharing,
+                         choices = list(convention = "d_z")), collapse = "\n")
   expect_match(text, "drug1", fixed = TRUE)
   expect_false(grepl("group drug", text, fixed = TRUE))
 })
@@ -55,7 +60,8 @@ test_that("paired numbers equal t.test(paired = TRUE), rounded as printed", {
   w <- sleep_wide()
   r <- stats::t.test(w$drug1, w$drug2, paired = TRUE)
   fmt <- function(x, d = 2L) formatC(x, format = "f", digits = d)
-  text <- paste(appendix(paired_stats(), sharing_reason = sharing, choices = list(convention = "d_z")), collapse = "\n")
+  text <- paste(appendix(paired_stats(), sharing_reason = sharing,
+                         choices = list(convention = "d_z")), collapse = "\n")
   text <- gsub(intToUtf8(0x2212), "-", text, fixed = TRUE)
   expect_match(text, paste0("t(", r$parameter, ") | ", fmt(r$statistic)), fixed = TRUE)
   expect_match(text, paste0("| p | ", sub("^0", "", formatC(r$p.value, format = "f", digits = 3L))),
@@ -71,7 +77,8 @@ test_that("a paired appendix without a convention says it is not computed", {
 })
 
 test_that("an unknown convention errors and lists the valid codes", {
-  expect_error(appendix(paired_stats(), sharing_reason = sharing, choices = list(convention = "nope")),
+  expect_error(appendix(paired_stats(), sharing_reason = sharing,
+                        choices = list(convention = "nope")),
                "d_z.*d_rm.*d_av.*g_av")
 })
 
@@ -127,7 +134,8 @@ test_that("Student numbers equal t.test(var.equal = TRUE), with whole df", {
 test_that("one-sample numbers equal t.test(x, mu = 0.5)", {
   r <- stats::t.test(sleep$extra, mu = 0.5)
   s <- sufficient_stats(extra ~ 1, data = sleep, test = "one_sample", mu = 0.5)
-  expect_t_printed(printed(appendix(s, sharing_reason = sharing, choices = list(convention = "cohen"))), r)
+  expect_t_printed(printed(appendix(s, sharing_reason = sharing,
+                                    choices = list(convention = "cohen"))), r)
 })
 
 test_that("Pearson numbers equal cor.test(mpg, wt)", {
@@ -160,29 +168,35 @@ test_that("the chi-squared goodness-of-fit appendix is stable", {
   expect_snapshot(print(appendix(s, sharing_reason = sharing)), transform = ascii_safe)
 })
 
-test_that("the factorial appendix is stable: balanced, then unbalanced with and without the SS type", {
-  tg <- datasets::ToothGrowth
-  tg$dose <- factor(tg$dose)
-  s <- sufficient_stats(len ~ supp * dose, data = tg, test = "factorial")
-  expect_snapshot(print(appendix(s, sharing_reason = sharing, choices = list(convention = "partial_eta2"))),
-                  transform = ascii_safe)
-  u <- factorial_unbalanced()
-  su <- sufficient_stats(y ~ a * b, data = u, test = "factorial")
-  expect_snapshot(print(appendix(su, sharing_reason = sharing)), transform = ascii_safe)
-  expect_snapshot(print(appendix(su, sharing_reason = sharing, choices = list(ss_type = "II", convention = "partial_omega2"))),
-                  transform = ascii_safe)
-})
+test_that(
+  "the factorial appendix is stable: balanced, then unbalanced with and without the SS type",
+  {
+    tg <- datasets::ToothGrowth
+    tg$dose <- factor(tg$dose)
+    s <- sufficient_stats(len ~ supp * dose, data = tg, test = "factorial")
+    expect_snapshot(print(appendix(s, sharing_reason = sharing,
+                                   choices = list(convention = "partial_eta2"))),
+                    transform = ascii_safe)
+    u <- factorial_unbalanced()
+    su <- sufficient_stats(y ~ a * b, data = u, test = "factorial")
+    expect_snapshot(print(appendix(su, sharing_reason = sharing)), transform = ascii_safe)
+    expect_snapshot(print(appendix(su, sharing_reason = sharing,
+                                   choices = list(ss_type = "II", convention = "partial_omega2"))),
+                    transform = ascii_safe)
+  }
+)
 
 test_that("the factorial appendix numbers equal the handler's at the declared SS type", {
   u <- factorial_unbalanced()
   su <- sufficient_stats(y ~ a * b, data = u, test = "factorial")
-  out <- paste(capture.output(print(appendix(su, sharing_reason = sharing, choices = list(ss_type = "I",
-                                                               convention = "partial_eta2")))),
+  ch <- list(ss_type = "I", convention = "partial_eta2")
+  out <- paste(capture.output(print(appendix(su, sharing_reason = sharing, choices = ch))),
                collapse = "\n")
   r <- anova_factorial_reported(y ~ a * b, u, "factorial", ss_type = "I")
   expect_match(out, sprintf("F(1, %d) = %.2f", r[["df2"]], r[["f_A"]]), fixed = TRUE)
   expect_error(appendix(su, sharing_reason = sharing, choices = list(ss_type = "IV")), "ss_type")
-  expect_error(appendix(sufficient_stats(weight ~ group, data = PlantGrowth, test = "oneway"), sharing_reason = sharing,
+  expect_error(appendix(sufficient_stats(weight ~ group, data = PlantGrowth, test = "oneway"),
+                        sharing_reason = sharing,
                         choices = list(ss_type = "III")), "SS type")
 })
 
@@ -194,7 +208,8 @@ test_that("the regression-family appendices are stable", {
   expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt, mt)), sharing_reason = sharing,
                                  choices = list(level = "0.95", convention = "r2"))),
                   transform = ascii_safe)
-  expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt)), sharing_reason = sharing,
+  expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt)),
+                                 sharing_reason = sharing,
                                  choices = list(level = "0.99", convention = "adj_r2"))),
                   transform = ascii_safe)
   expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt * hp, mt)), sharing_reason = sharing,
@@ -210,15 +225,18 @@ test_that("the regression appendices validate level and convention", {
   mt <- datasets::mtcars
   s <- sufficient_stats(lm(mpg ~ wt, mt))
   expect_error(appendix(s, sharing_reason = sharing, choices = list(level = "0.80")), "level")
-  expect_error(appendix(s, sharing_reason = sharing, choices = list(convention = "nope")), "convention")
+  expect_error(appendix(s, sharing_reason = sharing, choices = list(convention = "nope")),
+               "convention")
   m <- sufficient_stats(mpg ~ wt, data = mt, test = "mediation", mediator = "hp")
-  expect_error(appendix(m, sharing_reason = sharing, choices = list(convention = "r2")), "convention")
+  expect_error(appendix(m, sharing_reason = sharing, choices = list(convention = "r2")),
+               "convention")
   text <- paste(appendix(m, sharing_reason = sharing), collapse = "\n")
   expect_match(text, "Confidence level | not declared", fixed = TRUE)
-  t <- sufficient_stats(Pair(drug1, drug2) ~ 1, data = data.frame(
-    drug1 = sleep$extra[sleep$group == 1], drug2 = sleep$extra[sleep$group == 2]),
-    test = "paired")
-  expect_error(appendix(t, sharing_reason = sharing, choices = list(level = "0.95", convention = "d_z")), "level")
+  pairs <- data.frame(drug1 = sleep$extra[sleep$group == 1],
+                      drug2 = sleep$extra[sleep$group == 2])
+  t <- sufficient_stats(Pair(drug1, drug2) ~ 1, data = pairs, test = "paired")
+  expect_error(appendix(t, sharing_reason = sharing,
+                        choices = list(level = "0.95", convention = "d_z")), "level")
 })
 
 test_that("an undeclared effect-size convention is shown as not declared (one-way ANOVA)", {

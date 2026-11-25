@@ -237,21 +237,21 @@ test_that("a Student-only t with a Welch-only CI is inconsistent", {
 test_that("a user value restricts only its own kind", {
   paper <- welch_paper(0.90)
   both <- do.call(check_independent, c(paper,
-                                    list(variants = c("welch", "0.90"))))
+                                       list(variants = c("welch", "0.90"))))
   expect_true(both$consistent)
   ci <- both$relations[grepl("^ci_", both$relations$relation), ]
   expect_setequal(ci$test, "welch")
   expect_setequal(ci$level, "0.90")
   only_level <- do.call(check_independent, c(paper,
-                                          list(variants = "0.90")))
+                                             list(variants = "0.90")))
   ci <- only_level$relations[grepl("^ci_", only_level$relations$relation), ]
   expect_setequal(ci$test, c("student", "welch"))
   expect_setequal(ci$level, "0.90")
   wrong <- do.call(check_independent, c(paper,
-                                     list(variants = "0.99")))
+                                        list(variants = "0.99")))
   expect_false(wrong$consistent)
   expect_error(do.call(check_independent, c(paper,
-                                         list(variants = "no_such"))), "Unknown variant")
+                                            list(variants = "no_such"))), "Unknown variant")
 })
 
 test_that("relation() validates crossed variant lists", {
@@ -276,4 +276,47 @@ test_that("a bound that fits under no choice does not drag the holding numbers a
   expect_equal(status_of(checked, "ci_upper"), "inconsistent")
   expect_false(status_of(checked, "ci_lower") == "inconsistent")
   expect_true("0.95" %in% fitting_levels(checked))
+})
+
+test_that("the check_* wrappers refuse unnamed numbers and unknown handlers", {
+  err <- "reprokit_error_input"
+  expect_error(check_lm("1.0", handler = "lm_multiple"), class = err)
+  expect_error(check_lm(t = "1.0", handler = "lm_bogus"), class = err)
+  expect_error(check_mediation("32"), class = err)
+  expect_error(check_mediation(n = "32", indirect_type = "bogus"), class = err)
+  expect_error(check_mediation(n = "32", indirect_type = c("standardized", "unstandardized")),
+               class = err)
+  expect_error(check_chisq(n = c("30", "10", "20", "40"), handler = "bogus"), class = err)
+})
+
+test_that("check_F validates the shape of the cell matrices", {
+  err <- "reprokit_error_input"
+  m22 <- matrix(c("10", "10", "10", "10"), 2)
+  m23 <- matrix(rep("10", 6), 2)
+  expect_error(check_F(n = array("10", c(2, 2, 2)), effect = "A"), class = err)
+  expect_error(check_F(n = m22, m = m23, effect = "A"), class = err)
+  expect_error(check_F(n = m22, dims = c(3, 2), effect = "A"), class = err)
+  expect_error(check_F(n = rep("10", 5), dims = c(2, 2), effect = "A"), class = err)
+})
+
+test_that("check_chisq validates n, dims and p0, and reads a negative V by absolute value", {
+  err <- "reprokit_error_input"
+  tab <- matrix(c("30", "10", "20", "40"), 2)
+  expect_error(check_chisq(n = array("1", c(2, 2, 2))), class = err)
+  expect_error(check_chisq(n = tab, dims = c(3, 2)), class = err)
+  expect_error(check_chisq(n = tab, p0 = c(.5, .5)), class = err)
+  # A negative V (a signed phi) is not an inconsistency of a correct report.
+  tab_n <- matrix(c(30, 10, 20, 40), 2)
+  v <- sqrt(unname(chisq.test(tab_n, correct = FALSE)$statistic) / sum(tab_n))
+  signed <- check_chisq(n = tab, v = paste0("-", formatC(v, format = "f", digits = 2)))
+  expect_true(signed$consistent)
+  expect_match(paste(signed$notes, collapse = " "), "absolute value")
+  # Goodness of fit with H0 proportions: the statistic agrees with chisq.test().
+  counts <- c(18, 30, 12)
+  p0 <- c(.3, .5, .2)
+  expected <- chisq.test(counts, p = p0)
+  gof <- check_chisq(n = as.character(counts), p0 = p0,
+                     chisq = formatC(unname(expected$statistic), format = "f", digits = 2),
+                     df = "2", p = formatC(expected$p.value, format = "f", digits = 3))
+  expect_true(gof$consistent)
 })

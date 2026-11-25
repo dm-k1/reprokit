@@ -32,7 +32,7 @@ check_with <- function(test, paper, ...) {
   do.call(check_reported, c(list(test = test), paper, list(...)))
 }
 check_with_independent <- function(paper, ...) {
-  do.call(check_independent, c(paper, list(...)))
+  do.call(check_independent, c(paper, list(...))) # nolint: object_usage_linter
 }
 
 test_that("relation() accepts the test and convention kinds and rejects others", {
@@ -91,7 +91,7 @@ test_that("a d that matches no convention is not reproducible, never inconsisten
 
 test_that("Table 7.8 fits Student, not Welch, and its d is not reproducible", {
   checked <- check_independent(n = c("24", "18"), m = c("759", "694"),
-                            sd = c("87", "42"), t = "2.877", df = "40", p = ".006", d = "0.840")
+                               sd = c("87", "42"), t = "2.877", df = "40", p = ".006", d = "0.840")
   expect_true(checked$consistent)
   expect_true(fits(checked, "student"))
   expect_false(fits(checked, "welch"))
@@ -132,7 +132,7 @@ test_that("a variant that cannot be evaluated makes the relation not evaluable, 
   # SDs reported as "0" include 0, where Welch df is 0/0. With Student alone df would
   # be 24 and p = .545 for t = 0.63 would look impossible: a false positive.
   res <- check_independent(n = c("6", "20"), m = c("0", "0"), sd = c("0", "0"),
-                        t = "0.63", p = "0.545")
+                           t = "0.63", p = "0.545")
   expect_true(res$consistent)
   expect_false(any(res$numbers$status == "inconsistent"))
 })

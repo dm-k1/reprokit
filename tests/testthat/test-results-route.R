@@ -8,7 +8,7 @@ same_but_route <- function(a, b) {
     s$choices_read <- NULL
     s
   }
-  expect_identical(strip(a), strip(b))
+  testthat::expect_identical(strip(a), strip(b))
 }
 
 wide <- function() {
@@ -31,14 +31,17 @@ test_that("t.test results equal the formula route: Welch, Student, sides, level"
   same_but_route(sufficient_stats(t.test(extra ~ group, data = d, var.equal = TRUE), data = d),
                  sufficient_stats(extra ~ group, data = d, test = "student"))
   same_but_route(
-    sufficient_stats(t.test(extra ~ group, data = d, alternative = "less", conf.level = 0.9),
-                     data = d),
-    sufficient_stats(extra ~ group, data = d, test = "welch", alternative = "less",
-                     conf_level = 0.9))
+                 sufficient_stats(t.test(extra ~ group, data = d, alternative = "less",
+                                         conf.level = 0.9),
+                                  data = d),
+                 sufficient_stats(extra ~ group, data = d, test = "welch", alternative = "less",
+                                  conf_level = 0.9))
   same_but_route(
-    sufficient_stats(t.test(extra ~ group, data = d, alternative = "greater", var.equal = TRUE),
-                     data = d),
-    sufficient_stats(extra ~ group, data = d, test = "student", alternative = "greater"))
+                 sufficient_stats(t.test(extra ~ group, data = d, alternative = "greater",
+                                         var.equal = TRUE),
+                                  data = d),
+                 sufficient_stats(extra ~ group, data = d, test = "student",
+                                  alternative = "greater"))
   s <- sufficient_stats(t.test(extra ~ group, data = d, conf.level = 0.9), data = d)
   expect_identical(s$meta$route, "t.test")
   expect_identical(attr(s$choices_read, "fn"), "t.test")
@@ -51,17 +54,20 @@ test_that("t.test results equal the formula route: paired and one-sample with mu
   same_but_route(sufficient_stats(t.test(Pair(drug1, drug2) ~ 1, data = w), data = w),
                  sufficient_stats(Pair(drug1, drug2) ~ 1, data = w, test = "paired"))
   same_but_route(
-    sufficient_stats(t.test(Pair(drug1, drug2) ~ 1, data = w, mu = -1, alternative = "less"),
-                     data = w),
-    sufficient_stats(Pair(drug1, drug2) ~ 1, data = w, test = "paired", mu = -1,
-                     alternative = "less"))
+                 sufficient_stats(t.test(Pair(drug1, drug2) ~ 1, data = w, mu = -1,
+                                         alternative = "less"),
+                                  data = w),
+                 sufficient_stats(Pair(drug1, drug2) ~ 1, data = w, test = "paired", mu = -1,
+                                  alternative = "less"))
   same_but_route(sufficient_stats(t.test(drug1 ~ 1, data = w, mu = 0.5), data = w),
                  sufficient_stats(drug1 ~ 1, data = w, test = "one_sample", mu = 0.5))
   same_but_route(
-    sufficient_stats(t.test(drug2 ~ 1, data = w, mu = 1, conf.level = 0.99, alternative = "greater"),
-                     data = w),
-    sufficient_stats(drug2 ~ 1, data = w, test = "one_sample", mu = 1, conf_level = 0.99,
-                     alternative = "greater"))
+                 sufficient_stats(t.test(drug2 ~ 1, data = w, mu = 1, conf.level = 0.99,
+                                         alternative = "greater"),
+                                  data = w),
+                 sufficient_stats(drug2 ~ 1, data = w, test = "one_sample", mu = 1,
+                                  conf_level = 0.99,
+                                  alternative = "greater"))
 })
 
 test_that("cor.test results equal the formula route", {
@@ -191,4 +197,36 @@ test_that("a conflicting explicit choice is refused", {
   d <- datasets::sleep
   fit <- t.test(extra ~ group, data = d, var.equal = TRUE)
   expect_error(sufficient_stats(fit, data = d, test = "welch"), class = "reprokit_error_input")
+})
+
+test_that("results that cannot be read exactly are refused with the reason", {
+  d <- datasets::mtcars
+  d$cyl <- factor(d$cyl)
+  reason <- function(...) {
+    s <- sufficient_stats(...)
+    expect_identical(s$verdict, "needs_raw_data")
+    s$verdict_reason
+  }
+  expect_match(reason(aov(cbind(mpg, hp) ~ cyl, data = d)), "multivariate")
+  expect_match(reason(aov(mpg ~ cyl - 1, data = d)), "intercept")
+  expect_match(reason(aov(mpg ~ cyl, data = d, model = FALSE)), "model frame")
+  expect_match(reason(chisq.test(table(d$cyl, d$am), simulate.p.value = TRUE, B = 100)),
+               "simulated")
+  no_table <- structure(list(method = "Pearson's Chi-squared test", statistic = 1,
+                             parameter = 1, p.value = .3, observed = NULL), class = "htest")
+  expect_match(reason(no_table), "no table")
+  expect_match(reason(t.test(d$mpg, d$hp), data = d), "t.test")
+  expect_match(reason(cor.test(d$mpg, d$wt), data = d), "cor.test")
+  expect_match(reason(lm(wt ~ hp - 1, d), lm(mpg ~ hp + wt, d)), "intercept")
+})
+
+test_that("an aov conflicting with test= and results without data are input errors", {
+  d <- datasets::mtcars
+  d$cyl <- factor(d$cyl)
+  expect_error(sufficient_stats(aov(mpg ~ cyl, data = d), test = "factorial"),
+               class = "reprokit_error_input")
+  expect_error(sufficient_stats(t.test(mpg ~ am, data = d)), class = "reprokit_error_input")
+  expect_error(sufficient_stats(cor.test(d$mpg, d$wt)), class = "reprokit_error_input")
+  expect_error(sufficient_stats(lm(wt ~ hp, d), lm(mpg ~ hp + wt, d), lm(mpg ~ 1, d)),
+               class = "reprokit_error_input")
 })

@@ -135,7 +135,7 @@ expect_level2_unreachable <- function(subsets) {
   for (handler in c("t_paired", "cor_pearson")) {
     entry <- get_handler(handler)
     levels <- vapply(subsets, function(s) coverage_level(entry, s), integer(1))
-    expect_false(2L %in% levels, info = handler)
+    testthat::expect_false(2L %in% levels, info = handler)
   }
 }
 

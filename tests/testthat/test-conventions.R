@@ -43,7 +43,8 @@ big_table <- function() {
 
 convention_stats <- function(name) {
   share <- function(...) sufficient_stats(...)
-  switch(name,
+  switch(
+    name,
     t_one_sample = share(extra ~ 1, data = sleep, test = "one_sample"),
     t_independent = share(extra ~ group, data = sleep, test = "welch"),
     t_paired = share(Pair(drug1, drug2) ~ 1, data = sleep_wide(), test = "paired"),
@@ -53,11 +54,13 @@ convention_stats <- function(name) {
     chisq_gof = share(~ a, data = big_table(), test = "gof"),
     lm_simple = share(lm(mpg ~ wt, mtcars)),
     lm_multiple = share(lm(mpg ~ wt + hp, mtcars)),
-    lm_moderation = share(lm(mpg ~ wt * hp, mtcars)))
+    lm_moderation = share(lm(mpg ~ wt * hp, mtcars))
+  )
 }
 
 unbalanced_tooth <- function() {
-  tg <- transform(ToothGrowth, dose = factor(dose))
+  tg <- datasets::ToothGrowth
+  tg$dose <- factor(tg$dose)
   tg[-(1:2), ]
 }
 
@@ -112,9 +115,9 @@ test_that("the defaults are what happens when the argument is omitted", {
 
 test_that("appendix() renders every undeclared choice, for every handler", {
   extra <- list(
-    cor_pearson = sufficient_stats(~ mpg + wt, data = mtcars, test = "pearson"),
-    mediation_simple = sufficient_stats(mpg ~ wt, data = mtcars,
-                                        test = "mediation", mediator = "hp"))
+                cor_pearson = sufficient_stats(~ mpg + wt, data = mtcars, test = "pearson"),
+                mediation_simple = sufficient_stats(mpg ~ wt, data = mtcars,
+                                                    test = "mediation", mediator = "hp"))
   for (name in handlers()) {
     if (is.null(get_handler(name)$design)) next  # `lm`: no appendix by design
     s <- if (name %in% names(extra)) extra[[name]] else convention_stats(name)

@@ -107,3 +107,17 @@ test_that("SEM mediation is not evaluable, with SEM as the reason", {
   expect_match(paste(ck$notes, collapse = " "), "SEM")
   expect_false(any(c("coherent", "inconsistent") %in% ck$numbers$status))
 })
+
+test_that("mediation refuses malformed requests as input errors", {
+  err <- "reprokit_error_input"
+  d <- mtcars
+  expect_error(mediation_columns(~ wt, d, "hp"), class = err)
+  expect_error(mediation_columns(mpg ~ wt, NULL, "hp"), class = err)
+  expect_error(mediation_columns(mpg ~ wt, d, c("hp", "qsec")), class = err)
+  expect_error(mediation_columns(mpg ~ wt, d, "nope"), class = err)
+  expect_error(mediation_columns(mpg ~ wt, d, "mpg"), class = err)
+  d$hp <- as.character(d$hp)
+  expect_error(mediation_columns(mpg ~ wt, d, "hp"), class = err)
+  expect_error(relations_mediation("a_prime"), class = err)
+  expect_error(lm_relations(c("a", "b"), simple = TRUE), class = err)
+})

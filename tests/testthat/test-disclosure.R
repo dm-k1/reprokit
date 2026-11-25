@@ -26,10 +26,12 @@ test_that("chi-squared independence flags a cell with 0 < count < threshold", {
 
 test_that("chi-squared independence is unaffected by a clean table and ignores zeros", {
   clean <- from_counts(c(30, 10, 20, 40), c(2, 2))
-  expect_identical(sufficient_stats(~ a + b, data = clean, test = "chisq")$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(~ a + b, data = clean, test = "chisq")$verdict,
+                   "summaries_suffice")
   # A zero count is not flagged (ADR 0023 point 3); the other cells are large.
   zero <- from_counts(c(30, 0, 20, 40), c(2, 2))
-  expect_identical(sufficient_stats(~ a + b, data = zero, test = "chisq")$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(~ a + b, data = zero, test = "chisq")$verdict,
+                   "summaries_suffice")
   h <- get_handler("chisq_independence")
   summary <- h$summarise(~ a + b, data = zero, test = "chisq")
   expect_true(h$disclosure(summary, 5)$passed)
@@ -37,7 +39,8 @@ test_that("chi-squared independence is unaffected by a clean table and ignores z
 
 test_that("chi-squared independence names the cell check in the appendix", {
   s <- sufficient_stats(~ a + b, data = from_counts(c(30, 10, 20, 40), c(2, 2)), test = "chisq")
-  expect_match(appendix_text(s), "Checked: cell counts (a count above 0 and below 5 is flagged; zeros are not)",
+  expect_match(appendix_text(s),
+               "Checked: cell counts (a count above 0 and below 5 is flagged; zeros are not)",
                fixed = TRUE)
 })
 
@@ -125,14 +128,16 @@ test_that("a factor level with no rows is not flagged", {
 
 test_that("the lm appendix names the factor-level check", {
   s <- sufficient_stats(lm(mpg ~ wt + factor(cyl), data = mtcars))
-  expect_match(appendix_text(s), "Checked: factor levels (unweighted rows in the fit)", fixed = TRUE)
+  expect_match(appendix_text(s), "Checked: factor levels (unweighted rows in the fit)",
+               fixed = TRUE)
 })
 
 sample_size_cases <- function(n) {
   set.seed(11)
   d <- data.frame(x = rnorm(n), y = rnorm(n), m = rnorm(n))
   list(
-    one_sample = list(x = x ~ 1, args = list(data = d, test = "one_sample"), handler = "t_one_sample"),
+    one_sample = list(x = x ~ 1, args = list(data = d, test = "one_sample"),
+                      handler = "t_one_sample"),
     paired = list(x = Pair(x, y) ~ 1, args = list(data = d, test = "paired"),
                   handler = "t_paired"),
     pearson = list(x = ~ x + y, args = list(data = d, test = "pearson"), handler = "cor_pearson"),

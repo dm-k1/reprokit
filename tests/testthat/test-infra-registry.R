@@ -115,3 +115,18 @@ test_that("coverage_table() has one row per checking handler, with em dashes for
   expect_match(paired$missing, "^r \\(")
   expect_identical(paired$sufficient, "n, M, SD per condition, r")
 })
+
+test_that("registering the built-in handlers again leaves the registry unchanged", {
+  before <- handlers()
+  analyses <- vapply(before, function(n) get_handler(n)$analysis, character(1))
+  rel_names <- function(n) vapply(get_handler(n)$relations, `[[`, character(1), "name")
+  relation_names <- lapply(before, rel_names)
+  register_builtin_handlers()
+  expect_identical(handlers(), before)
+  expect_identical(vapply(handlers(), function(n) get_handler(n)$analysis, character(1)),
+                   analyses)
+  expect_identical(lapply(handlers(), rel_names), relation_names)
+  for (name in handlers()) {
+    expect_true(length(get_handler(name)$lost) >= 1L, info = name)
+  }
+})

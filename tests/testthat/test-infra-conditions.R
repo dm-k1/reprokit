@@ -27,7 +27,7 @@ test_that("messages shown to users do not mention handlers", {
   grab <- function(expr) {
     cnd <- tryCatch(expr, error = function(e) e)
     msgs <<- c(msgs, if (inherits(cnd, "condition")) conditionMessage(cnd) else
-      paste(capture.output(print(cnd)), cnd$verdict_reason))
+                 paste(capture.output(print(cnd)), cnd$verdict_reason))
   }
   grab(check_reported(test = "factorial", f = 3, df1 = 1, df2 = 20, p = 0.1))
   grab(sufficient_stats(extra ~ group, data = sleep, test = "nonsense"))

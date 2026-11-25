@@ -76,8 +76,8 @@ test_that("a mediation without a mediator has no summaries", {
 })
 
 paper_multiple <- list(
-  b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
-  t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"))
+                       b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
+                       t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"))
 
 test_that("t = b / SE and p from t are checked, and a planted digit is flagged", {
   ok <- do.call(check_reported, c(list(test = "lm"), paper_multiple))
@@ -195,10 +195,12 @@ test_that("mediation: each path is checked, and a CI of the indirect effect neve
 
 test_that("mediation: the wrong df for a path is flagged, the right one is not", {
   f <- summary(lm(mpg ~ wt + hp, mt))$coefficients
-  mk <- function(df) check_reported(test = "mediation", b = c(b = fmt2(f["hp", 1L])),
-                                    se = c(b = fmt2(f["hp", 2L])),
-                                    t = c(b = fmt2(f["hp", 3L])), p = c(b = fmt3(f["hp", 4L])),
-                                    df = c(b = df))
+  mk <- function(df) {
+    check_reported(test = "mediation", b = c(b = fmt2(f["hp", 1L])),
+                   se = c(b = fmt2(f["hp", 2L])),
+                   t = c(b = fmt2(f["hp", 3L])), p = c(b = fmt3(f["hp", 4L])),
+                   df = c(b = df))
+  }
   fmt3 <- function(x) formatC(x, format = "f", digits = 3L)
   expect_true(mk("29")$consistent)
   expect_false(mk("5")$consistent)
@@ -215,7 +217,8 @@ mediation_paper <- function(level = 0.95, digits = 2L) {
     t = per(function(x) fmt2(summary(x[[1L]])$coefficients[x[[2L]], 3L])),
     df = per(function(x) as.character(x[[1L]]$df.residual)),
     ci_lower = per(function(x) fmt2(confint(x[[1L]], level = level)[x[[2L]], 1L])),
-    ci_upper = per(function(x) fmt2(confint(x[[1L]], level = level)[x[[2L]], 2L])))
+    ci_upper = per(function(x) fmt2(confint(x[[1L]], level = level)[x[[2L]], 2L]))
+  )
 }
 
 test_that("mediation: a correct path CI fits, at 90, 95 and 99 percent", {
@@ -234,7 +237,8 @@ test_that("mediation: a wrong CI bound on any path is flagged", {
   for (path in c("a", "b", "c", "c_prime")) {
     paper <- mediation_paper()
     paper$ci_upper[[path]] <- fmt2(as.numeric(paper$ci_upper[[path]]) + 1)
-    expect_false(do.call(check_reported, c(list(test = "mediation"), paper))$consistent, info = path)
+    expect_false(do.call(check_reported, c(list(test = "mediation"), paper))$consistent,
+                 info = path)
   }
   # bounds from two different levels fit no single level
   paper <- mediation_paper(0.95)

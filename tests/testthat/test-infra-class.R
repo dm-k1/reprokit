@@ -29,6 +29,7 @@ test_that("statistics are stored at full precision", {
 
 test_that("meta gets the documented defaults", {
   k <- do.call(new_sufficient_stats, valid_stats_args())
-  expect_named(k$meta, c("n", "contrasts", "effect_size_conventions", "rounding", "ss_type", "route"),
+  expect_named(k$meta,
+               c("n", "contrasts", "effect_size_conventions", "rounding", "ss_type", "route"),
                ignore.order = TRUE)
 })

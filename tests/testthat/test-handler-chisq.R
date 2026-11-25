@@ -43,11 +43,12 @@ test_that("the summary stores the flat table, the shape and the H0 proportions",
 
 test_that("a bad p0 or a one-category variable is refused", {
   bad <- list(
-    list(chisq_stats(~ cyl, data = cyl_data(), test = "gof", p0 = c(0.5, 0.5)),
-         "one proportion per category"),
-    list(chisq_stats(~ cyl, data = cyl_data(), test = "gof", p0 = c(0.5, 0.5, 0.5)),
-         "sum to 1"),
-    list(chisq_stats(~ cyl, data = data.frame(cyl = rep(4, 5)), test = "gof"), "at least 2"))
+              list(chisq_stats(~ cyl, data = cyl_data(), test = "gof", p0 = c(0.5, 0.5)),
+                   "one proportion per category"),
+              list(chisq_stats(~ cyl, data = cyl_data(), test = "gof", p0 = c(0.5, 0.5, 0.5)),
+                   "sum to 1"),
+              list(chisq_stats(~ cyl, data = data.frame(cyl = rep(4, 5)), test = "gof"),
+                   "at least 2"))
   for (b in bad) {
     expect_identical(b[[1L]]$verdict, "needs_raw_data")
     expect_match(b[[1L]]$verdict_reason, b[[2L]])

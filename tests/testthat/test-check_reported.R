@@ -84,7 +84,8 @@ test_that("variants report which tail fits", {
   only_less <- check_paired(t = "-4.06", df = "9", p = ".001", variants = "less")
   expect_equal(only_less$variants$tail$variant, "less")
   expect_true(only_less$consistent)
-  expect_error(check_paired(t = "-4.06", df = "9", p = ".001", variants = "both"), "Unknown variant")
+  expect_error(check_paired(t = "-4.06", df = "9", p = ".001", variants = "both"),
+               "Unknown variant")
 })
 
 test_that("nothing checkable gives level 0 and says so", {
@@ -146,4 +147,17 @@ test_that("r that reaches p only through an unreported t is coherent, not 'not c
   expect_equal(status_of(check_pearson(r = ".41", df = "28"), "r"), "not checkable")
   full <- check_pearson(r = ".41", n = "30", t = "2.39", df = "28", p = ".024")
   expect_equal(status_of(full, "r"), status_of(ok, "r"))
+})
+
+test_that("test = student or welch refuses a variants request for the other test", {
+  args <- list(n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"))
+  expect_error(do.call(check_reported, c(list(test = "student", variants = "welch"), args)),
+               class = "reprokit_error_input")
+  expect_error(do.call(check_reported, c(list(test = "welch", variants = "student"), args)),
+               class = "reprokit_error_input")
+})
+
+test_that("a range of implied n is printed as 'lower to upper'", {
+  expect_identical(format_implied_input(list(lower = 30, upper = 30)), "30")
+  expect_identical(format_implied_input(list(lower = 28, upper = 31)), "28 to 31")
 })
