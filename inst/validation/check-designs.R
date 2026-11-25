@@ -583,7 +583,8 @@ run_lm_check <- function(paper, keys, terms_only = NULL, k = NULL, ...) {
 }
 
 # Simple mediation (X -> M -> Y): three real lm() fits on raw data, the four paths printed as a
-# paper does (b, SE, t at 2 decimals, p at 3, df exact), and the indirect effect a*b with a
+# paper does (b, SE, t at 2 decimals, p at 3, df exact, the CI b -/+ t_crit SE at a level drawn
+# from 90/95/99 per cent, 2 decimals), and the indirect effect a*b with a
 # percentile bootstrap CI (200 resamples, drawn here), which the checker must never judge.
 mediation_raw <- function(size = sample(c("small", "large", "mixed"), 1L)) {
   n <- sample(c(30, 50, 100, 300), 1L)
@@ -602,6 +603,9 @@ mediation_paper <- function(d) {
   row <- function(sm, term) sm$coefficients[term, ]
   paths <- list(a = row(fa, "x"), b = row(fb, "m"), c = row(fc, "x"), c_prime = row(fb, "x"))
   n <- nrow(d)
+  level <- draw_level()
+  dfs <- c(a = n - 2L, b = n - 3L, c = n - 2L, c_prime = n - 3L)
+  half <- vapply(names(paths), function(nm) stats::qt(1 - (1 - level) / 2, dfs[[nm]]) * paths[[nm]][[2L]], 0)
   boot <- vapply(seq_len(200L), function(i) {
     dd <- d[sample(n, replace = TRUE), ]
     stats::coef(stats::lm.fit(cbind(1, dd$x), dd$m))[[2L]] *
@@ -612,10 +616,13 @@ mediation_paper <- function(d) {
   paper <- list(
     b = get(1L, 2L), se = get(2L, 2L), t = get(3L, 2L),
     p = stats::setNames(vapply(paths, function(p) fmt_p(p[[4L]]), ""), names(paths)),
+    ci_lower = stats::setNames(fmt(vapply(paths, `[[`, 0, 1L) - half, 2L), names(paths)),
+    ci_upper = stats::setNames(fmt(vapply(paths, `[[`, 0, 1L) + half, 2L), names(paths)),
     df = c(a = as.character(n - 2L), b = as.character(n - 3L), c = as.character(n - 2L),
            c_prime = as.character(n - 3L)),
     n = as.character(n), indirect = fmt(paths$a[[1L]] * paths$b[[1L]], 2L),
     indirect_ci_lower = fmt(q[[1L]], 2L), indirect_ci_upper = fmt(q[[2L]], 2L))
+  attr(paper, "level") <- level
   paper
 }
 
@@ -623,7 +630,7 @@ run_mediation_check <- function(paper, keys, paths = NULL) {
   args <- list()
   for (key in keys) {
     v <- paper[[key]]
-    if (key %in% c("b", "se", "t", "p", "df") && !is.null(paths)) v <- v[intersect(names(v), paths)]
+    if (key %in% c("b", "se", "t", "p", "df", "ci_lower", "ci_upper") && !is.null(paths)) v <- v[intersect(names(v), paths)]
     if (length(v) > 0L) args[[key]] <- v
   }
   tryCatch(suppressWarnings(do.call(check_mediation, args)), error = function(e) e)

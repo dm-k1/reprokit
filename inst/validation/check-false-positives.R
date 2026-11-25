@@ -36,8 +36,8 @@
 # everything, no CI, a subset of the terms (with and without k declared), t/p/df only, the model
 # row only, n and df2 without k (n is not checkable), the adjusted R2 printed as R2, the
 # unstandardised b printed as beta (with and without the SDs), the simple regression's r and
-# SDs, and random subsets. Simple mediation: three lm() fits, the paths a, b, c and c' printed,
-# a*b with a bootstrap CI printed in some subsets: no row may be inconsistent, and the a*b numbers
+# SDs, and random subsets. Simple mediation: three lm() fits, the paths a, b, c and c' printed
+# (b, SE, t, p, df and the path CI at 90, 95 or 99 per cent), a*b with a bootstrap CI printed in some subsets: no row may be inconsistent, and the a*b numbers
 # must come out "not checkable", never fitting or not fitting (a false positive too).
 # PASS criterion: false positives == 0 AND errors == 0. A false positive is a
 # release blocker.
@@ -274,6 +274,9 @@ mediation_cases <- function(paper) {
   paths <- c("a", "b", "c", "c_prime")
   list(list(keys = keys), list(keys = setdiff(keys, c("indirect", "indirect_ci_lower", "indirect_ci_upper"))),
        list(keys = c("b", "se", "t", "p", "df")), list(keys = keys, paths = c("a", "b")),
+       list(keys = c("b", "se", "df", "ci_lower", "ci_upper")),
+       list(keys = c("ci_lower", "ci_upper", "df", "n")),
+       list(keys = c("b", "se", "ci_lower", "ci_upper"), paths = sample(paths, 2L)),
        list(keys = keys, paths = sample(paths, 2L)), list(keys = c("t", "df", "p")),
        list(keys = c("n", "indirect", "indirect_ci_lower", "indirect_ci_upper")),
        list(keys = c("b", "se", "t", "indirect", "indirect_ci_lower", "indirect_ci_upper")),

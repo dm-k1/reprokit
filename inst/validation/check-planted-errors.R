@@ -670,10 +670,15 @@ cat(if (fact_ok) "\nPASS" else "\nFAIL", ": factorial planted errors, errors = "
 #                               since n, df1 and df2 are exact integers
 #   med_df                      one mediation path's df_resid replaced by n - 1, n - 2 or n - 3
 #                               (not its own); the four df share one n, so exact integers decide
+#   med_ci                      one bound of one mediation path's CI shifted by 5-30 units of its
+#                               last digit (oracle: b -/+ t_crit SE over the b and SE rounding
+#                               boxes at the exact df; detectable when no level of 90/95/99 per
+#                               cent has every bound of every path fitting)
 # PASS: no errors; oracle-detectable always flagged; oracle-undetectable never flagged; every
 # type x subset cell flags at least once; nothing flagged on the narrow subset is missed on all.
 set.seed(20261125)
-reg_types <- c("b_digit", "se_digit", "t_digit", "p_digit", "f_vs_r2", "df_wrong_k", "med_df")
+reg_types <- c("b_digit", "se_digit", "t_digit", "p_digit", "f_vs_r2", "df_wrong_k", "med_df",
+               "med_ci")
 reg_subsets <- list(
   b_digit = list(all = NULL, `b/se/t` = c("b", "se", "t")),
   se_digit = list(all = NULL, `b/se/t` = c("b", "se", "t")),
@@ -681,7 +686,8 @@ reg_subsets <- list(
   p_digit = list(all = NULL, `t/df/p` = c("t", "p", "df2")),
   f_vs_r2 = list(all = NULL, `r2/f/df` = c("r2", "f", "df1", "df2")),
   df_wrong_k = list(all = NULL, `n/df1/df2` = c("n", "df1", "df2"), `n/df2 + k` = c("n", "df2")),
-  med_df = list(all = NULL, `t/df/p` = c("t", "p", "df")))
+  med_df = list(all = NULL, `t/df/p` = c("t", "p", "df")),
+  med_ci = list(all = NULL, `b/se/df/ci` = c("b", "se", "df", "ci_lower", "ci_upper")))
 reg_shift <- function(s, units) {
   d <- n_decimals(s)
   fmt(as.numeric(s) + units * 10^-d, d)
@@ -695,6 +701,14 @@ reg_paper <- function(type) {
     right <- as.numeric(paper$df[[path]])
     wrong <- sample(setdiff(c(n - 1, n - 2, n - 3), right), 1L)
     paper$df[[path]] <- as.character(wrong)
+    return(list(paper = paper, path = path, mediation = TRUE))
+  }
+  if (type == "med_ci") {
+    paper <- mediation_paper(mediation_raw())
+    path <- sample(names(paper$b), 1L)
+    bound <- sample(c("ci_lower", "ci_upper"), 1L)
+    paper[[bound]][[path]] <- reg_shift(paper[[bound]][[path]],
+                                        sample(5:30, 1L) * sample(c(-1, 1), 1L))
     return(list(paper = paper, path = path, mediation = TRUE))
   }
   raw <- lm_raw()
@@ -732,6 +746,21 @@ reg_paper <- function(type) {
 }
 reg_oracle <- function(type, p) {
   paper <- p$paper
+  if (type == "med_ci") {
+    n <- as.numeric(paper$n)
+    dfs <- c(a = n - 2, b = n - 3, c = n - 2, c_prime = n - 3)
+    fits_level <- vapply(c(0.90, 0.95, 0.99), function(level) {
+      parts <- unlist(lapply(names(dfs), function(path) {
+        bi <- interval(paper$b[[path]])
+        si <- interval(paper$se[[path]])
+        tc <- qt(1 - (1 - level) / 2, dfs[[path]])
+        c(lower = overlap(c(bi[1L] - tc * si[2L], bi[2L] - tc * si[1L]), interval(paper$ci_lower[[path]])),
+          upper = overlap(c(bi[1L] + tc * si[1L], bi[2L] + tc * si[2L]), interval(paper$ci_upper[[path]])))
+      }))
+      if (all(parts == "fit")) "fit" else if (any(parts == "miss")) "miss" else "edge"
+    }, "")
+    return(verdict(fits_level))
+  }
   if (type == "med_df") {
     # the four df are n - 2, n - 3, n - 2, n - 3 for one n: exact integers, so a path whose df
     # is not the right one for its place always contradicts the others

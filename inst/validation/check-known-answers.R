@@ -86,8 +86,11 @@
 #   14. the table of each correct report, printed to the decimals a paper uses, is consistent
 #       and has no inconsistent row;
 #   15. mediation: a*b and its CI are "not checkable" even when they are exactly right, and an
-#       absurd a*b changes nothing.
-#   PASS: claims 12 to 15 hold.
+#       absurd a*b changes nothing;
+#   16. the CI of each mediation path (b -/+ t_crit SE, df n - 2 for a and c, n - 3 for b and c')
+#       printed from confint() of the three lm() fits at 90, 95 and 99 per cent is consistent, the
+#       level that fits is the printed one, and the same CI with one bound moved is inconsistent.
+#   PASS: claims 12 to 16 hold.
 
 n1 <- 24
 n2 <- 18
@@ -511,18 +514,50 @@ cat("
 ")
 print(med_ck$numbers, row.names = FALSE)
 
+# claim 16: path CIs from confint() on the three lm() fits
+path_fits <- list(a = list(lm(hp ~ wt, mt6), "wt"), b = list(lm(mpg ~ wt + hp, mt6), "hp"),
+                  c = list(lm(mpg ~ wt, mt6), "wt"), c_prime = list(lm(mpg ~ wt + hp, mt6), "wt"))
+path_ci <- function(level, bound) {
+  vapply(path_fits, function(p) d2(confint(p[[1L]], level = level)[p[[2L]], bound]), "")
+}
+path_paper <- function(level) {
+  list(b = vapply(path_fits, function(p) d2(coef(p[[1L]])[[p[[2L]]]]), ""),
+       se = vapply(path_fits, function(p) d2(summary(p[[1L]])$coefficients[p[[2L]], 2L]), ""),
+       df = vapply(path_fits, function(p) as.character(p[[1L]]$df.residual), ""),
+       ci_lower = path_ci(level, 1L), ci_upper = path_ci(level, 2L))
+}
+ci_rows <- do.call(rbind, lapply(c(0.90, 0.95, 0.99), function(level) {
+  paper <- path_paper(level)
+  ok <- do.call(check_mediation, paper)
+  fit <- ok$variants$level
+  bad <- paper
+  bad$ci_upper[["b"]] <- d2(as.numeric(bad$ci_upper[["b"]]) + 0.05)
+  bad <- do.call(check_mediation, bad)
+  data.frame(level = level, consistent = ok$consistent,
+             fits_printed_level_only = identical(fit$variant[fit$fits], sprintf("%.2f", level)),
+             moved_bound_inconsistent = !bad$consistent)
+}))
+cat("
+-- mediation path CIs against confint() at three levels --
+")
+print(ci_rows, row.names = FALSE)
+
 checks6 <- c(all(reg_rows$coef_diff < 1e-8), all(reg_rows$model_diff < 1e-8),
              all(reg_rows$p_model_diff < 1e-8),
              all(reg_rows$report_consistent), all(reg_rows$no_inconsistent_row),
              all(med_rows$scaled_diff < 1e-8), med_ck$consistent,
              all(ind_status(med_ck) == "not checkable"), all(ind_status(med_odd) == "not checkable"),
-             med_odd$consistent)
+             med_odd$consistent, all(ci_rows$consistent), all(ci_rows$fits_printed_level_only),
+             all(ci_rows$moved_bound_inconsistent))
 names(checks6) <- c("b, SE, t, p equal summary(lm) (3 rows)", "R2, adjusted R2, F equal summary(lm)",
                     "model p equals pf()", "each correct report consistent",
                     "no inconsistent row in a correct report",
                     "mediation paths equal the three lm() fits", "mediation report consistent",
                     "a*b and its CI not checkable (right values)",
-                    "a*b and its CI not checkable (absurd values)", "absurd a*b does not make it inconsistent")
+                    "a*b and its CI not checkable (absurd values)", "absurd a*b does not make it inconsistent",
+                    "path CIs from confint() consistent at 90, 95, 99%",
+                    "the printed level is the only one that fits",
+                    "a moved path CI bound is inconsistent")
 cat("
 ")
 print(data.frame(assertion = names(checks6), holds = unname(checks6)), row.names = FALSE)
