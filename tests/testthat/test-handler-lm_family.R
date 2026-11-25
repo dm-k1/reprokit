@@ -25,7 +25,15 @@ test_that("the three lm rows and mediation are in the coverage table", {
   expect_true(any(grepl("oderation", ct$test)))
   med <- ct[ct$test == "Simple mediation", ]
   expect_match(med$not_checkable, "bootstrap, which resamples cases")
-  expect_identical(med$choices, "—")
+  expect_identical(med$choices, "confidence level (90%, 95%, 99%)")
+})
+
+test_that("the mediation coverage row says what plan section 4 says", {
+  med <- coverage_table()
+  med <- med[med$test == "Simple mediation", ]
+  expect_identical(med$sufficient, "n, M, SD and correlations of X, M, Y")
+  expect_identical(med$missing, "the correlations of X, M, Y")
+  expect_identical(med$checkable, "a, b, c, c\u2032 (b, SE, t, p, CI each)")
 })
 
 test_that("each handler round-trips through share and reproduce", {
@@ -187,6 +195,56 @@ test_that("mediation: the wrong df for a path is flagged, the right one is not",
   fmt3 <- function(x) formatC(x, format = "f", digits = 3L)
   expect_true(mk("29")$consistent)
   expect_false(mk("5")$consistent)
+})
+
+# The three mediation regressions with their coefficient CIs from confint(), per path.
+mediation_paper <- function(level = 0.95, digits = 2L) {
+  fits <- list(a = list(lm(hp ~ wt, mt), "wt"), b = list(lm(mpg ~ wt + hp, mt), "hp"),
+               c = list(lm(mpg ~ wt, mt), "wt"), c_prime = list(lm(mpg ~ wt + hp, mt), "wt"))
+  per <- function(f) vapply(fits, f, character(1))
+  list(
+    b = per(function(x) fmt2(coef(x[[1L]])[[x[[2L]]]])),
+    se = per(function(x) fmt2(summary(x[[1L]])$coefficients[x[[2L]], 2L])),
+    t = per(function(x) fmt2(summary(x[[1L]])$coefficients[x[[2L]], 3L])),
+    df = per(function(x) as.character(x[[1L]]$df.residual)),
+    ci_lower = per(function(x) fmt2(confint(x[[1L]], level = level)[x[[2L]], 1L])),
+    ci_upper = per(function(x) fmt2(confint(x[[1L]], level = level)[x[[2L]], 2L])))
+}
+
+test_that("mediation: a correct path CI fits, at 90, 95 and 99 percent", {
+  for (level in c(0.90, 0.95, 0.99)) {
+    ck <- do.call(check_mediation, mediation_paper(level))
+    expect_true(ck$consistent, info = as.character(level))
+    lv <- ck$variants$level
+    expect_true(lv$fits[lv$variant == sprintf("%.2f", level)], info = as.character(level))
+    ci <- ck$numbers[grepl("^ci_", ck$numbers$quantity), ]
+    expect_identical(nrow(ci), 8L)
+    expect_true(all(ci$status == "coherent"))
+  }
+})
+
+test_that("mediation: a wrong CI bound on any path is flagged", {
+  for (path in c("a", "b", "c", "c_prime")) {
+    paper <- mediation_paper()
+    paper$ci_upper[[path]] <- fmt2(as.numeric(paper$ci_upper[[path]]) + 1)
+    expect_false(do.call(check_mediation, paper)$consistent, info = path)
+  }
+  # bounds from two different levels fit no single level
+  paper <- mediation_paper(0.95)
+  paper$ci_upper <- mediation_paper(0.99)$ci_upper
+  expect_false(do.call(check_mediation, paper)$consistent)
+})
+
+test_that("mediation: a reported CI is optional, and a*b still never fits or fails", {
+  paper <- mediation_paper()
+  paper$ci_lower <- NULL
+  paper$ci_upper <- NULL
+  expect_true(do.call(check_mediation, paper)$consistent)
+  paper <- c(mediation_paper(), list(indirect = "-99", indirect_ci_lower = "-98",
+                                     indirect_ci_upper = "-97"))
+  ck <- do.call(check_mediation, paper)
+  expect_true(ck$consistent)
+  expect_true(all(ck$numbers$status[grepl("indirect", ck$numbers$quantity)] == "not checkable"))
 })
 
 test_that("the appendix works for the four handlers", {

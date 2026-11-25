@@ -33,10 +33,14 @@ register_mediation_simple <- function() {
     reproduce = mediation_reproduce,
     reported = mediation_reported,
     formula_tests = "mediation",
-    design = apa_design(statistic = "t", effect_size = "indirect", cells = 3L, ci = FALSE,
+    design = apa_design(statistic = "t", effect_size = "indirect", cells = 3L, ci = TRUE,
                         terms = 4L, model = FALSE,
                         extra = c("indirect", "indirect_ci_lower", "indirect_ci_upper")),
     sufficient = c("n", "m", "sd", "r_all"),
+    # The wording of plan section 4 (named paths cannot be generated from the quantities).
+    coverage = c(sufficient = "n, M, SD and correlations of X, M, Y",
+                 missing = "the correlations of X, M, Y",
+                 checkable = "a, b, c, c\u2032 (b, SE, t, p, CI each)"),
     not_checkable = c(
       indirect = "inferred by bootstrap, which resamples cases; summaries cannot",
       indirect_ci_lower = "inferred by bootstrap, which resamples cases; summaries cannot",
@@ -53,7 +57,8 @@ register_mediation_simple <- function() {
 }
 
 # Each path is a regression coefficient with its own df: n - 2 for a and c (one
-# predictor), n - 3 for b and c' (two). No relation involves a*b.
+# predictor), n - 3 for b and c' (two). Each path's CI is the lm CI relation
+# (b -/+ t_crit SE at the df of the path, levels of ADR 0014). No relation involves a*b.
 relations_mediation <- function(terms = mediation_paths()) {
   unknown <- setdiff(terms, mediation_paths())
   if (length(unknown) > 0L) {
@@ -66,7 +71,7 @@ relations_mediation <- function(terms = mediation_paths()) {
       list(relation(paste0("df_from_n:", path), "n", paste0("df:", path),
                     function(vals, variant) vals$n - k - 1,
                     inverse = function(df) df + k + 1)),
-      lm_term_relations(path, df = paste0("df:", path), ci = FALSE)
+      lm_term_relations(path, df = paste0("df:", path))
     )
   }), recursive = FALSE)
 }

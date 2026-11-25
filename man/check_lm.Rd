@@ -17,8 +17,8 @@ single unnamed value is the slope. The residual df is \code{df2}, the model's ar
 \code{df1} and \code{df2}, with \code{r2}, \code{f} and \code{p_model}. For \code{sd}, either one value per
 coefficient (named) plus the outcome's under a name that is not a coefficient
 (\code{sd = c(wt = "0.98", mpg = "6.03")}), or for a simple regression the unnamed pair
-(predictor, outcome). \code{check_mediation()} takes \code{b}, \code{se}, \code{t}, \code{p} and \code{df} named
-by path (\code{a}, \code{b}, \code{c}, \code{c_prime}), and \code{n}, \code{indirect}, \code{indirect_ci_lower} and
+(predictor, outcome). \code{check_mediation()} takes \code{b}, \code{se}, \code{t}, \code{p}, \code{df}, \code{ci_lower}
+and \code{ci_upper} named by path (\code{a}, \code{b}, \code{c}, \code{c_prime}), and \code{n}, \code{indirect}, \code{indirect_ci_lower} and
 \code{indirect_ci_upper} as plain strings.}
 
 \item{handler}{For \code{check_lm()}, \code{"lm_multiple"} (the default), \code{"lm_simple"} or
@@ -52,7 +52,8 @@ write beta for unstandardised b and the other way round.
 \code{check_mediation()} checks the four paths of a simple mediation, X to M (a), M to Y
 with X held constant (b), X to Y (c) and X to Y with M held constant (c'), each as a
 regression coefficient: t from b and SE, p from t and the path's df (n - 2 for a and
-c, n - 3 for b and c'). The indirect effect a\emph{b and its confidence interval are
+c, n - 3 for b and c'), and a reported confidence interval of the path from b, SE,
+the df and the level (90\%, 95\% or 99\%). The indirect effect a\emph{b and its confidence interval are
 listed as "not checkable": they are inferred by bootstrap, which resamples cases,
 and summaries cannot. No Sobel, Aroian or Goodman test is computed, and a}b is
 never marked as fitting or not fitting.
@@ -68,5 +69,7 @@ check_mediation(
   se = c(a = "9.63", b = "0.01", c = "0.56", c_prime = "0.63"),
   t = c(a = "4.80", b = "-3.52", c = "-9.56", c_prime = "-6.13"),
   df = c(a = "30", b = "29", c = "30", c_prime = "29"),
+  ci_lower = c(a = "26.50", b = "-0.05", c = "-6.49", c_prime = "-5.17"),
+  ci_upper = c(a = "65.82", b = "-0.01", c = "-4.20", c_prime = "-2.58"),
   n = "32", indirect = "-1.46", indirect_ci_lower = "-2.28", indirect_ci_upper = "-0.80")
 }

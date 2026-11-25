@@ -79,6 +79,10 @@
 #' @param per_cell Character vector of the quantities that have one value per
 #'   condition (`cells` of them), or `NULL` for the default, `m` and `sd`. A
 #'   handler whose n differs between conditions (independent groups) adds `n`.
+#' @param coverage Named character vector overriding the generated text of the
+#'   `sufficient`, `missing` or `checkable` column of the coverage table, or `NULL`.
+#'   Only for a row whose generated wording would differ from the plan's (a
+#'   mediation row with named paths); the content still comes from the registry.
 #' @param fallback `TRUE` for a general handler that only handles what no specific
 #'   handler matches (the general `lm`). `find_handler()` tries the other handlers
 #'   first, so a narrow handler wins whatever the alphabetical order of the names.
@@ -92,7 +96,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                              sufficient = NULL, relations = NULL, per_cell = NULL,
                              not_checkable = NULL, test_args = NULL, domains = NULL,
                              labels = NULL, appendix_table = NULL, appendix_effects = NULL,
-                             fallback = FALSE) {
+                             fallback = FALSE, coverage = NULL) {
   check_verdict(verdict)
   relations_at <- NULL
   if (is.function(relations)) {
@@ -125,7 +129,9 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(labels) || (is.character(labels) && !is.null(names(labels))),
     is.null(appendix_table) || is.function(appendix_table),
     is.null(appendix_effects) || is.function(appendix_effects),
-    is.logical(fallback), length(fallback) == 1L, !is.na(fallback)
+    is.logical(fallback), length(fallback) == 1L, !is.na(fallback),
+    is.null(coverage) || (is.character(coverage) && !is.null(names(coverage)) &&
+                            all(names(coverage) %in% c("sufficient", "missing", "checkable")))
   )
   if (length(test_args) > 0L && is.null(relations_at)) {
     stop("Handler '", name, "' declares test arguments but its `relations` is not a function.",
@@ -158,6 +164,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     cells = design$cells, sufficient = sufficient, relations = relations,
     relations_at = relations_at, test_args = test_args, domains = domains,
     labels = labels, appendix_table = appendix_table, appendix_effects = appendix_effects,
+    coverage = coverage,
     per_cell = if (is.null(per_cell)) per_cell_quantities() else per_cell
   ), envir = .registry)
   invisible(name)
@@ -386,6 +393,11 @@ with_reasons <- function(h, quantities, reasons) {
 
 list_or_dash <- function(x, sep = ", ") if (length(x) == 0L) "\u2014" else paste(x, collapse = sep)
 
+# A handler's declared wording for a coverage column, else the generated one.
+coverage_text <- function(h, column, generated) {
+  if (column %in% names(h$coverage)) h$coverage[[column]] else generated
+}
+
 #' Coverage table generated from the handler registry
 #'
 #' One row per registered test that has an APA design, generated from the
@@ -418,9 +430,12 @@ coverage_table <- function() {
     data.frame(
       test = h$analysis,
       apa = list_or_dash(display_quantities(h, h$apa)),
-      sufficient = list_or_dash(display_quantities(h, h$sufficient)),
-      missing = with_reasons(h, missing_quantities(h), missing_reasons()),
-      checkable = list_or_dash(display_quantities(h, checkable_quantities(h))),
+      sufficient = coverage_text(h, "sufficient",
+                                 list_or_dash(display_quantities(h, h$sufficient))),
+      missing = coverage_text(h, "missing",
+                              with_reasons(h, missing_quantities(h), missing_reasons())),
+      checkable = coverage_text(h, "checkable",
+                                list_or_dash(display_quantities(h, checkable_quantities(h)))),
       not_checkable = with_reasons(h, unreached_quantities(h), h$not_checkable),
       choices = list_or_dash(handler_choices(h), "; "),
       stringsAsFactors = FALSE
