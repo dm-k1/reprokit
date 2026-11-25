@@ -22,6 +22,18 @@ Pass strings, so the decimals count: \code{t = "2.85"}, \code{p = "< .001"},
 character vector (\code{m = c("5.1", "4.2")}). Integer-valued numbers are taken
 as exact.
 
+Each test accepts the quantities that apply to it, and no others. A name
+reprokit knows that does not apply to the test (\code{d} for a correlation, \code{r2} for a
+chi-squared test) is an input error that lists the names the test takes, and an
+unknown name is an error too. Besides the numbers of the APA set, the tests take
+the R squared family where it exists: \code{r2} and \code{adj_r2} for a correlation
+(\code{r2} is \code{r} squared), \code{eta2}, \code{r2} and \code{omega2} for the t tests, \code{eta2}, \code{r2}
+(identical to \code{eta2}) and \code{omega2} for a one-way ANOVA, \code{partial_eta2} and
+\code{partial_omega2} per effect for a factorial ANOVA, \code{r2}, \code{adj_r2} and the model
+\code{F} for a regression, and \code{r2} and \code{F} per model for a mediation. Where the
+convention behind a number is not stated in a paper (omega squared, a Cohen's d),
+a number that does not match is "not reproducible", never "inconsistent".
+
 For \code{"mediation"} (a simple, regression-based mediation, as in PROCESS model 4),
 a quantity with one value per path is a character vector named by path, \code{a}
 (X to M), \code{b} (M to Y), \code{c} (X to Y) and \code{c_prime} (X to Y with M held constant;

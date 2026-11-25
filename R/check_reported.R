@@ -25,6 +25,18 @@
 #'   character vector (`m = c("5.1", "4.2")`). Integer-valued numbers are taken
 #'   as exact.
 #'
+#'   Each test accepts the quantities that apply to it, and no others. A name
+#'   reprokit knows that does not apply to the test (`d` for a correlation, `r2` for a
+#'   chi-squared test) is an input error that lists the names the test takes, and an
+#'   unknown name is an error too. Besides the numbers of the APA set, the tests take
+#'   the R squared family where it exists: `r2` and `adj_r2` for a correlation
+#'   (`r2` is `r` squared), `eta2`, `r2` and `omega2` for the t tests, `eta2`, `r2`
+#'   (identical to `eta2`) and `omega2` for a one-way ANOVA, `partial_eta2` and
+#'   `partial_omega2` per effect for a factorial ANOVA, `r2`, `adj_r2` and the model
+#'   `F` for a regression, and `r2` and `F` per model for a mediation. Where the
+#'   convention behind a number is not stated in a paper (omega squared, a Cohen's d),
+#'   a number that does not match is "not reproducible", never "inconsistent".
+#'
 #'   For `"mediation"` (a simple, regression-based mediation, as in PROCESS model 4),
 #'   a quantity with one value per path is a character vector named by path, `a`
 #'   (X to M), `b` (M to Y), `c` (X to Y) and `c_prime` (X to Y with M held constant;

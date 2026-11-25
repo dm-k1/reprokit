@@ -28,6 +28,17 @@ First release (lifecycle: experimental). Not on CRAN; names and output may chang
   "read from the <fn> result". A result that does not match its data is refused, and
   so is a `data.name` that cannot be mapped to the data (with a hint to the formula
   route). A formula with `data` and `test` still works for any covered test.
+* `appendix(x, ..., extra = character())` adds a section of further numbers, computed
+  from the stored summaries and formatted as APA asks: pass names, or `"all"`. The
+  R squared family where the test has one (eta squared, omega squared, R squared,
+  adjusted R squared, partial effect sizes, per-model R squared and F of a mediation)
+  and standardized betas for a regression. Invalid names are an input error that lists
+  the valid extras; the default appendix is unchanged. `coverage_table()` has an
+  `extras` column.
+* Given a model or a test result, `appendix()` prints the numbers the model itself holds
+  (`summary()` of the `lm`, the `aov` table, the `htest` fields). Each is also
+  recomputed from the stored summaries; a fit that differs by more than the round-trip
+  tolerance is refused with `reprokit_impossible`.
 * Mediation: `sufficient_stats(lm(M ~ X), lm(Y ~ X + M))` stores n, the means and the
   covariance of X, M and Y.
 * Handlers (`handlers()`): `t_independent`, `t_one_sample`, `t_paired`,
@@ -67,6 +78,14 @@ First release (lifecycle: experimental). Not on CRAN; names and output may chang
   coverage level (0 to 3), a status for each number, the analysis variants that fit,
   and the ranges implied for numbers that were not reported. An inconsistency never
   says which number is wrong.
+* Each test accepts the quantities that apply to it. A known name that does not apply
+  (`d` for a correlation) is an input error listing the names the test takes. The
+  R squared family is cross-checked where it exists: Pearson `r2` and `adj_r2`, one-way
+  `r2` (identical to `eta2`), `eta2`, `r2` and `omega2` from t and df, partial effect
+  sizes in a factorial ANOVA, `adj_r2` in a regression, and per-model `r2` and `F` in a
+  mediation. Student degrees of freedom are checked against the group sizes when the
+  test is declared `"student"`, and the hint for a missing number no longer lists a
+  relation another one already covers.
 * Pearson: r is not reported as "not checkable" when it reaches p only through an
   unreported t (for example `check_reported("pearson", r = ".41", df = "28", p = ".024")`).
 * Chi-squared: the table of counts (a matrix, or a vector for goodness of fit) and the

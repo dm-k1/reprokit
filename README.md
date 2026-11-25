@@ -148,6 +148,24 @@ appendix(s, choices = list(convention = "pooled"),
 #> **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: group sizes. This lowers the risk of identifying a participant; it does not remove it.
 ```
 
+Further numbers the appendix does not print by default (eta squared,
+omega squared, R squared, standardized betas, and so on) are added with
+`extra`: names, or `"all"`.
+
+``` r
+cat(tail(appendix(s, choices = list(convention = "pooled"), extra = c("r2", "omega2"),
+                  sharing_reason = "Consent did not cover public sharing."), 9), sep = "\n")
+#> 
+#> Reason for not sharing the raw data: Consent did not cover public sharing.
+#> 
+#> **What readers lose compared with the raw data:**
+#> 
+#> - checking the distribution and outliers within each group
+#> - nonparametric or robust alternatives
+#> 
+#> **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: group sizes. This lowers the risk of identifying a participant; it does not remove it.
+```
+
 ### From your fitted result
 
 You can pass the result you already have. A `t.test()` or `cor.test()`
@@ -246,6 +264,15 @@ check_reported("paired", n = "20", t = "2.85", df = "19", p = ".050")
 #> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
+The R squared family is checked too: a Pearson correlation reported as
+.40 for 32 cases, with an R squared of .30, cannot be right: R squared
+is the square of the correlation.
+
+``` r
+check_reported("pearson", n = "32", r = "0.40", r2 = "0.30")$consistent
+#> [1] FALSE
+```
+
 “Inconsistent” means the numbers cannot all be correct as reported. It
 does not say which number is wrong, or why: a typo, a different test, a
 different rounding or a real mistake all look the same.
@@ -293,20 +320,20 @@ checked and what cannot (with the reason), and the choices you have to
 declare. The table below is generated from the handler registry when
 this README is built, so it is the reference, not a copy:
 
-| test | apa | sufficient | missing | checkable | not_checkable | choices |
-|:---|:---|:---|:---|:---|:---|:---|
-| Pearson correlation test | n, M, SD per variable, r, df, p, CI | n, r | — | df, p, CI | M, SD per variable (r does not depend on them) | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%) |
-| Paired-samples t-test | n, M, SD per condition, t, df, p, d, CI | n, M, SD per condition, r | r (the SD of the differences depends on the correlation between conditions; per-condition M and SD do not determine it) | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (d_z (SD of the differences), d_rm (repeated measures), d_av (average SD), g_av (average SD, Hedges’ correction)); direction of the difference: first minus second in Pair(first, second) |
-| Moderation | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations, the X·Z moments | the correlations (coefficients depend on how the predictors overlap); the X·Z moments (cannot be derived from X and Z summaries) | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); centering; coding |
-| Multiple regression | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations | the correlations (coefficients depend on how the predictors overlap) | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); factor coding |
-| Simple mediation | n, M, SD per variable, b, SE, t, p, CI, a·b and its CI | n, M, SD and correlations of X, M, Y | the correlations of X, M, Y | a, b, c, c′ (b, SE, t, p, CI each) | the CI of a·b (inferred by bootstrap, which resamples cases; summaries cannot) | confidence level (90%, 95%, 99%) |
-| Simple regression | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, r | — | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²) |
-| Chi-squared goodness of fit | the observed counts, chisq, df, p, N | the observed counts, H0 proportions | H0 proportions (the expected counts depend on them; not needed when they are equal) | chisq, df, p, N | — | effect-size convention (Cohen’s w) |
-| Chi-squared test of independence | the contingency table, chisq, df, p, N, V | the contingency table | — | chisq, df, p, N, V | — | test (Pearson chi-squared, Yates’ continuity correction); effect-size convention (Cramér’s V) |
-| Factorial ANOVA, two factors (between-subjects) | n, M, SD per condition, F, df1, df2, p, partial eta2 | n, M, SD per condition | — | F, df1, df2, p, partial eta2 | — | SS type for unbalanced designs (type III, type II, type I); effect-size convention (partial eta squared, partial omega squared) |
-| Independent-samples t-test (Student, Welch) | n, M, SD per condition, t, df, p, d, CI | n, M, SD per condition | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); test (Student’s t, Welch’s t); effect-size convention (Cohen’s d (pooled SD), Hedges’ g, Cohen’s d (root mean square of the SDs), Glass’s Δ (SD of the first group), Glass’s Δ (SD of the second group)) |
-| One-sample t-test | n, M, SD, t, df, p, d, CI | n, M, SD | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (Cohen’s d, Hedges’ g); test value mu (default 0) |
-| One-way ANOVA (between-subjects) | n, M, SD per condition, F, df1, df2, p, eta2 | n, M, SD per condition | — | F, df1, df2, p, eta2 | — | effect-size convention (eta squared, omega squared); variance assumption: equal variances (classical F test, not Welch’s) |
+| test | apa | sufficient | missing | checkable | not_checkable | choices | extras |
+|:---|:---|:---|:---|:---|:---|:---|:---|
+| Pearson correlation test | n, M, SD per variable, r, df, p, CI | n, r | — | df, p, CI | M, SD per variable (r does not depend on them) | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%) | R², adjusted R² |
+| Paired-samples t-test | n, M, SD per condition, t, df, p, d, CI | n, M, SD per condition, r | r (the SD of the differences depends on the correlation between conditions; per-condition M and SD do not determine it) | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (d_z (SD of the differences), d_rm (repeated measures), d_av (average SD), g_av (average SD, Hedges’ correction), eta squared, omega squared); direction of the difference: first minus second in Pair(first, second) | eta2, omega2, R² |
+| Moderation | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations, the X·Z moments | the correlations (coefficients depend on how the predictors overlap); the X·Z moments (cannot be derived from X and Z summaries) | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); centering; coding | standardized beta |
+| Multiple regression | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations | the correlations (coefficients depend on how the predictors overlap) | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); factor coding | standardized beta |
+| Simple mediation | n, M, SD per variable, b, SE, t, p, CI, a·b and its CI | n, M, SD and correlations of X, M, Y | the correlations of X, M, Y | a, b, c, c′ (b, SE, t, p, CI each) | the CI of a·b (inferred by bootstrap, which resamples cases; summaries cannot) | confidence level (90%, 95%, 99%) | R², F |
+| Simple regression | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, r | — | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²) | standardized beta |
+| Chi-squared goodness of fit | the observed counts, chisq, df, p, N | the observed counts, H0 proportions | H0 proportions (the expected counts depend on them; not needed when they are equal) | chisq, df, p, N | — | effect-size convention (Cohen’s w) | — |
+| Chi-squared test of independence | the contingency table, chisq, df, p, N, V | the contingency table | — | chisq, df, p, N, V | — | test (Pearson chi-squared, Yates’ continuity correction); effect-size convention (Cramér’s V) | — |
+| Factorial ANOVA, two factors (between-subjects) | n, M, SD per condition, F, df1, df2, p, partial eta2 | n, M, SD per condition | — | F, df1, df2, p, partial eta2 | — | SS type for unbalanced designs (type III, type II, type I); effect-size convention (partial eta squared, partial omega squared) | partial eta2, partial omega2 |
+| Independent-samples t-test (Student, Welch) | n, M, SD per condition, t, df, p, d, CI | n, M, SD per condition | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); test (Student’s t, Welch’s t); effect-size convention (Cohen’s d (pooled SD), Hedges’ g, Cohen’s d (root mean square of the SDs), Glass’s Δ (SD of the first group), Glass’s Δ (SD of the second group), eta squared, omega squared) | eta2, omega2, R² |
+| One-sample t-test | n, M, SD, t, df, p, d, CI | n, M, SD | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (Cohen’s d, Hedges’ g, eta squared, omega squared); test value mu (default 0) | eta2, omega2, R² |
+| One-way ANOVA (between-subjects) | n, M, SD per condition, F, df1, df2, p, eta2 | n, M, SD per condition | — | F, df1, df2, p, eta2 | — | effect-size convention (eta squared, omega squared); variance assumption: equal variances (classical F test, not Welch’s) | R², omega2 |
 
 A one-way ANOVA is checked with `check_reported("oneway", ...)` (note
 the lowercase `f` for the statistic): per-group n, mean and SD, plus F,

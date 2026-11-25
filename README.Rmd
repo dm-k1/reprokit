@@ -92,6 +92,14 @@ appendix(s, choices = list(convention = "pooled"),
          sharing_reason = "Consent did not cover public sharing.")
 ```
 
+Further numbers the appendix does not print by default (eta squared, omega squared,
+R squared, standardized betas, and so on) are added with `extra`: names, or `"all"`.
+
+```{r}
+cat(tail(appendix(s, choices = list(convention = "pooled"), extra = c("r2", "omega2"),
+                  sharing_reason = "Consent did not cover public sharing."), 9), sep = "\n")
+```
+
 ### From your fitted result
 
 You can pass the result you already have. A `t.test()` or `cor.test()` result
@@ -142,6 +150,14 @@ A set of numbers that cannot all be right is reported as inconsistent:
 
 ```{r}
 check_reported("paired", n = "20", t = "2.85", df = "19", p = ".050")
+```
+
+The R squared family is checked too: a Pearson correlation reported as .40
+for 32 cases, with an R squared of .30, cannot be right: R squared is the square of the
+correlation.
+
+```{r}
+check_reported("pearson", n = "32", r = "0.40", r2 = "0.30")$consistent
 ```
 
 "Inconsistent" means the numbers cannot all be correct as reported. It does not

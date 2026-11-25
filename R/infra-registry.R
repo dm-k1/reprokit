@@ -83,10 +83,10 @@
 #' @param per_cell Character vector of the quantities that have one value per
 #'   condition (`cells` of them), or `NULL` for the default, `m` and `sd`. A
 #'   handler whose n differs between conditions (independent groups) adds `n`.
-#' @param extras Named list, quantity name to an [appendix_extra()]: the cross-complete
+#' @param extras Named list, quantity name to an `appendix_extra()`: the cross-complete
 #'   quantities beyond the APA set that the stored summaries determine, which
 #'   `appendix(extra = )` can add and the coverage table lists. Their names also count as
-#'   applicable quantities of the test (ADR 0031).
+#'   applicable quantities of the test.
 #' @param coverage Named character vector overriding the generated text of the
 #'   `sufficient`, `missing` or `checkable` column of the coverage table, or `NULL`.
 #'   Only for a row whose generated wording would differ from the plan's (a

@@ -128,6 +128,26 @@ labelled blocks:
   one- or two-sided, confidence level, Student or Welch, and which effect-size
   convention you used.
 * **D. APA numbers a reader cannot check** from these statistics.
+
+A further section of numbers is added on request with `extra` (names, or `"all"`),
+for example the R squared family:
+
+```{r}
+cat(tail(appendix(s0, extra = c("eta2", "r2"),
+                  choices = list(convention = "pooled"),
+                  sharing_reason = "Consent did not cover public sharing."), 8), sep = "\n")
+```
+
+When `appendix()` is given a model or a test result, the numbers it prints are the
+model's own, and each is also recomputed from the stored summaries. A fit that
+disagrees is refused.
+
+R squared is checked like any other number: it follows from `r` for a correlation,
+so this is inconsistent:
+
+```{r}
+check_reported("pearson", n = "32", r = "0.40", r2 = "0.30")$consistent
+```
 * **Raw data.** Why they are not shared, what readers lose, and a disclosure
   check.
 

@@ -11,7 +11,8 @@ appendix(
   choices = list(),
   digits = 2L,
   digits_added = 4L,
-  threshold = 5
+  threshold = 5,
+  extra = character()
 )
 }
 \arguments{
@@ -49,6 +50,14 @@ back into the result, so they get more decimals than APA's two; the object
 itself keeps full precision.}
 
 \item{threshold}{Passed to \code{\link[=sufficient_stats]{sufficient_stats()}} when it is called here.}
+
+\item{extra}{Names of further numbers to add after block D, or \code{"all"}. They are
+quantities of the test that APA style does not ask for and that the stored summaries
+determine: the R-squared family (\code{"r2"}, \code{"adj_r2"}, \code{"eta2"}, \code{"omega2"},
+\code{"partial_eta2"}, \code{"partial_omega2"}), the F of each mediation model, or \code{"beta"} for
+the standardized coefficients of a regression. \code{coverage_table()} lists them per test
+(column \code{extras}). A name the test does not offer is an error that lists the ones it
+does. The default adds nothing, and the rest of the appendix does not change.}
 }
 \value{
 A character vector of markdown lines, class \code{reprokit_appendix}. Refuses with an
@@ -74,6 +83,10 @@ the disclosure check.
 }
 \examples{
 appendix(chisq.test(table(mtcars$am, mtcars$vs)),
+         sharing_reason = "Consent did not cover public sharing.")
+
+# Add the standardized coefficients (and, for other tests, the R-squared family)
+appendix(lm(mpg ~ wt + hp, data = mtcars), extra = "beta",
          sharing_reason = "Consent did not cover public sharing.")
 
 sleep_wide <- data.frame(drug1 = sleep$extra[sleep$group == 1],

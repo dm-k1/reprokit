@@ -15,7 +15,9 @@ A data frame of character columns, one row per test:
 \item \code{missing}: sufficient but not in APA, each with its reason;
 \item \code{checkable}: APA numbers the relations derive from \code{sufficient};
 \item \code{not_checkable}: APA numbers they do not reach, each with its reason;
-\item \code{choices}: what the author must declare.
+\item \code{choices}: what the author must declare;
+\item \code{extras}: the further quantities \code{appendix(extra = )} can add, which the stored
+summaries determine.
 }
 
 An empty cell shows an em dash. Handlers without a design are left out.
