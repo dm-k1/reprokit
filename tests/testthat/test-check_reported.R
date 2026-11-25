@@ -104,16 +104,14 @@ test_that("print gives the verdict, the level and the fixed closing sentence", {
 
 test_that("input errors are clear", {
   expect_error(check_reported(test = "paired", "2.85"), "named by its quantity")
-  expect_error(check_reported(p = ".01"), "name it first")
+  expect_error(check_reported(p = ".01"), "Name the test first")
   expect_error(check_reported(test = "paired", tstat = "2.85"), "Unknown reported quantity")
   expect_error(check_reported(test = "nope", t = "2.85"), "not a test reprokit knows")
   # A regression names its coefficients; "lm" with a bare t is refused.
   expect_error(check_reported(test = "lm", t = "2.85"), "name them")
   # The range engine (no longer reached by a test name) refuses a handler with no relations.
   expect_error(check_handler("lm", t = "2.85"),
-               paste0("no relations.*Handlers that do: anova_factorial, anova_oneway, chisq_gof, ",
-                      "chisq_independence, cor_pearson, lm_moderation, lm_multiple, lm_simple, ",
-                      "mediation_simple, t_independent, t_one_sample, t_paired"))
+               "no relations to check.*Tests it can check: student, welch")
 })
 
 test_that("a confidence level is reported apart from the tails", {

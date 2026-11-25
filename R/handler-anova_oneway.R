@@ -154,17 +154,16 @@ anova_oneway_relations <- function() {
 
 anova_oneway_summarise <- function(x, data, test, ...) {
   mf <- stats::model.frame(x, data)
-  if (ncol(mf) != 2L) stop("The formula must be `outcome ~ group`.", call. = FALSE)
+  if (ncol(mf) != 2L) abort_input("The formula must be `outcome ~ group`.")
   y <- mf[[1L]]
   g <- factor(mf[[2L]])
   if (nlevels(g) < 2L) {
-    stop("The grouping variable must have at least 2 groups, not ", nlevels(g), ".",
-         call. = FALSE)
+    abort_input("The grouping variable must have at least 2 groups, not ", nlevels(g), ".")
   }
   n <- c(table(g))
   if (any(n < 2L)) {
-    stop("Every group needs at least 2 observations (its SD must be defined); group ",
-         paste0("'", names(n)[n < 2L], "'", collapse = ", "), " has fewer.", call. = FALSE)
+    abort_input("Every group needs at least 2 observations (its SD must be defined); group ",
+         paste0("'", names(n)[n < 2L], "'", collapse = ", "), " has fewer.")
   }
   list(
     stats = list(

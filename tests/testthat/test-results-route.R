@@ -190,5 +190,5 @@ test_that("a simulated chi-squared p value is not summaries_suffice", {
 test_that("a conflicting explicit choice is refused", {
   d <- datasets::sleep
   fit <- t.test(extra ~ group, data = d, var.equal = TRUE)
-  expect_error(sufficient_stats(fit, data = d, test = "welch"), class = "reprokit_impossible")
+  expect_error(sufficient_stats(fit, data = d, test = "welch"), class = "reprokit_error_input")
 })

@@ -9,8 +9,8 @@ sufficient_stats(x, ..., threshold = 5)
 \arguments{
 \item{x}{A fitted model, a test result, or a formula; see above.}
 
-\item{...}{Passed on: \code{data} for a formula or a \code{t.test} / \code{cor.test} result, \code{test}
-for a formula, and the choices of the analysis for a formula (\code{alternative},
+\item{...}{Passed on: the second \code{lm} fit of a mediation, \code{data} for a formula or a
+\code{t.test} / \code{cor.test} result, \code{test} for a formula, and the choices of the analysis for a formula (\code{alternative},
 \code{conf_level}, \code{mu}, \code{correct}, \code{p0}, \code{ss_type}).}
 
 \item{threshold}{Smallest group or cell size whose summaries are clearly less
@@ -30,7 +30,7 @@ and what readers lose. When they do, it holds the summaries, stored at full
 precision. The verdict never errors: "summaries do not suffice, because ..." is an
 answer, and the printed object narrates it (the verdict and why, what to publish,
 what is lost, and which group or cell a disclosure flag fired for). Only invalid
-input is an error of class \code{reprokit_impossible}: a formula without \code{data} or
+input is an error, of class \code{reprokit_error_input}: a formula without \code{data} or
 \code{test}, an unknown \code{test}, a \code{t.test} or \code{cor.test} result without \code{data}, or an
 explicit choice that conflicts with the result.
 }
@@ -41,7 +41,7 @@ explicit choice that conflicts with the result.
 interaction; other designs get a verdict), or the result of \code{chisq.test()}. These
 hold what is needed; the choices recorded in a result (continuity correction,
 H0 proportions) are read from it. An \code{aov} fit does not record the type of sums
-of squares, so \code{\link[=appendix]{appendix()}} asks for it (ADR 0025).
+of squares, so \code{\link[=appendix]{appendix()}} asks for it (\code{choices = list(ss_type = ...)}).
 \item the result of \code{t.test()} or \code{cor.test()} together with \code{data}. These do not hold
 the data, but they record Student or Welch, paired, one-sample, the tails, the
 confidence level and the test value. reprokit rebuilds the test from \code{data}
@@ -52,6 +52,10 @@ a verdict saying so. Spearman and Kendall are not supported tests.
 cover, or to be explicit: \verb{y ~ group, data = d, test = "welch"}. \code{test} is one of
 \code{"student"}, \code{"welch"}, \code{"one_sample"}, \code{"paired"}, \code{"pearson"}, \code{"oneway"},
 \code{"factorial"}, \code{"chisq"}, \code{"gof"} or \code{"mediation"}.
+\item two \code{lm} fits for a simple mediation: the mediator model (\code{M ~ X}) and the outcome
+model (\code{Y ~ X + M}), in either order, as \code{sufficient_stats(lm(M ~ X, d), lm(Y ~ X + M, d))}.
+The second fit goes in \code{...}. reprokit works out which is which; the two must be
+fitted to the same cases. Covariates or more mediators get a verdict, not an error.
 }
 
 A result and the formula for the same analysis give the same summaries; the field
@@ -63,6 +67,9 @@ sufficient_stats(extra ~ group, data = sleep, test = "welch")
 # From the result you already have:
 sufficient_stats(t.test(extra ~ group, data = sleep), data = sleep)
 sufficient_stats(chisq.test(table(mtcars$am, mtcars$vs)))
+
+# Mediation from two models, in either order:
+sufficient_stats(lm(hp ~ wt, data = mtcars), lm(mpg ~ wt + hp, data = mtcars))
 
 # A verdict, not an error, when summaries cannot do it:
 sufficient_stats(glm(am ~ wt, data = mtcars, family = binomial))

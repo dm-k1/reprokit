@@ -69,8 +69,8 @@ register_mediation_simple <- function() {
 relations_mediation <- function(terms = mediation_paths()) {
   unknown <- setdiff(terms, mediation_paths())
   if (length(unknown) > 0L) {
-    stop("Unknown mediation path ", paste0("'", unknown, "'", collapse = ", "),
-         ". The paths are a, b, c and c_prime.", call. = FALSE)
+    abort_input("Unknown mediation path ", paste0("'", unknown, "'", collapse = ", "),
+         ". The paths are a, b, c and c_prime.")
   }
   # ADR 0028: the point estimate of the indirect effect is the product a*b, so a reported
   # indirect effect must lie in the interval product of the rounding intervals of a and b. It
@@ -91,23 +91,23 @@ relations_mediation <- function(terms = mediation_paths()) {
 }
 
 mediation_columns <- function(x, data, mediator) {
-  if (!inherits(x, "formula") || length(x) != 3L) stop("The formula must be `y ~ x`.", call. = FALSE)
-  if (is.null(data)) stop("Give the data: mediation needs `data`.", call. = FALSE)
+  if (!inherits(x, "formula") || length(x) != 3L) abort_input("The formula must be `y ~ x`.")
+  if (is.null(data)) abort_input("Give the data: mediation needs `data`.")
   if (!is.character(mediator) || length(mediator) != 1L) {
-    stop("Name the mediator with `mediator = \"m\"` (one column of the data).", call. = FALSE)
+    abort_input("Name the mediator with `mediator = \"m\"` (one column of the data).")
   }
   y_name <- deparse(x[[2L]])
   x_name <- deparse(x[[3L]])
   if (!all(c(y_name, x_name, mediator) %in% names(data))) {
-    stop("The formula must be `y ~ x` with plain column names, and the mediator a column ",
-         "of the data.", call. = FALSE)
+    abort_input("The formula must be `y ~ x` with plain column names, and the mediator a column ",
+         "of the data.")
   }
   if (anyDuplicated(c(y_name, x_name, mediator))) {
-    stop("X, M and Y must be three different columns.", call. = FALSE)
+    abort_input("X, M and Y must be three different columns.")
   }
   cols <- data[, c(x_name, mediator, y_name), drop = FALSE]
   if (!all(vapply(cols, is.numeric, logical(1)))) {
-    stop("Mediation needs numeric X, M and Y.", call. = FALSE)
+    abort_input("Mediation needs numeric X, M and Y.")
   }
   list(data = stats::na.omit(cols), names = c(x = x_name, m = mediator, y = y_name))
 }

@@ -7,7 +7,7 @@ test_that("sufficient_stats() dispatches to the matching handler and reproduce()
 
 test_that("sufficient_stats() refuses unknown input with reprokit_impossible", {
   # A formula without a declared test matches no handler.
-  expect_error(sufficient_stats(extra ~ group, data = sleep), class = "reprokit_impossible")
+  expect_error(sufficient_stats(extra ~ group, data = sleep), class = "reprokit_error_input")
   # Unsupported (non-formula) input is a verdict, not an error: nothing to publish.
   s <- expect_no_error(sufficient_stats(list()))
   expect_identical(s$verdict, "needs_raw_data")

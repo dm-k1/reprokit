@@ -60,7 +60,7 @@ cor_pearson_relations <- function() {
 pearson_columns <- function(x, data) {
   mf <- stats::model.frame(x, data)
   if (length(x) != 2L || ncol(mf) != 2L) {
-    stop("The formula must be `~ x + y`.", call. = FALSE)
+    abort_input("The formula must be `~ x + y`.")
   }
   list(x = mf[[1L]], y = mf[[2L]])
 }

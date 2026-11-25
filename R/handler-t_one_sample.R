@@ -66,7 +66,7 @@ t_one_sample_relations <- function(mu = 0) {
 one_sample_outcome <- function(x, data) {
   mf <- stats::model.frame(x, data)
   if (ncol(mf) != 1L || length(x) != 3L || !identical(x[[3L]], 1)) {
-    stop("The formula must be `outcome ~ 1`.", call. = FALSE)
+    abort_input("The formula must be `outcome ~ 1`.")
   }
   mf[[1L]]
 }

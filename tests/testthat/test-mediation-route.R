@@ -34,8 +34,9 @@ test_that("two models that are not the same cases are refused", {
   d2 <- d
   d2$wt <- rev(d2$wt)
   expect_error(sufficient_stats(m, lm(mpg ~ wt + hp, data = d2)), class = "reprokit_impossible")
+  # two models that fit neither role are a usage error
   other <- lm(qsec ~ wt + drat, data = d)
-  expect_error(sufficient_stats(m, other), class = "reprokit_impossible")
+  expect_error(sufficient_stats(m, other), class = "reprokit_error_input")
 })
 
 test_that("a covariate, an extra mediator or weights are not evaluable", {

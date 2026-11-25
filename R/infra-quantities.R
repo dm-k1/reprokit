@@ -88,9 +88,9 @@ restrict_to_domain <- function(bounds, quantity, text, overrides = NULL) {
     upper <- floor(upper)
   }
   if (any(lower > upper)) {
-    stop("`", quantity, "` = ", paste0("\"", text, "\"", collapse = ", "),
+    abort_input("`", quantity, "` = ", paste0("\"", text, "\"", collapse = ", "),
          " is not a value ", quantity, " can take; it must be ",
-         domain_words(quantity, domain), ".", call. = FALSE)
+         domain_words(quantity, domain), ".")
   }
   list(lower = lower, upper = upper)
 }
@@ -108,17 +108,17 @@ check_arity <- function(reported, cells, per_cell_names = per_cell_quantities())
     expected <- if (per_cell) cells else 1L
     got <- length(reported[[quantity]])
     if (got != expected) {
-      stop("`", quantity, "` needs ", expected, if (expected == 1L) " value" else " values",
+      abort_input("`", quantity, "` needs ", expected, if (expected == 1L) " value" else " values",
            if (per_cell) " (one per condition)" else " (one number for the whole analysis)",
-           ", but got ", got, ".", call. = FALSE)
+           ", but got ", got, ".")
     }
   }
   if (variable) {
     sizes <- vapply(reported[intersect(names(reported), per_cell_names)], length, integer(1))
     if (length(sizes) > 0L && (any(sizes < 2L) || length(unique(sizes)) > 1L)) {
-      stop("The per-group quantities (", paste0("`", names(sizes), "`", collapse = ", "),
+      abort_input("The per-group quantities (", paste0("`", names(sizes), "`", collapse = ", "),
            ") need the same number of values, at least 2 (one per group); got ",
-           paste0(names(sizes), " = ", sizes, collapse = ", "), ".", call. = FALSE)
+           paste0(names(sizes), " = ", sizes, collapse = ", "), ".")
     }
   }
   invisible(reported)
@@ -134,9 +134,8 @@ check_quantity_names <- function(x, what = "quantity name", terms = TRUE) {
   }
   unknown <- setdiff(x, quantity_names())
   if (length(unknown) > 0L) {
-    stop("Unknown ", what, ": ", paste0("'", unknown, "'", collapse = ", "),
-         ". The known quantities are: ", paste(quantity_names(), collapse = ", "), ".",
-         call. = FALSE)
+    abort_input("Unknown ", what, ": ", paste0("'", unknown, "'", collapse = ", "),
+         ". The known quantities are: ", paste(quantity_names(), collapse = ", "), ".")
   }
   invisible(x)
 }
@@ -152,25 +151,23 @@ check_quantity_names <- function(x, what = "quantity name", terms = TRUE) {
 # One value returns the list itself; several return a list of these, with names.
 # A numeric needs `digits`, unless it is integer-valued (then it is exact).
 reported_value <- function(text, digits = NULL, as_count = TRUE) {
-  if (length(text) == 0L) stop("A reported value needs at least one number.", call. = FALSE)
+  if (length(text) == 0L) abort_input("A reported value needs at least one number.")
   if (is.character(text)) {
     if (!is.null(digits)) {
-      stop("`digits` only applies to numeric input; a string carries its own decimals.",
-           call. = FALSE)
+      abort_input("`digits` only applies to numeric input; a string carries its own decimals.")
     }
     values <- lapply(text, parse_reported_text, as_count = as_count)
   } else if (is.numeric(text)) {
     values <- numeric_reported(text, digits, as_count)
   } else {
-    stop("A reported value must be a string such as \"2.85\" (or a number with `digits`).",
-         call. = FALSE)
+    abort_input("A reported value must be a string such as \"2.85\" (or a number with `digits`).")
   }
   names(values) <- names(text)
   if (length(values) == 1L) values[[1L]] else values
 }
 
 parse_reported_text <- function(text, as_count = TRUE) {
-  if (is.na(text)) stop("A reported value cannot be NA.", call. = FALSE)
+  if (is.na(text)) abort_input("A reported value cannot be NA.")
   cleaned <- trimws(gsub("\u2212", "-", text))
   relation <- "="
   if (grepl("^[<>]", cleaned)) {
@@ -179,8 +176,8 @@ parse_reported_text <- function(text, as_count = TRUE) {
   }
   parts <- regmatches(cleaned, regexec("^[+-]?([0-9]*)(\\.([0-9]+))?$", cleaned))[[1L]]
   if (length(parts) == 0L || !grepl("[0-9]", cleaned)) {
-    stop("Cannot read '", text, "' as a reported number. Use a string such as \"2.85\", ",
-         "\".008\" or \"< .001\".", call. = FALSE)
+    abort_input("Cannot read '", text, "' as a reported number. Use a string such as \"2.85\", ",
+         "\".008\" or \"< .001\".")
   }
   has_decimals <- nzchar(parts[3L])
   whole <- if (as_count) NA_integer_ else 0L
@@ -189,11 +186,11 @@ parse_reported_text <- function(text, as_count = TRUE) {
 }
 
 numeric_reported <- function(x, digits, as_count = TRUE) {
-  if (anyNA(x)) stop("A reported value cannot be NA.", call. = FALSE)
+  if (anyNA(x)) abort_input("A reported value cannot be NA.")
   if (is.null(digits)) {
     if (any(x != round(x))) {
-      stop("A non-integer number does not say how precisely it was reported. Pass it as a ",
-           "string (\"2.85\") or give `digits`.", call. = FALSE)
+      abort_input("A non-integer number does not say how precisely it was reported. Pass it as a ",
+           "string (\"2.85\") or give `digits`.")
     }
     digits <- rep(if (as_count) NA_integer_ else 0L, length(x))
   } else {

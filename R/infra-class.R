@@ -4,6 +4,9 @@
 #' [sufficient_stats()]; `new_sufficient_stats()` is the low-level constructor.
 #' The check functions do not use it: they work from reported numbers.
 #'
+#' Authors never call this constructor: [sufficient_stats()] builds the object and fills
+#' `lost` from the test.
+#'
 #' This constructor cannot make an object without a non-empty list of what readers
 #' lose. The author's reason for not sharing is not stored here: it belongs to
 #' [appendix()] alone, is optional, and is never filled in by reprokit.
@@ -119,12 +122,11 @@ print.reprokit_sufficient_stats <- function(x, ...) {
 # given an object whose summaries do not suffice.
 sufficient_stats_narration <- function(x) {
   suffice <- identical(x$verdict, "summaries_suffice")
-  handler <- if (is.na(x$handler)) "none" else x$handler
+  known <- !is.na(x$handler) && x$handler %in% handlers()
+  analysis <- if (known) analysis_name(get_handler(x$handler)) else "not recognised"
   route <- x$meta$route
-  header <- paste0("<reprokit sufficient_stats>  handler: ", handler,
-                   if (!is.null(route) && !is.na(handler) && handler != "none") {
-                     paste0("  (input: ", route, ")")
-                   })
+  header <- paste0("<reprokit sufficient_stats>  analysis: ", analysis,
+                   if (!is.null(route) && known) paste0("  (input: ", route, ")"))
   verdict <- c(paste0("Verdict: ", x$verdict), paste0("Because: ", x$verdict_reason))
   flagged <- x$disclosure$problems
   disclosure <- if (length(flagged) > 0L) {

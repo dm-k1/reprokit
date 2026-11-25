@@ -31,3 +31,22 @@ abort_impossible <- function(what, why, alternatives = default_alternatives()) {
   )
   stop(cnd)
 }
+
+#' Stop because the call itself is wrong
+#'
+#' For usage errors: an unknown `test`, a misnamed argument, a value out of range, a
+#' choice that does not exist. Unlike `abort_impossible()` it says nothing about
+#' summary statistics and offers no alternatives, because the fix is to correct the
+#' call. Classed `reprokit_error_input`, so tests check the class, not the text.
+#'
+#' @param ... Pieces of the message, pasted together.
+#' @return Does not return; signals an error of class `reprokit_error_input`.
+#' @keywords internal
+#' @noRd
+abort_input <- function(...) {
+  cnd <- structure(
+    class = c("reprokit_error_input", "reprokit_error", "error", "condition"),
+    list(message = paste0(...), call = sys.call(-1))
+  )
+  stop(cnd)
+}

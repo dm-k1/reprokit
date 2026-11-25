@@ -195,12 +195,10 @@ test_that("the regression-family appendices are stable", {
                                  choices = list(level = "0.95", convention = "r2"))),
                   transform = ascii_safe)
   expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt)), sharing_reason = sharing,
-                                 choices = list(level = "0.99", convention = "adj_r2",
-                                                coding = "treatment"))),
+                                 choices = list(level = "0.99", convention = "adj_r2"))),
                   transform = ascii_safe)
   expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt * hp, mt)), sharing_reason = sharing,
-                                 choices = list(level = 0.9, convention = "r2",
-                                                centering = "none", coding = "none"))),
+                                 choices = list(level = 0.9, convention = "r2"))),
                   transform = ascii_safe)
   expect_snapshot(print(appendix(sufficient_stats(mpg ~ wt, data = mt, test = "mediation",
                                                   mediator = "hp"), sharing_reason = sharing,
@@ -226,4 +224,16 @@ test_that("the regression appendices validate level and convention", {
 test_that("an undeclared effect-size convention is shown as not declared (one-way ANOVA)", {
   s <- sufficient_stats(weight ~ group, data = PlantGrowth, test = "oneway")
   expect_snapshot(print(appendix(s, sharing_reason = sharing)), transform = ascii_safe)
+})
+
+test_that("an unknown choice name is refused and the valid names are listed", {
+  s <- sufficient_stats(~ mpg + wt, data = mtcars, test = "pearson")
+  expect_error(appendix(s, sharing_reason = sharing, choices = list(coding = "treatment")),
+               class = "reprokit_error_input")
+  expect_error(appendix(s, sharing_reason = sharing, choices = list(coding = "treatment")),
+               "Unknown choice `coding`.*Valid choices: `level`")
+  mt <- datasets::mtcars
+  expect_error(appendix(sufficient_stats(lm(mpg ~ wt, mt)), sharing_reason = sharing,
+                        choices = list(centering = "none")),
+               "Unknown choice `centering`.*`convention`, `level`")
 })

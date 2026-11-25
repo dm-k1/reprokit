@@ -23,6 +23,24 @@
 #'   `df = "29"`. A quantity with one value per group or condition is a
 #'   character vector (`m = c("5.1", "4.2")`). Integer-valued numbers are taken
 #'   as exact.
+#'
+#'   For `"mediation"` (a simple, regression-based mediation, as in PROCESS model 4),
+#'   a quantity with one value per path is a character vector named by path, `a`
+#'   (X to M), `b` (M to Y), `c` (X to Y) and `c_prime` (X to Y with M held constant;
+#'   `c'` is accepted): `b`, `se`, `t`, `p`, `df`, `ci_lower`, `ci_upper` and `beta`
+#'   (for example `ci_lower = c(a = "26.50", b = "-0.05")`). The coefficient of
+#'   a path is `b`, so `b = c(a = "46.16", b = "-0.03")` is the path a and the path b.
+#'   `n` is a single string. The indirect effect is `indirect`; its bootstrap interval
+#'   (`indirect_ci_lower`, `indirect_ci_upper`) is accepted but cannot be checked.
+#'   When a, b and `indirect` are all reported, `indirect` is checked for coherence
+#'   with a times b: it must lie in the product of the rounding intervals of a and b.
+#'   This is arithmetic on the printed numbers and says nothing about significance; a
+#'   bootstrap mean reported instead of the sample a times b is one possible reason
+#'   for a mismatch. Two further arguments are read from `...` for a mediation:
+#'   `indirect_type` (`"unstandardized"`, `"standardized"` or `"partially_standardized"`;
+#'   a standardized indirect effect is only checked with `beta` for a and b, a
+#'   partially standardized one is not evaluable) and `estimator` (`"sem"`, `"ml"` or
+#'   `"lavaan"` for numbers from an ML/SEM fit, which are not evaluable as a regression).
 #' @param variants Character vector restricting which variants to try (such as
 #'   `"two.sided"`, `"0.95"` or `"welch"`), or `NULL` for all. Each value
 #'   restricts only its own kind of variant (tail, confidence level, test,
@@ -108,6 +126,15 @@
 #'                df = "1", p = ".0001", v = ".41")
 #'
 #' # A regression reports a number per coefficient: name them.
+#' # A simple mediation (mpg ~ wt through hp): the paths, and the indirect effect
+#' # checked for coherence with a times b
+#' check_reported("mediation",
+#'                b = c(a = "46.16", b = "-0.03", c = "-5.34", c_prime = "-3.88"),
+#'                se = c(a = "9.63", b = "0.01", c = "0.56", c_prime = "0.63"),
+#'                t = c(a = "4.80", b = "-3.52", c = "-9.56", c_prime = "-6.13"),
+#'                n = "32", indirect = "-1.46")
+#'
+#' # A regression reports a number per coefficient: name them.
 #' check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
 #'                t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
 #'                r2 = ".83", f = "69.21", df1 = "2", df2 = "29", n = "32")
@@ -125,20 +152,17 @@ check_reported <- function(..., test, variants = NULL, mu = 0, dims = NULL, p0 =
       test <- dots[[unnamed[1L]]]
       dots <- dots[-unnamed[1L]]
     } else {
-      abort_impossible("check without knowing the test",
-                       paste0("name it first: check_reported(\"paired\", t = ...). Valid tests: ",
-                              paste0("\"", names(tests), "\"", collapse = ", "), "."),
-                       alternatives = character())
+      abort_input("Name the test first: check_reported(\"paired\", t = ...). Valid tests: ",
+                  paste0("\"", names(tests), "\"", collapse = ", "), ".")
     }
   }
   if (!is.character(test) || length(test) != 1L || is.na(test) || !test %in% names(tests)) {
-    abort_impossible(
-      paste0("check the test ", if (is.character(test) && length(test) == 1L)
-        paste0("\"", test, "\"") else "given"),
-      paste0("it is not a test reprokit knows by that name. Valid values of `test`: ",
-             paste0("\"", names(tests), "\"", collapse = ", "), ". Student and Welch are ",
-             "`\"student\"` and `\"welch\"`, not a handler name."),
-      alternatives = character())
+    abort_input(
+      "`test` is ", if (is.character(test) && length(test) == 1L) paste0("\"", test, "\"") else
+        "not a single test name", ", which is not a test reprokit knows. Valid values of `test`: ",
+      paste0("\"", names(tests), "\"", collapse = ", "), ". Student and Welch are ",
+      "`\"student\"` and `\"welch\"`."
+    )
   }
   given <- c(mu = !(is.numeric(mu) && length(mu) == 1L && isTRUE(mu == 0)), dims = !is.null(dims),
              p0 = !is.null(p0), effect = !is.null(effect), k = !is.null(k))
@@ -148,7 +172,7 @@ check_reported <- function(..., test, variants = NULL, mu = 0, dims = NULL, p0 =
     lm = , lm_simple = , lm_moderation = "k", character())
   unused <- setdiff(names(given)[given], allowed)
   if (length(unused) > 0L) {
-    stop("`", unused[1L], "` does not apply to test \"", test, "\".", call. = FALSE)
+    abort_input("`", unused[1L], "` does not apply to test \"", test, "\".")
   }
   handler <- tests[[test]]
   run <- function(f, ...) do.call(f, c(dots, list(...)))
@@ -156,7 +180,7 @@ check_reported <- function(..., test, variants = NULL, mu = 0, dims = NULL, p0 =
     student = , welch = {
       other <- setdiff(c("student", "welch"), test)
       if (other %in% variants) {
-        stop("`variants` names \"", other, "\" but `test` is \"", test, "\".", call. = FALSE)
+        abort_input("`variants` names \"", other, "\" but `test` is \"", test, "\".")
       }
       run(check_handler, handler = handler, variants = c(variants, test))
     },

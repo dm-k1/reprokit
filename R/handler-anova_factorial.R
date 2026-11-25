@@ -58,8 +58,7 @@ register_anova_factorial <- function() {
 check_factorial_dims <- function(dims) {
   if (!(is.numeric(dims) && length(dims) == 2L && all(is.finite(dims)) &&
           all(dims == round(dims)) && all(dims >= 2))) {
-    stop("`dims` must be c(levels of A, levels of B), two whole numbers of at least 2.",
-         call. = FALSE)
+    abort_input("`dims` must be c(levels of A, levels of B), two whole numbers of at least 2.")
   }
   invisible(dims)
 }
@@ -221,7 +220,7 @@ factorial_p_range <- function(effect, dims) {
 anova_factorial_relations <- function(effect = NULL, dims = NULL, balanced = NULL) {
   if (!is.null(effect) && !(is.character(effect) && length(effect) == 1L &&
                               effect %in% c("A", "B", "AB"))) {
-    stop("`effect` must be one of \"A\", \"B\" or \"AB\".", call. = FALSE)
+    abort_input("`effect` must be one of \"A\", \"B\" or \"AB\".")
   }
   if (!is.null(dims)) check_factorial_dims(dims)
   ready <- factorial_ready(effect, dims)
@@ -287,29 +286,27 @@ factorial_vector <- function(effects, df2) {
 anova_factorial_summarise <- function(x, data, test, ss_type = NULL, ...) {
   if (!is.null(ss_type) && !(is.character(ss_type) && length(ss_type) == 1L &&
                                ss_type %in% ss_type_codes())) {
-    stop("`ss_type` must be one of ", paste0("\"", ss_type_codes(), "\"", collapse = ", "),
-         ".", call. = FALSE)
+    abort_input("`ss_type` must be one of ", paste0("\"", ss_type_codes(), "\"", collapse = ", "),
+         ".")
   }
   mf <- factorial_frame(x, data)
   y <- mf[[1L]]
-  if (!is.numeric(y)) stop("The outcome must be numeric.", call. = FALSE)
+  if (!is.numeric(y)) abort_input("The outcome must be numeric.")
   a <- mf[[2L]]
   b <- mf[[3L]]
   tab <- table(a, b)
   dims <- dim(tab)
   if (any(dims < 2L)) {
-    stop("Both factors need at least 2 levels; got ", dims[1L], " and ", dims[2L], ".",
-         call. = FALSE)
+    abort_input("Both factors need at least 2 levels; got ", dims[1L], " and ", dims[2L], ".")
   }
   if (any(tab == 0L)) {
-    stop("Every cell needs observations; the cell (",
+    abort_input("Every cell needs observations; the cell (",
          paste(c(rownames(tab)[which(tab == 0L, arr.ind = TRUE)[1L, 1L]],
                  colnames(tab)[which(tab == 0L, arr.ind = TRUE)[1L, 2L]]), collapse = ", "),
-         ") is empty.", call. = FALSE)
+         ") is empty.")
   }
   if (any(tab < 2L)) {
-    stop("Every cell needs at least 2 observations (its SD must be defined); some cells have fewer.",
-         call. = FALSE)
+    abort_input("Every cell needs at least 2 observations (its SD must be defined); some cells have fewer.")
   }
   cell_mean <- tapply(y, list(a, b), mean)
   cell_sd <- tapply(y, list(a, b), stats::sd)
@@ -333,8 +330,7 @@ factorial_frame <- function(x, data) {
   mf <- stats::model.frame(x, data)
   labels <- attr(stats::terms(x), "term.labels")
   if (ncol(mf) != 3L || !setequal(labels, c(names(mf)[2:3], paste(names(mf)[2:3], collapse = ":")))) {
-    stop("The formula must be `outcome ~ a * b`: two factors and their interaction.",
-         call. = FALSE)
+    abort_input("The formula must be `outcome ~ a * b`: two factors and their interaction.")
   }
   mf[[2L]] <- factor(mf[[2L]])
   mf[[3L]] <- factor(mf[[3L]])

@@ -20,7 +20,25 @@ check_reported(
 Pass strings, so the decimals count: \code{t = "2.85"}, \code{p = "< .001"},
 \code{df = "29"}. A quantity with one value per group or condition is a
 character vector (\code{m = c("5.1", "4.2")}). Integer-valued numbers are taken
-as exact.}
+as exact.
+
+For \code{"mediation"} (a simple, regression-based mediation, as in PROCESS model 4),
+a quantity with one value per path is a character vector named by path, \code{a}
+(X to M), \code{b} (M to Y), \code{c} (X to Y) and \code{c_prime} (X to Y with M held constant;
+\verb{c'} is accepted): \code{b}, \code{se}, \code{t}, \code{p}, \code{df}, \code{ci_lower}, \code{ci_upper} and \code{beta}
+(for example \code{ci_lower = c(a = "26.50", b = "-0.05")}). The coefficient of
+a path is \code{b}, so \code{b = c(a = "46.16", b = "-0.03")} is the path a and the path b.
+\code{n} is a single string. The indirect effect is \code{indirect}; its bootstrap interval
+(\code{indirect_ci_lower}, \code{indirect_ci_upper}) is accepted but cannot be checked.
+When a, b and \code{indirect} are all reported, \code{indirect} is checked for coherence
+with a times b: it must lie in the product of the rounding intervals of a and b.
+This is arithmetic on the printed numbers and says nothing about significance; a
+bootstrap mean reported instead of the sample a times b is one possible reason
+for a mismatch. Two further arguments are read from \code{...} for a mediation:
+\code{indirect_type} (\code{"unstandardized"}, \code{"standardized"} or \code{"partially_standardized"};
+a standardized indirect effect is only checked with \code{beta} for a and b, a
+partially standardized one is not evaluable) and \code{estimator} (\code{"sem"}, \code{"ml"} or
+\code{"lavaan"} for numbers from an ML/SEM fit, which are not evaluable as a regression).}
 
 \item{test}{The test the numbers come from, in the vocabulary of \code{\link[=sufficient_stats]{sufficient_stats()}}:
 \code{"student"}, \code{"welch"} (two independent groups; the name fixes the variant),
@@ -126,6 +144,15 @@ check_reported("paired", n = "20", t = "2.85", df = "19", p = ".010")
 # A 2 x 2 table: Yates' correction is a variant, V is a convention
 check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04",
                df = "1", p = ".0001", v = ".41")
+
+# A regression reports a number per coefficient: name them.
+# A simple mediation (mpg ~ wt through hp): the paths, and the indirect effect
+# checked for coherence with a times b
+check_reported("mediation",
+               b = c(a = "46.16", b = "-0.03", c = "-5.34", c_prime = "-3.88"),
+               se = c(a = "9.63", b = "0.01", c = "0.56", c_prime = "0.63"),
+               t = c(a = "4.80", b = "-3.52", c = "-9.56", c_prime = "-6.13"),
+               n = "32", indirect = "-1.46")
 
 # A regression reports a number per coefficient: name them.
 check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),

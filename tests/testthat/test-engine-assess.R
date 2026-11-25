@@ -62,7 +62,7 @@ test_that("a summary without meta$n is downgraded rather than trusted", {
   )
   tr <- sufficient_stats(structure(1, class = "test_no_n"))
   expect_identical(tr$verdict, "needs_raw_data")
-  expect_match(tr$verdict_reason, "did not report the sample size")
+  expect_match(tr$verdict_reason, "sample size n could not be determined")
 })
 
 test_that("both shipped handlers hit the general minimum on tiny data", {

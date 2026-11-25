@@ -113,7 +113,7 @@ paired_columns <- function(x, data) {
   mf <- stats::model.frame(x, data)
   pair <- mf[[1L]]
   if (ncol(mf) != 1L || !is.matrix(pair) || ncol(pair) != 2L) {
-    stop("The formula must be `Pair(first, second) ~ 1`.", call. = FALSE)
+    abort_input("The formula must be `Pair(first, second) ~ 1`.")
   }
   list(first = pair[, 1L], second = pair[, 2L])
 }

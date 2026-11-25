@@ -2,7 +2,7 @@
 # summaries when they do. It never errors on the verdict (a handler that fails becomes a
 # needs_raw_data verdict). Invalid input (a formula without `data` or with an unknown
 # `test`, a result without `data`, a conflicting explicit choice) is an
-# abort_impossible() error, raised by prepare_input() and below.
+# abort_input() error, raised by prepare_input() and below.
 assess <- function(x, ..., threshold = 5) {
   prep <- prepare_input(x, list(...))
   refuse <- function(reason, handler = NULL) {
@@ -16,7 +16,7 @@ assess <- function(x, ..., threshold = 5) {
   handler <- do.call(find_handler, c(list(prep$x), prep$dots))
   if (is.null(handler)) {
     if (inherits(x, "formula")) {
-      abort_impossible("find the test for this formula", no_handler_reason(x))
+      abort_input(no_handler_reason(x))
     }
     return(refuse(no_handler_reason(x)))
   }
@@ -26,8 +26,8 @@ assess <- function(x, ..., threshold = 5) {
     assess_with(handler, prep, threshold),
     error = function(e) {
       list(verdict = "needs_raw_data",
-           reason = paste0("Handler '", handler$name, "' could not assess this: ",
-                           conditionMessage(e)))
+           reason = paste0("The ", analysis_name(handler),
+                           " could not be assessed: ", conditionMessage(e)))
     }
   )
   list(verdict = res$verdict, reason = res$reason, handler = handler$name,
@@ -43,7 +43,8 @@ assess_with <- function(handler, prep, threshold) {
            paste0("Summary statistics suffice: ", handler$needs,
                   " determine the reported results exactly.")
          } else {
-           paste0("Per handler '", handler$name, "'.")
+           paste0("The ", analysis_name(handler), " cannot be reproduced from summary ",
+                  "statistics alone.")
          })
   } else {
     call_with(handler$triage, threshold = threshold)
@@ -87,7 +88,7 @@ minimum_n <- function(threshold) 2 * threshold
 
 minimum_n_problem <- function(n, threshold) {
   if (is.null(n) || is.na(n)) {
-    return("the handler did not report the sample size n")
+    return("the sample size n could not be determined")
   }
   if (n < minimum_n(threshold)) {
     return(paste0("total n = ", n, " is below the minimum of ", minimum_n(threshold),
@@ -117,8 +118,8 @@ no_handler_reason <- function(x) {
     ""
   }
   paste0(
-    "No handler for objects of class '", paste(class(x), collapse = "/"),
-    "', so reprokit cannot show that summary statistics are enough.", hint
+    "reprokit does not cover ", paste(class(x), collapse = "/"),
+    " objects, so it cannot show that summary statistics are enough.", hint
   )
 }
 

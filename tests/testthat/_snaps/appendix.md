@@ -655,7 +655,7 @@
 
     Code
       print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt)), sharing_reason = sharing,
-      choices = list(level = "0.99", convention = "adj_r2", coding = "treatment")))
+      choices = list(level = "0.99", convention = "adj_r2")))
     Output
       ## Appendix: sufficient statistics for the multiple regression
       
@@ -731,7 +731,7 @@
 
     Code
       print(appendix(sufficient_stats(lm(mpg ~ wt * hp, mt)), sharing_reason = sharing,
-      choices = list(level = 0.9, convention = "r2", centering = "none", coding = "none")))
+      choices = list(level = 0.9, convention = "r2")))
     Output
       ## Appendix: sufficient statistics for the moderation
       

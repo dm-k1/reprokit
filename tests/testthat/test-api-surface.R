@@ -39,15 +39,15 @@ test_that("sufficient_stats() returns for each disclosure flag and the print nam
   expect_output(print(s3), "category")
 })
 
-test_that("invalid input is still an abort_impossible() error", {
-  expect_error(sufficient_stats(extra ~ group, test = "welch"), class = "reprokit_impossible")
+test_that("invalid input is an abort_input() error", {
+  expect_error(sufficient_stats(extra ~ group, test = "welch"), class = "reprokit_error_input")
   expect_error(sufficient_stats(extra ~ group, data = sleep, test = "nonsense"),
-               class = "reprokit_impossible")
+               class = "reprokit_error_input")
 })
 
 test_that("check_reported() names the valid values for a handler-style test", {
   expect_error(check_reported("t_independent", t = "2.00", df = "10"), "welch")
-  expect_error(check_reported(), class = "reprokit_impossible")
+  expect_error(check_reported(), class = "reprokit_error_input")
 })
 
 test_that("check_reported() does not partial-match `t` onto `test`", {

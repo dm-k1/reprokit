@@ -1,12 +1,13 @@
-# check_lm() and check_mediation(): the wrappers for the regression family (ADR 0020
-# point 5). A regression reports a number per coefficient, so these take named vectors
+# check_lm() and check_mediation(): internal helpers behind check_reported() for the
+# regression family (ADR 0020 point 5); they are not exported. A regression reports a number per coefficient, so these take named vectors
 # (`b = c(wt = "-3.19", hp = "-0.03")`) and turn them into the per-term quantity names
 # check_reported() reads ("b:wt").
 
 # Check a reported regression, or a mediation, against itself
 #
-# `check_lm()` tests whether the numbers a paper reports for a simple regression,
-# a multiple regression or a moderation analysis agree with each other. They are
+# These helpers are reached through `check_reported("lm", ...)` and
+# `check_reported("mediation", ...)`. `check_lm()` tests whether the numbers a paper reports
+# for a simple regression, a multiple regression or a moderation analysis agree with each other. They are
 # all coherence checks, within what rounding allows: t = b / SE; p from t and the
 # residual df; the confidence interval from b, SE, the residual df and the level
 # (90%, 95% or 99%); F from R-squared and the two df, and the model p from F; n
@@ -22,10 +23,10 @@
 # with X held constant (b), X to Y (c) and X to Y with M held constant (c'), each as a
 # regression coefficient: t from b and SE, p from t and the path's df (n - 2 for a and
 # c, n - 3 for b and c'), and a reported confidence interval of the path from b, SE,
-# the df and the level (90%, 95% or 99%). The indirect effect a*b and its confidence interval are
-# listed as "not checkable": they are inferred by bootstrap, which resamples cases,
-# and summaries cannot. No Sobel, Aroian or Goodman test is computed, and a*b is
-# never marked as fitting or not fitting.
+# the df and the level (90%, 95% or 99%). The reported indirect effect is checked for
+# coherence with a*b (it must lie in the product of the rounding intervals of a and b;
+# ADR 0028). Its confidence interval is "not checkable": it is inferred by bootstrap,
+# which resamples cases, and summaries cannot. No Sobel, Aroian or Goodman test is computed.
 #
 # @param ... Reported numbers as strings, so the decimals count. Per-coefficient
 #   quantities (`b`, `se`, `t`, `p`, `ci_lower`, `ci_upper`, `beta`) are vectors named
@@ -47,12 +48,12 @@
 # @return A `reprokit_check` object, see [check_reported()].
 # @examples
 # # mpg ~ wt + hp on mtcars (n = 32)
-# check_lm(b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
-#          t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
+# check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
+#                t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
 #          r2 = ".83", f = "69.21", df1 = "2", df2 = "29", n = "32")
 check_lm <- function(..., handler = "lm_multiple", variants = NULL, k = NULL) {
   if (!handler %in% c("lm_simple", "lm_multiple", "lm_moderation")) {
-    stop("`handler` must be \"lm_simple\", \"lm_multiple\" or \"lm_moderation\".", call. = FALSE)
+    abort_input("`handler` must be \"lm_simple\", \"lm_multiple\" or \"lm_moderation\".")
   }
   dots <- flatten_lm_report(list(...), handler)
   do.call(check_handler, c(list(handler = handler), dots, list(variants = variants, k = k)))
@@ -61,8 +62,7 @@ check_lm <- function(..., handler = "lm_multiple", variants = NULL, k = NULL) {
 # Named vectors per coefficient become "base:term". Everything else passes through.
 flatten_lm_report <- function(dots, handler) {
   if (length(dots) > 0L && (is.null(names(dots)) || any(!nzchar(names(dots))))) {
-    stop("Every reported number must be named by its quantity, for example t = c(wt = \"-6.13\").",
-         call. = FALSE)
+    abort_input("Every reported number must be named by its quantity, for example t = c(wt = \"-6.13\").")
   }
   per_term <- c("b", "se", "t", "p", "ci_lower", "ci_upper", "beta")
   terms <- character()
@@ -70,8 +70,8 @@ flatten_lm_report <- function(dots, handler) {
     nm <- names(dots[[q]])
     if (is.null(nm)) {
       if (length(dots[[q]]) != 1L || handler != "lm_simple") {
-        stop("`", q, "` has one value per coefficient: name them, ",
-             "e.g. ", q, " = c(wt = \"...\", hp = \"...\").", call. = FALSE)
+        abort_input("`", q, "` has one value per coefficient: name them, ",
+             "e.g. ", q, " = c(wt = \"...\", hp = \"...\").")
       }
     } else {
       terms <- union(terms, nm)
@@ -103,8 +103,8 @@ flatten_lm_sd <- function(value, terms, handler) {
     if (handler == "lm_simple" && length(value) == 2L && length(terms) == 1L) {
       return(stats::setNames(as.list(unname(value)), c(paste0("sd:", terms), "sd:(response)")))
     }
-    stop("`sd` needs names: the coefficients' and the outcome's, ",
-         "e.g. sd = c(wt = \"0.98\", mpg = \"6.03\").", call. = FALSE)
+    abort_input("`sd` needs names: the coefficients' and the outcome's, ",
+         "e.g. sd = c(wt = \"0.98\", mpg = \"6.03\").")
   }
   outcome <- setdiff(nm, terms)
   if (length(outcome) > 1L) return(list())
@@ -125,14 +125,12 @@ flatten_lm_sd <- function(value, terms, handler) {
 check_mediation <- function(..., variants = NULL, indirect_type = NULL, estimator = NULL) {
   dots <- list(...)
   if (length(dots) > 0L && (is.null(names(dots)) || any(!nzchar(names(dots))))) {
-    stop("Every reported number must be named by its quantity, for example n = \"32\".",
-         call. = FALSE)
+    abort_input("Every reported number must be named by its quantity, for example n = \"32\".")
   }
   types <- c("unstandardized", "standardized", "partially_standardized")
   if (!is.null(indirect_type) && !(is.character(indirect_type) && length(indirect_type) == 1L &&
                                    indirect_type %in% types)) {
-    stop("`indirect_type` must be one of: ", paste0("\"", types, "\"", collapse = ", "), ".",
-         call. = FALSE)
+    abort_input("`indirect_type` must be one of: ", paste0("\"", types, "\"", collapse = ", "), ".")
   }
   # ADR 0028 point 1: ML/SEM estimation (z tests for the paths, or declared) is never
   # checked as regression.
@@ -154,8 +152,8 @@ check_mediation <- function(..., variants = NULL, indirect_type = NULL, estimato
     if (q %in% per_path) {
       paths <- names(value)
       if (is.null(paths) || !all(nzchar(paths))) {
-        stop("`", q, "` has one value per path: name them a, b, c and c_prime, ",
-             "e.g. ", q, " = c(a = \"...\", b = \"...\").", call. = FALSE)
+        abort_input("`", q, "` has one value per path: name them a, b, c and c_prime, ",
+             "e.g. ", q, " = c(a = \"...\", b = \"...\").")
       }
       paths <- sub("^c'$|^c\u2032$", "c_prime", paths)
       out[paste0(q, ":", paths)] <- as.list(unname(value))
@@ -247,26 +245,26 @@ check_F <- function(..., handler = NULL, variants = NULL, effect = NULL, # nolin
   shapes <- Filter(Negate(is.null), shapes)
   if (length(shapes) > 0L) {
     if (any(vapply(shapes, length, integer(1)) != 2L)) {
-      stop("`n`, `m` and `sd` must be matrices with one row per level of the first factor ",
-           "and one column per level of the second, or plain vectors.", call. = FALSE)
+      abort_input("`n`, `m` and `sd` must be matrices with one row per level of the first factor ",
+           "and one column per level of the second, or plain vectors.")
     }
     if (length(unique(shapes)) > 1L) {
-      stop("`n`, `m` and `sd` must have the same dimensions; got ",
+      abort_input("`n`, `m` and `sd` must have the same dimensions; got ",
            paste0(names(shapes), " = ", vapply(shapes, paste, character(1), collapse = " x "),
-                  collapse = ", "), ".", call. = FALSE)
+                  collapse = ", "), ".")
     }
     shape <- shapes[[1L]]
     if (!is.null(dims) && !identical(as.integer(dims), as.integer(shape))) {
-      stop("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of ",
-           "the matrices (", paste(shape, collapse = " x "), ").", call. = FALSE)
+      abort_input("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of ",
+           "the matrices (", paste(shape, collapse = " x "), ").")
     }
     dims <- shape
   }
   for (q in intersect(names(dots), c("n", "m", "sd"))) {
     dots[[q]] <- as.vector(unclass(dots[[q]]))
     if (!is.null(dims) && length(dots[[q]]) != prod(dims)) {
-      stop("`", q, "` has ", length(dots[[q]]), " values, but `dims` says ",
-           paste(dims, collapse = " x "), " = ", prod(dims), " cells.", call. = FALSE)
+      abort_input("`", q, "` has ", length(dots[[q]]), " values, but `dims` says ",
+           paste(dims, collapse = " x "), " = ", prod(dims), " cells.")
     }
   }
   if (!is.null(dims)) check_factorial_dims(dims)
@@ -285,13 +283,13 @@ check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = 
     # A 1-d table is a vector of counts.
     if (length(shape) == 1L) shape <- NULL
     if (length(shape) > 2L) {
-      stop("`n` must be a matrix or a vector, not an array of ", length(shape),
-           " dimensions.", call. = FALSE)
+      abort_input("`n` must be a matrix or a vector, not an array of ", length(shape),
+           " dimensions.")
     }
     if (!is.null(shape)) {
       if (!is.null(dims) && !identical(as.integer(dims), as.integer(shape))) {
-        stop("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of `n` (",
-             paste(shape, collapse = " x "), ").", call. = FALSE)
+        abort_input("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of `n` (",
+             paste(shape, collapse = " x "), ").")
       }
       dims <- shape
     }
@@ -305,12 +303,11 @@ check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = 
     }
   }
   if (!handler %in% c("chisq_independence", "chisq_gof")) {
-    stop("`handler` must be \"chisq_independence\" or \"chisq_gof\".", call. = FALSE)
+    abort_input("`handler` must be \"chisq_independence\" or \"chisq_gof\".")
   }
   if (handler == "chisq_gof" && is.null(dims) && !is.null(dots[["n"]])) dims <- length(dots[["n"]])
   if (handler == "chisq_independence" && !is.null(p0)) {
-    stop("`p0` is for goodness of fit; a test of independence has no H0 proportions.",
-         call. = FALSE)
+    abort_input("`p0` is for goodness of fit; a test of independence has no H0 proportions.")
   }
   if (!is.null(p0)) check_p0(p0, if (handler == "chisq_gof") dims else NULL)
   if (!is.null(dims)) check_table_dims(dims, if (handler == "chisq_gof") "gof" else "independence")

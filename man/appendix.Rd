@@ -34,7 +34,7 @@ the effect-size convention, as a variant code (e.g. \code{"d_z"}, \code{"d_av"})
 Declaring it is a reprokit rule, not an APA requirement. \code{ss_type}: for a
 factorial ANOVA, the type of sums of squares (\code{"III"}, \code{"II"} or \code{"I"}); only
 an unbalanced design needs it. Left out, the appendix uses type III and says
-it is reprokit's default, not the author's answer (ADR 0025); checking a paper
+it is reprokit's default, not the author's answer; checking a paper
 never assumes a type. \code{level}: for a regression or mediation, the
 confidence level of the paper's intervals (\code{"0.95"}, \code{"0.90"} or \code{"0.99"});
 for a regression, \code{convention} is \code{"r2"} or \code{"adj_r2"} (the R-squared the paper
@@ -55,10 +55,10 @@ A character vector of markdown lines, class \code{reprokit_appendix}. Refuses wi
 error of class \code{reprokit_impossible} when summaries do not suffice.
 }
 \description{
-The APA Publication Manual (7th ed., §3.7) says that when the sufficient set
+The APA Publication Manual (seventh edition, section 3.7) says that when the sufficient set
 of statistics is extensive, "the information could be supplied in a
 supplementary data set or an appendix". \code{appendix()} writes that appendix as
-markdown, in four blocks generated from the handler registry:
+markdown, in four blocks generated from reprokit's test definitions:
 }
 \details{
 \itemize{

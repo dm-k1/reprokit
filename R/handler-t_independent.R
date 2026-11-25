@@ -149,11 +149,11 @@ t_independent_summarise <- function(x, data, test, alternative = "two.sided", co
                                     ...) {
   alternative <- match.arg(alternative, c("two.sided", "less", "greater"))
   mf <- stats::model.frame(x, data)
-  if (ncol(mf) != 2L) stop("The formula must be `outcome ~ group`.", call. = FALSE)
+  if (ncol(mf) != 2L) abort_input("The formula must be `outcome ~ group`.")
   y <- mf[[1L]]
   g <- factor(mf[[2L]])
   if (nlevels(g) != 2L) {
-    stop("The grouping variable must have exactly 2 groups, not ", nlevels(g), ".", call. = FALSE)
+    abort_input("The grouping variable must have exactly 2 groups, not ", nlevels(g), ".")
   }
   list(
     stats = list(

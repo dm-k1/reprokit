@@ -105,11 +105,10 @@ check_table_dims <- function(dims, kind) {
   ok <- is.numeric(dims) && all(dims == round(dims)) && all(dims >= 2)
   if (kind == "independence") {
     if (!ok || length(dims) != 2L) {
-      stop("`dims` must be c(rows, columns), two whole numbers of at least 2.", call. = FALSE)
+      abort_input("`dims` must be c(rows, columns), two whole numbers of at least 2.")
     }
   } else if (!ok || length(dims) != 1L) {
-    stop("`dims` must be the number of categories, one whole number of at least 2.",
-         call. = FALSE)
+    abort_input("`dims` must be the number of categories, one whole number of at least 2.")
   }
   invisible(dims)
 }
@@ -117,22 +116,22 @@ check_table_dims <- function(dims, kind) {
 # p0: k proportions that sum to 1 (within 1e-8); an input error otherwise.
 check_p0 <- function(p0, k = NULL) {
   if (!is.numeric(p0) || anyNA(p0) || any(p0 < 0)) {
-    stop("`p0` must be non-negative numbers, one proportion per category.", call. = FALSE)
+    abort_input("`p0` must be non-negative numbers, one proportion per category.")
   }
   if (!is.null(k) && length(p0) != k) {
-    stop("`p0` must have one proportion per category: length ", k, ", but got ", length(p0),
-         ".", call. = FALSE)
+    abort_input("`p0` must have one proportion per category: length ", k, ", but got ", length(p0),
+         ".")
   }
   if (abs(sum(p0) - 1) > 1e-8) {
-    stop("`p0` must sum to 1 (within 1e-8), but sums to ", format(sum(p0)), ".", call. = FALSE)
+    abort_input("`p0` must sum to 1 (within 1e-8), but sums to ", format(sum(p0)), ".")
   }
   invisible(p0)
 }
 
 table_matrix <- function(n, dims) {
   if (length(n) != prod(dims)) {
-    stop("`n` has ", length(n), " counts, but a table of ", dims[1L], " x ", dims[2L],
-         " has ", prod(dims), ".", call. = FALSE)
+    abort_input("`n` has ", length(n), " counts, but a table of ", dims[1L], " x ", dims[2L],
+         " has ", prod(dims), ".")
   }
   matrix(n, nrow = dims[1L], ncol = dims[2L])
 }
@@ -151,7 +150,7 @@ chisq_table_stat <- function(n, dims, yates = FALSE) {
 
 chisq_gof_stat <- function(n, p0 = NULL, k = length(n)) {
   if (length(n) != k) {
-    stop("`n` has ", length(n), " counts, but `dims` says ", k, " categories.", call. = FALSE)
+    abort_input("`n` has ", length(n), " counts, but `dims` says ", k, " categories.")
   }
   p <- if (is.null(p0)) rep(1 / k, k) else p0
   expected <- sum(n) * p
@@ -221,7 +220,7 @@ chisq_gof_relations <- function(dims = NULL, p0 = NULL) {
 
 chisq_independence_frame <- function(x, data) {
   mf <- stats::model.frame(x, data)
-  if (ncol(mf) != 2L) stop("The formula must be `~ a + b`.", call. = FALSE)
+  if (ncol(mf) != 2L) abort_input("The formula must be `~ a + b`.")
   table(factor(mf[[1L]]), factor(mf[[2L]]), dnn = names(mf))
 }
 
@@ -246,8 +245,7 @@ chisq_independence_summarise <- function(x, data, test, correct = TRUE, table = 
     chisq_table_from_observed(table, c("row", "column"))
   dims <- dim(tab)
   if (any(dims < 2L)) {
-    stop("Both variables need at least 2 categories; got ", dims[1L], " and ", dims[2L], ".",
-         call. = FALSE)
+    abort_input("Both variables need at least 2 categories; got ", dims[1L], " and ", dims[2L], ".")
   }
   yates <- isTRUE(correct) && all(dims == 2L)
   list(
@@ -282,7 +280,7 @@ chisq_independence_reported <- function(x, data, test, correct = TRUE, ...) {
 
 chisq_gof_table <- function(x, data) {
   mf <- stats::model.frame(x, data)
-  if (ncol(mf) != 1L) stop("The formula must be `~ a`.", call. = FALSE)
+  if (ncol(mf) != 1L) abort_input("The formula must be `~ a`.")
   f <- mf[[1L]]
   table(if (is.factor(f)) f else factor(f), dnn = names(mf))
 }
@@ -291,10 +289,10 @@ chisq_gof_summarise <- function(x, data, test, p0 = NULL, table = NULL, ...) {
   tab <- if (is.null(table)) chisq_gof_table(x, data) else
     chisq_table_from_observed(table, "category")
   k <- length(tab)
-  if (k < 2L) stop("The variable needs at least 2 categories, not ", k, ".", call. = FALSE)
+  if (k < 2L) abort_input("The variable needs at least 2 categories, not ", k, ".")
   if (is.null(p0)) p0 <- rep(1 / k, k)
   check_p0(p0, k)
-  if (any(p0 <= 0)) stop("`p0` must be positive for every category.", call. = FALSE)
+  if (any(p0 <= 0)) abort_input("`p0` must be positive for every category.")
   list(
     stats = list(n = as.vector(tab), p0 = as.numeric(p0)),
     meta = list(n = sum(tab), test = test, dims = k, p0 = as.numeric(p0),

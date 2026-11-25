@@ -12,7 +12,7 @@
 #   read      choices read from the result, a named list with attribute `fn`
 #   expected  the result's own numbers, for the match check (or NULL)
 #   problem   a reason the result cannot be shared (a verdict, not an error), or NULL
-# Invalid input (no data, a conflicting explicit choice) is an abort_impossible() error.
+# Invalid input (no data, a conflicting explicit choice) is an abort_input() error.
 prepare_input <- function(x, dots) {
   route <- if (inherits(x, "formula")) "formula" else if (inherits(x, "lm")) "lm" else "model"
   out <- list(x = x, dots = dots, route = route, read = list(), expected = NULL, problem = NULL)
@@ -48,17 +48,14 @@ refuse_result <- function(out, reason) {
 check_formula_input <- function(out) {
   test <- out$dots[["test"]]
   if (is.null(test)) {
-    abort_impossible("find the test for this formula", no_handler_reason(out$x))
+    abort_input(no_handler_reason(out$x))
   }
   known <- is.character(test) && length(test) == 1L && test %in% formula_tests()
   if (!known) {
-    abort_impossible(
-      "find the test for this formula",
-      paste0("`test` must be one of: ", paste0('"', formula_tests(), '"', collapse = ", "), ".")
-    )
+    abort_input("`test` must be one of: ", paste0('"', formula_tests(), '"', collapse = ", "), ".")
   }
   if (!is.data.frame(out$dots[["data"]])) {
-    abort_impossible("summarise this formula", "`data` must be a data frame.")
+    abort_input("`data` must be a data frame.")
   }
   out
 }
@@ -67,13 +64,10 @@ check_formula_input <- function(out) {
 read_choice <- function(out, name, value, label = name) {
   given <- out$dots[[name]]
   if (!is.null(given) && !isTRUE(all.equal(unname(given), unname(value), tolerance = 1e-12))) {
-    abort_impossible(
-      paste0("use `", name, " = ", paste(format(given), collapse = ", "), "` with this result"),
-      paste0("the ", attr(out$read, "fn"), " result records ", label, " = ",
-             paste(format(value), collapse = ", "),
-             ", and an explicit choice that conflicts with it is refused. Drop `", name,
-             "`, or share from the formula instead."),
-      alternatives = character()
+    abort_input(
+      "`", name, " = ", paste(format(given), collapse = ", "), "` conflicts with this result: the ",
+      attr(out$read, "fn"), " result records ", label, " = ", paste(format(value), collapse = ", "),
+      ". Drop `", name, "`, or share from the formula instead."
     )
   }
   out$dots[[name]] <- value
@@ -84,11 +78,10 @@ read_choice <- function(out, name, value, label = name) {
 set_test <- function(out, value) {
   given <- out$dots[["test"]]
   if (!is.null(given) && !identical(given, value)) {
-    abort_impossible(
-      paste0("use `test = \"", given, "\"` with this ", attr(out$read, "fn"), " result"),
-      paste0("the result is a \"", value, "\" test; an explicit choice that conflicts with ",
-             "it is refused. Drop `test`, or share from the formula instead."),
-      alternatives = character())
+    abort_input(
+      "`test = \"", given, "\"` conflicts with this ", attr(out$read, "fn"), " result: it is a \"",
+      value, "\" test. Drop `test`, or share from the formula instead."
+    )
   }
   out$dots[["test"]] <- value
   out
@@ -145,9 +138,8 @@ prepare_aov <- function(out) {
       "factors with their interaction; reprokit does not evaluate other designs.")))
   }
   if (!is.null(out$dots[["test"]]) && !identical(out$dots[["test"]], test)) {
-    abort_impossible(
-      paste0("use `test = \"", out$dots[["test"]], "\"` with this aov"),
-      paste0("the aov is a ", test, " design."), alternatives = character())
+    abort_input("`test = \"", out$dots[["test"]], "\"` conflicts with this aov: it is a ", test,
+                " design.")
   }
   rhs <- if (test == "oneway") as.name(p) else {
     call("*", as.name(p[1L]), as.name(p[2L]))
@@ -248,11 +240,8 @@ unmappable <- function(out, fn, hint) {
 result_data <- function(out, fn) {
   data <- out$dots[["data"]]
   if (!is.data.frame(data)) {
-    abort_impossible(
-      paste0("share from this ", fn, " result without `data`"),
-      paste0("a ", fn, " result does not contain the data. Pass the data frame it was ",
-             "computed from as `data = `."),
-      alternatives = character())
+    abort_input("A ", fn, " result does not contain the data. Pass the data frame it was ",
+                "computed from as `data = `.")
   }
   data
 }
@@ -415,9 +404,8 @@ match_aov <- function(handler, s, table, route) {
 prepare_mediation <- function(out, second) {
   fits <- c(list(out$x), second)
   if (length(fits) != 2L) {
-    abort_impossible("share a mediation from more than two models",
-                     "a simple mediation is two models: M ~ X and Y ~ X + M.",
-                     alternatives = character())
+    abort_input("A simple mediation is two models, M ~ X and Y ~ X + M; got ",
+                length(fits), ".")
   }
   out$route <- "lm"
   nm <- names(out$dots)
@@ -449,13 +437,12 @@ prepare_mediation <- function(out, second) {
       return(not_simple(paste0("covariates, extra mediators or other terms are outside the ",
                                "simple mediation (M ~ X and Y ~ X + M), so it is not evaluable.")))
     }
-    abort_impossible(
-      "share a mediation from these two models",
-      paste0("they fit neither role: the mediator model M ~ X and the outcome model ",
-             "Y ~ X + M, where M is the response of the first. Got ",
-             paste(vapply(fits, function(f) paste(deparse(stats::formula(f)), collapse = ""),
-                          character(1)), collapse = " and "), "."),
-      alternatives = character())
+    abort_input(
+      "These two models fit neither role: the mediator model M ~ X and the outcome model ",
+      "Y ~ X + M, where M is the response of the first. Got ",
+      paste(vapply(fits, function(f) paste(deparse(stats::formula(f)), collapse = ""),
+                   character(1)), collapse = " and "), "."
+    )
   }
   med <- fits[[roles[1L]]]
   outc <- fits[[roles[2L]]]

@@ -47,6 +47,9 @@ The central object of the share direction. Users get one from
 The check functions do not use it: they work from reported numbers.
 }
 \details{
+Authors never call this constructor: \code{\link[=sufficient_stats]{sufficient_stats()}} builds the object and fills
+\code{lost} from the test.
+
 This constructor cannot make an object without a non-empty list of what readers
 lose. The author's reason for not sharing is not stored here: it belongs to
 \code{\link[=appendix]{appendix()}} alone, is optional, and is never filled in by reprokit.

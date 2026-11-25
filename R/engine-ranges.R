@@ -3,8 +3,8 @@ check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0
                            effect = NULL, k = NULL) {
   entry <- get_handler(handler)
   if ("effect" %in% entry$test_args && is.null(effect)) {
-    stop("Handler '", handler, "' checks one effect at a time: name it with ",
-         "`effect = \"A\"`, `\"B\"` or `\"AB\"`.", call. = FALSE)
+    abort_input("A factorial ANOVA is checked one effect at a time: name it with ",
+                "`effect = \"A\"`, `\"B\"` or `\"AB\"`.")
   }
   args <- test_arguments(mu = mu, dims = dims, p0 = p0, effect = effect, k = k)
   dots <- list(...)
@@ -17,13 +17,13 @@ check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0
   }
   entry$relations <- relations_at(entry, args)
   if (length(entry$relations) == 0L) {
-    stop("Handler '", handler, "' has no relations to check against. Handlers that do: ",
-         paste(handlers_with_relations(), collapse = ", "), ".", call. = FALSE)
+    abort_input("reprokit has no relations to check ", analysis_name(entry),
+                " against reported numbers. Tests it can check: ",
+                paste(names(check_tests()), collapse = ", "), ".")
   }
   reported <- dots
   if (length(reported) > 0L && (is.null(names(reported)) || any(!nzchar(names(reported))))) {
-    stop("Every reported number must be named by its quantity, for example t = \"2.85\".",
-         call. = FALSE)
+    abort_input("Every reported number must be named by its quantity, for example t = \"2.85\".")
   }
   check_quantity_names(names(reported), "reported quantity", terms = has_terms)
   check_arity(reported, entry$cells, entry$per_cell)
@@ -96,39 +96,49 @@ relations_at <- function(entry, args = list()) {
     value <- args[[name]]
     if (name == "effect") {
       if (!(is.character(value) && length(value) == 1L && value %in% c("A", "B", "AB"))) {
-        stop("`effect` must be one of \"A\", \"B\" or \"AB\".", call. = FALSE)
+        abort_input("`effect` must be one of \"A\", \"B\" or \"AB\".")
       }
     } else if (name == "terms") {
       if (!(is.character(value) && length(value) >= 1L && !anyNA(value) && all(nzchar(value)))) {
-        stop("`terms` must be coefficient names.", call. = FALSE)
+        abort_input("`terms` must be coefficient names.")
       }
     } else if (name == "k") {
       if (!(is.numeric(value) && length(value) == 1L && is.finite(value) && value >= 1 &&
               value == round(value))) {
-        stop("`k` must be one whole number, at least 1 (the number of predictor columns).",
-             call. = FALSE)
+        abort_input("`k` must be one whole number, at least 1 (the number of predictor columns).")
       }
     } else if (name == "balanced") {
       if (!(is.logical(value) && length(value) == 1L && !is.na(value))) {
-        stop("`balanced` must be TRUE or FALSE.", call. = FALSE)
+        abort_input("`balanced` must be TRUE or FALSE.")
       }
     } else if (!is.numeric(value) || length(value) < 1L || any(!is.finite(value))) {
-      stop("`", name, "` must be ", if (name == "mu") "one finite number" else
-             "finite numbers", ".", call. = FALSE)
+      abort_input("`", name, "` must be ", if (name == "mu") "one finite number" else
+             "finite numbers", ".")
     }
-    if (name == "mu" && length(value) != 1L) stop("`mu` must be one finite number.", call. = FALSE)
+    if (name == "mu" && length(value) != 1L) abort_input("`mu` must be one finite number.")
     if (!name %in% entry$test_args) {
-      stop("Handler '", entry$name, "' has no test argument `", name, "`",
+      abort_input("`", name, "` does not apply to ", analysis_name(entry),
            if (length(setdiff(entry$test_args, "terms")) > 0L) {
              paste0("; it takes ", paste0("`", setdiff(entry$test_args, "terms"), "`",
                                           collapse = ", "))
            } else {
              " (it takes none)"
-           }, ".", call. = FALSE)
+           }, ".")
     }
   }
   if (is.null(entry$relations_at)) return(entry$relations)
   do.call(entry$relations_at, args)
+}
+
+# The test's plain name for messages, from the handler's `analysis` label without its
+# parenthetical: "Independent-samples t-test (Student, Welch)" -> "independent-samples t-test".
+# A name (Pearson, Student, Welch) or an acronym keeps its capital.
+analysis_name <- function(handler) {
+  x <- sub(" \\(.*$", "", handler$analysis)
+  if (grepl("^[A-Z][a-z]", x) && !grepl("^(Pearson|Student|Welch)", x)) {
+    x <- paste0(tolower(substr(x, 1L, 1L)), substring(x, 2L))
+  }
+  x
 }
 
 handlers_with_relations <- function() {
@@ -178,8 +188,8 @@ evaluate_relations <- function(relations, intervals, variants, implied = list())
   known_variants <- unique(unlist(lapply(relations, `[[`, "variants")))
   unknown <- setdiff(variants, known_variants)
   if (length(unknown) > 0L) {
-    stop("Unknown variant: ", paste0("'", unknown, "'", collapse = ", "),
-         ". This handler has: ", paste(known_variants, collapse = ", "), ".", call. = FALSE)
+    abort_input("Unknown variant: ", paste0("'", unknown, "'", collapse = ", "),
+         ". This test has: ", paste(known_variants, collapse = ", "), ".")
   }
   rows <- list()
   # Shared by the variants of one call (never across calls): see sd_stationary().

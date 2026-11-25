@@ -18,8 +18,8 @@ test_that("conventions() lists every handler's codes in the documented shape", {
   expect_identical(conventions("t_paired"), x[x$handler == "t_paired", ], ignore_attr = TRUE)
 })
 
-test_that("an unknown handler is impossible", {
-  expect_error(conventions("nope"), class = "reprokit_impossible")
+test_that("an unknown handler is an input error", {
+  expect_error(conventions("nope"), class = "reprokit_error_input")
   expect_error(conventions("cor_pearson") -> r, NA)
   expect_identical(nrow(r), 0L)
 })

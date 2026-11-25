@@ -8,10 +8,10 @@
 
 #' Write the reporting appendix for a sufficient-statistics object
 #'
-#' The APA Publication Manual (7th ed., §3.7) says that when the sufficient set
+#' The APA Publication Manual (seventh edition, section 3.7) says that when the sufficient set
 #' of statistics is extensive, "the information could be supplied in a
 #' supplementary data set or an appendix". `appendix()` writes that appendix as
-#' markdown, in four blocks generated from the handler registry:
+#' markdown, in four blocks generated from reprokit's test definitions:
 #'
 #' * **A.** the numbers APA style asks for, with their values;
 #' * **B.** the numbers APA does not require but the result needs, with their
@@ -38,7 +38,7 @@
 #'   Declaring it is a reprokit rule, not an APA requirement. `ss_type`: for a
 #'   factorial ANOVA, the type of sums of squares (`"III"`, `"II"` or `"I"`); only
 #'   an unbalanced design needs it. Left out, the appendix uses type III and says
-#'   it is reprokit's default, not the author's answer (ADR 0025); checking a paper
+#'   it is reprokit's default, not the author's answer; checking a paper
 #'   never assumes a type. `level`: for a regression or mediation, the
 #'   confidence level of the paper's intervals (`"0.95"`, `"0.90"` or `"0.99"`);
 #'   for a regression, `convention` is `"r2"` or `"adj_r2"` (the R-squared the paper
@@ -72,15 +72,15 @@ appendix <- function(x, ..., sharing_reason, choices = list(), digits = 2L,
             "reprokit never writes a reason for you.", call. = FALSE)
   }
   if ("lost" %in% names(list(...))) {
-    stop("`lost` is not an argument of appendix(): reprokit states what readers lose, ",
-         "from the test.", call. = FALSE)
+    abort_input("`lost` is not an argument of appendix(): reprokit states what readers lose, ",
+         "from the test.")
   }
   s <- if (is_sufficient_stats(x)) x else sufficient_stats(x, ..., threshold = threshold)
   require_summaries(s, "write an appendix")
   choices <- appendix_choices(s, choices)
   h <- get_handler(s$handler)
   if (is.null(h$design)) {
-    stop("No appendix for `", s$handler, "` yet: its APA set is not declared.", call. = FALSE)
+    abort_input("No appendix for the ", analysis_name(h), " yet: its APA set is not declared.")
   }
   answers <- appendix_answers(h, s, choices)
   vals <- appendix_values(h, s, answers)
@@ -124,8 +124,7 @@ appendix_answers <- function(h, s, choices) {
   kinds <- unique(unlist(lapply(h$relations, function(rel) names(rel$variants))))
   convention_codes <- variant_codes(h, "convention")
   if (!is.null(choices$convention) && length(convention_codes) == 0L) {
-    stop("`", h$name, "` has no effect-size convention to declare; drop `choices$convention`.",
-         call. = FALSE)
+    abort_input("`", h$name, "` has no effect-size convention to declare; drop `choices$convention`.")
   }
   # A handler with one convention (V, w) has nothing for the author to choose.
   convention <- if (!is.null(choices$convention)) {
@@ -136,8 +135,8 @@ appendix_answers <- function(h, s, choices) {
     NA_character_
   }
   if (!is.na(convention) && !convention %in% convention_codes) {
-    stop("`choices$convention` must be one of: ",
-         paste0("\"", convention_codes, "\"", collapse = ", "), ".", call. = FALSE)
+    abort_input("`choices$convention` must be one of: ",
+         paste0("\"", convention_codes, "\"", collapse = ", "), ".")
   }
   test <- if (is.null(s$meta$test_variant)) s$meta$test else s$meta$test_variant
   ss_codes <- variant_codes(h, "test")
@@ -148,11 +147,11 @@ appendix_answers <- function(h, s, choices) {
     test <- if (!is.null(choices$ss_type)) choices$ss_type else
       if (!is.null(s$meta$ss_type)) s$meta$ss_type else ss_type_codes()[1L]
     if (!is.na(test) && !test %in% ss_codes) {
-      stop("`choices$ss_type` must be one of: ",
-           paste0("\"", ss_codes, "\"", collapse = ", "), ".", call. = FALSE)
+      abort_input("`choices$ss_type` must be one of: ",
+           paste0("\"", ss_codes, "\"", collapse = ", "), ".")
     }
   } else if (!is.null(choices$ss_type)) {
-    stop("`", h$name, "` has no SS type to declare; drop `choices$ss_type`.", call. = FALSE)
+    abort_input("`", h$name, "` has no SS type to declare; drop `choices$ss_type`.")
   }
   # A regression's CI level is not an argument of the analysis: the author declares the
   # level the paper's intervals use (`choices$level`), like the convention.
@@ -165,8 +164,7 @@ appendix_answers <- function(h, s, choices) {
   }
   if (is.null(h$design$terms) && !is.null(choices$level) &&
       is.null(attr(s$choices_read, "fn"))) {
-    stop("`", h$name, "` takes its confidence level from the analysis; drop `choices$level`.",
-         call. = FALSE)
+    abort_input("`", h$name, "` takes its confidence level from the analysis; drop `choices$level`.")
   }
   answers <- list(
     tail = s$meta$alternative,
@@ -184,9 +182,8 @@ appendix_level <- function(level) {
   if (is.null(level)) return(NA_character_)
   code <- if (is.numeric(level)) sprintf("%.2f", level) else level
   if (length(code) != 1L || !code %in% confidence_levels()) {
-    stop("`choices$level` must be one of: ",
-         paste0("\"", confidence_levels(), "\"", collapse = ", "), " (or 0.90, 0.95, 0.99).",
-         call. = FALSE)
+    abort_input("`choices$level` must be one of: ",
+         paste0("\"", confidence_levels(), "\"", collapse = ", "), " (or 0.90, 0.95, 0.99).")
   }
   code
 }
@@ -410,17 +407,38 @@ appendix_block_d <- function(h) {
 
 # Explicit choices against the ones the result records: a conflict is refused.
 appendix_choices <- function(s, choices) {
-  if (!is.list(choices)) stop("`choices` must be a named list.", call. = FALSE)
+  if (!is.list(choices) ||
+        (length(choices) > 0L && (is.null(names(choices)) || !all(nzchar(names(choices)))))) {
+    abort_input("`choices` must be a named list.")
+  }
+  h <- get_handler(s$handler)
+  valid <- unique(conventions(h$name)$choice)
+  if (has_ss_types(h)) valid <- c(valid, "ss_type")
+  if (!is.null(h$design$terms) || !is.null(s$meta$conf_level)) valid <- c(valid, "level")
+  # A name reprokit knows but this test does not take gets its own, more specific
+  # refusal below; only names reprokit has never heard of are refused here.
+  unknown <- setdiff(names(choices), c("convention", "ss_type", "level"))
+  if (length(unknown) > 0L) {
+    abort_input(
+      "Unknown choice ", paste0("`", unknown, "`", collapse = ", "), " for the ",
+      analysis_name(h), ". ",
+      if (length(valid) > 0L) {
+        paste0("Valid choices: ", paste0("`", valid, "`", collapse = ", "), ".")
+      } else {
+        "It takes no choices."
+      }
+    )
+  }
   fn <- attr(s$choices_read, "fn")
   level <- choices[["level"]]
   if (!is.null(level) && !is.null(s$meta$conf_level)) {
     given <- if (is.numeric(level)) level else suppressWarnings(as.numeric(level))
     if (is.na(given) || abs(given - s$meta$conf_level) > 1e-8) {
-      abort_impossible(
-        paste0("use `choices$level = ", format(level), "`"),
-        paste0("the analysis was run with confidence level ", s$meta$conf_level,
-               if (!is.null(fn)) paste0(" (read from the ", fn, " result)"), "."),
-        alternatives = character())
+      abort_input(
+        "`choices$level = ", format(level), "` conflicts with the analysis, which was run with ",
+        "confidence level ", s$meta$conf_level,
+        if (!is.null(fn)) paste0(" (read from the ", fn, " result)"), "."
+      )
     }
   }
   choices

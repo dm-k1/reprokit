@@ -210,8 +210,8 @@ lm_simple_relations <- function(term) {
 # the number of predictor columns, when known; simple regression has k = 1.
 lm_relations <- function(terms, k = NULL, simple = FALSE) {
   if (simple && length(terms) != 1L) {
-    stop("Simple regression has one coefficient (the slope); got ",
-         paste0("'", terms, "'", collapse = ", "), ".", call. = FALSE)
+    abort_input("Simple regression has one coefficient (the slope); got ",
+         paste0("'", terms, "'", collapse = ", "), ".")
   }
   c(unlist(lapply(terms, lm_term_relations), recursive = FALSE),
     lm_model_relations(),
