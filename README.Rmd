@@ -96,8 +96,9 @@ Further numbers the appendix does not print by default (eta squared, omega squar
 R squared, standardized betas, and so on) are added with `extra`: names, or `"all"`.
 
 ```{r}
-cat(tail(appendix(s, choices = list(convention = "pooled"), extra = c("r2", "omega2"),
-                  sharing_reason = "Consent did not cover public sharing."), 9), sep = "\n")
+x <- strsplit(paste(appendix(s, choices = list(convention = "pooled"), extra = c("r2", "omega2"),
+                  sharing_reason = "Consent did not cover public sharing."), collapse = "\n"), "\n")[[1]]
+cat(x[seq(grep("Additional numbers", x), grep("Raw data", x) - 1)], sep = "\n")
 ```
 
 ### From your fitted result

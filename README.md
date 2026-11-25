@@ -153,17 +153,17 @@ omega squared, R squared, standardized betas, and so on) are added with
 `extra`: names, or `"all"`.
 
 ``` r
-cat(tail(appendix(s, choices = list(convention = "pooled"), extra = c("r2", "omega2"),
-                  sharing_reason = "Consent did not cover public sharing."), 9), sep = "\n")
+x <- strsplit(paste(appendix(s, choices = list(convention = "pooled"), extra = c("r2", "omega2"),
+                  sharing_reason = "Consent did not cover public sharing."), collapse = "\n"), "\n")[[1]]
+cat(x[seq(grep("Additional numbers", x), grep("Raw data", x) - 1)], sep = "\n")
+#> ### Additional numbers
 #> 
-#> Reason for not sharing the raw data: Consent did not cover public sharing.
+#> Computed from the stored summaries at the author's request.
 #> 
-#> **What readers lose compared with the raw data:**
-#> 
-#> - checking the distribution and outliers within each group
-#> - nonparametric or robust alternatives
-#> 
-#> **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: group sizes. This lowers the risk of identifying a participant; it does not remove it.
+#> | Number | Value |
+#> | --- | --- |
+#> | R² | .16 |
+#> | omega2 | .11 |
 ```
 
 ### From your fitted result
