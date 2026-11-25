@@ -23,3 +23,18 @@ test_that("a formula other than `~ x + y` is refused", {
   expect_identical(s$verdict, "needs_raw_data")
   expect_error(reproduce(s), class = "reprokit_impossible")
 })
+
+test_that("check_reported never errors or warns for |r| = 1", {
+  for (r in c("1.00", "-1.00", "0.999")) {
+    for (n in c("3", "4", "5", "10")) {
+      expect_no_error(checked <- check_reported("pearson", r = r, n = n))
+      expect_no_warning(check_reported("pearson", r = r, n = n))
+      expect_s3_class(checked, "reprokit_check")
+      expect_false(any(checked$numbers$status == "inconsistent"), info = paste(r, n))
+      expect_output(print(checked))
+    }
+  }
+  expect_no_warning(checked <- check_reported("pearson", r = "1.00", n = "10", t = "5.2",
+                                              p = "< .001", df = "8"))
+  expect_true(checked$consistent)
+})
