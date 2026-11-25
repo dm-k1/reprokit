@@ -1,0 +1,400 @@
+script: inst/validation/check-planted-errors.R
+seed: 20261124, 20261125
+package: reprokit 0.1.0
+date: 2026-11-25
+R: R version 4.6.1 (2026-06-24)
+
+Detection by handler x error type x reported subset
+                 group       type   subset cases % flagged % unevaluable % missed
+          anova_oneway   decision      all   200     100.0           0.0      0.0
+          anova_oneway   decision desc+f+p   200     100.0           0.0      0.0
+          anova_oneway   decision   f/df/p   200     100.0           0.0      0.0
+          anova_oneway df_wrong_n      all   200     100.0           0.0      0.0
+          anova_oneway df_wrong_n   f/df/p   200      22.5           0.0     77.5
+          anova_oneway    f_digit      all   200      68.5           0.0     31.5
+          anova_oneway    f_digit desc+f+p   200      68.5           0.0     31.5
+          anova_oneway    f_digit   f/df/p   200      55.0           0.0     45.0
+          anova_oneway   m_change      all   200      70.0           0.0     30.0
+          anova_oneway   m_change desc+f+p   200      70.0           0.0     30.0
+          anova_oneway    p_digit      all   200      94.0           0.0      6.0
+          anova_oneway    p_digit desc+f+p   200      94.0           0.0      6.0
+          anova_oneway    p_digit   f/df/p   200      94.0           0.0      6.0
+           cor_pearson  ci_change      all   166      95.2           0.0      4.8
+           cor_pearson  ci_change  desc+ci   166      95.2           0.0      4.8
+           cor_pearson   decision      all   167      99.4           0.0      0.6
+           cor_pearson   decision desc+t+p   167      99.4           0.0      0.6
+           cor_pearson   decision   r/df/p   167      82.6          16.2      1.2
+           cor_pearson   decision   t/df/p   167      99.4           0.0      0.6
+           cor_pearson df_wrong_n      all   167     100.0           0.0      0.0
+           cor_pearson df_wrong_n   r/df/p   167      53.3          16.8     29.9
+           cor_pearson df_wrong_n   t/df/p   167      44.3           0.0     55.7
+           cor_pearson    p_digit      all   167      91.0           0.0      9.0
+           cor_pearson    p_digit desc+t+p   167      91.0           0.0      9.0
+           cor_pearson    p_digit   r/df/p   167      73.1           5.4     21.6
+           cor_pearson    p_digit   t/df/p   167      91.0           0.0      9.0
+           cor_pearson    r_digit      all   166      97.6           0.0      2.4
+           cor_pearson    r_digit  desc+ci   146      93.2           0.0      6.8
+           cor_pearson    r_digit desc+t+p   166      97.6           0.0      2.4
+           cor_pearson    r_digit   r/df/p   166      74.1           0.0     25.9
+           cor_pearson    t_digit      all   167      63.5           0.0     36.5
+           cor_pearson    t_digit desc+t+p   167      63.5           0.0     36.5
+           cor_pearson    t_digit   t/df/p   167      53.9           0.0     46.1
+ t_independent_student  ci_change      all   166      95.2           4.8      0.0
+ t_independent_student  ci_change  desc+ci   166      95.2           4.8      0.0
+ t_independent_student   decision      all   167      99.4           0.0      0.6
+ t_independent_student   decision desc+t+p   167      94.6           3.0      2.4
+ t_independent_student   decision   t/df/p   167      99.4           0.0      0.6
+ t_independent_student df_wrong_n      all   167      98.2           0.0      1.8
+ t_independent_student df_wrong_n   t/df/p   167      30.5           0.0     69.5
+ t_independent_student   m_change      all   166      96.4           3.6      0.0
+ t_independent_student   m_change  desc+ci   166      96.4           3.6      0.0
+ t_independent_student   m_change desc+t+p   166      68.7           3.6     27.7
+ t_independent_student    p_digit      all   167      88.6           0.0     11.4
+ t_independent_student    p_digit desc+t+p   167      76.6           3.0     20.4
+ t_independent_student    p_digit   t/df/p   167      88.6           0.0     11.4
+ t_independent_student    t_digit      all   167      89.8           0.0     10.2
+ t_independent_student    t_digit desc+t+p   167      78.4           2.4     19.2
+ t_independent_student    t_digit   t/df/p   167      86.8           0.0     13.2
+   t_independent_welch  ci_change      all   166      95.2           4.2      0.6
+   t_independent_welch  ci_change  desc+ci   166      95.2           4.2      0.6
+   t_independent_welch   decision      all   167     100.0           0.0      0.0
+   t_independent_welch   decision desc+t+p   167      93.4           1.8      4.8
+   t_independent_welch   decision   t/df/p   167     100.0           0.0      0.0
+   t_independent_welch df_wrong_n      all   167      98.8           0.0      1.2
+   t_independent_welch df_wrong_n   t/df/p   167      77.8           0.0     22.2
+   t_independent_welch   m_change      all   166      91.6           7.8      0.6
+   t_independent_welch   m_change  desc+ci   166      91.6           7.8      0.6
+   t_independent_welch   m_change desc+t+p   166      70.5           7.8     21.7
+   t_independent_welch    p_digit      all   167      86.2           0.0     13.8
+   t_independent_welch    p_digit desc+t+p   167      67.1           6.0     26.9
+   t_independent_welch    p_digit   t/df/p   167      86.2           0.0     13.8
+   t_independent_welch    t_digit      all   167      91.6           0.0      8.4
+   t_independent_welch    t_digit desc+t+p   167      76.0           8.4     15.6
+   t_independent_welch    t_digit   t/df/p   167      84.4           0.0     15.6
+          t_one_sample  ci_change      all   166     100.0           0.0      0.0
+          t_one_sample  ci_change  desc+ci   166     100.0           0.0      0.0
+          t_one_sample   decision      all   167      99.4           0.0      0.6
+          t_one_sample   decision desc+t+p   167      99.4           0.0      0.6
+          t_one_sample   decision   t/df/p   167      99.4           0.0      0.6
+          t_one_sample df_wrong_n      all   167     100.0           0.0      0.0
+          t_one_sample df_wrong_n   t/df/p   167      49.1           0.0     50.9
+          t_one_sample   m_change      all   166     100.0           0.0      0.0
+          t_one_sample   m_change  desc+ci   166     100.0           0.0      0.0
+          t_one_sample   m_change desc+t+p   166      83.1           4.2     12.7
+          t_one_sample    p_digit      all   167      91.0           0.0      9.0
+          t_one_sample    p_digit desc+t+p   167      91.0           0.0      9.0
+          t_one_sample    p_digit   t/df/p   167      91.0           0.0      9.0
+          t_one_sample    t_digit      all   167      88.0           0.0     12.0
+          t_one_sample    t_digit desc+t+p   167      88.0           0.0     12.0
+          t_one_sample    t_digit   t/df/p   167      74.9           0.0     25.1
+              t_paired  ci_change      all   166      93.4           0.0      6.6
+              t_paired  ci_change  desc+ci   166      93.4           0.0      6.6
+              t_paired   decision      all   167     100.0           0.0      0.0
+              t_paired   decision desc+t+p   167     100.0           0.0      0.0
+              t_paired   decision   t/df/p   167     100.0           0.0      0.0
+              t_paired df_wrong_n      all   167     100.0           0.0      0.0
+              t_paired df_wrong_n   t/df/p   167      44.9           0.0     55.1
+              t_paired   m_change      all   166      90.4           0.0      9.6
+              t_paired   m_change  desc+ci   166      90.4           0.0      9.6
+              t_paired   m_change desc+t+p   166      68.1          10.8     21.1
+              t_paired    p_digit      all   167      90.4           0.0      9.6
+              t_paired    p_digit desc+t+p   167      90.4           0.0      9.6
+              t_paired    p_digit   t/df/p   167      90.4           0.0      9.6
+              t_paired    t_digit      all   167      67.1           0.0     32.9
+              t_paired    t_digit desc+t+p   167      67.1           0.0     32.9
+              t_paired    t_digit   t/df/p   167      60.5           0.0     39.5
+
+Detection by size of the error (digit changes, M, df; decision errors are all large)
+                 group       type  size   subset cases % flagged % unevaluable % missed
+          anova_oneway df_wrong_n n<=10      all    12     100.0           0.0      0.0
+          anova_oneway df_wrong_n n<=10   f/df/p    12      91.7           0.0      8.3
+          anova_oneway df_wrong_n  n>10      all   188     100.0           0.0      0.0
+          anova_oneway df_wrong_n  n>10   f/df/p   188      18.1           0.0     81.9
+          anova_oneway    f_digit large      all   141      70.9           0.0     29.1
+          anova_oneway    f_digit large desc+f+p   141      70.9           0.0     29.1
+          anova_oneway    f_digit large   f/df/p   141      57.4           0.0     42.6
+          anova_oneway    f_digit small      all    59      62.7           0.0     37.3
+          anova_oneway    f_digit small desc+f+p    59      62.7           0.0     37.3
+          anova_oneway    f_digit small   f/df/p    59      49.2           0.0     50.8
+          anova_oneway   m_change large      all   146      72.6           0.0     27.4
+          anova_oneway   m_change large desc+f+p   146      72.6           0.0     27.4
+          anova_oneway   m_change small      all    54      63.0           0.0     37.0
+          anova_oneway   m_change small desc+f+p    54      63.0           0.0     37.0
+          anova_oneway    p_digit large      all   141      99.3           0.0      0.7
+          anova_oneway    p_digit large desc+f+p   141      99.3           0.0      0.7
+          anova_oneway    p_digit large   f/df/p   141      99.3           0.0      0.7
+          anova_oneway    p_digit small      all    59      81.4           0.0     18.6
+          anova_oneway    p_digit small desc+f+p    59      81.4           0.0     18.6
+          anova_oneway    p_digit small   f/df/p    59      81.4           0.0     18.6
+           cor_pearson  ci_change large      all   115      94.8           0.0      5.2
+           cor_pearson  ci_change large  desc+ci   115      94.8           0.0      5.2
+           cor_pearson  ci_change small      all    51      96.1           0.0      3.9
+           cor_pearson  ci_change small  desc+ci    51      96.1           0.0      3.9
+           cor_pearson df_wrong_n n<=10      all   101     100.0           0.0      0.0
+           cor_pearson df_wrong_n n<=10   r/df/p   101      73.3          15.8     10.9
+           cor_pearson df_wrong_n n<=10   t/df/p   101      73.3           0.0     26.7
+           cor_pearson df_wrong_n  n>10      all    66     100.0           0.0      0.0
+           cor_pearson df_wrong_n  n>10   r/df/p    66      22.7          18.2     59.1
+           cor_pearson df_wrong_n  n>10   t/df/p    66       0.0           0.0    100.0
+           cor_pearson    p_digit large      all   109      99.1           0.0      0.9
+           cor_pearson    p_digit large desc+t+p   109      99.1           0.0      0.9
+           cor_pearson    p_digit large   r/df/p   109      89.0           8.3      2.8
+           cor_pearson    p_digit large   t/df/p   109      99.1           0.0      0.9
+           cor_pearson    p_digit small      all    58      75.9           0.0     24.1
+           cor_pearson    p_digit small desc+t+p    58      75.9           0.0     24.1
+           cor_pearson    p_digit small   r/df/p    58      43.1           0.0     56.9
+           cor_pearson    p_digit small   t/df/p    58      75.9           0.0     24.1
+           cor_pearson    r_digit large      all   105     100.0           0.0      0.0
+           cor_pearson    r_digit large  desc+ci    93      98.9           0.0      1.1
+           cor_pearson    r_digit large desc+t+p   105     100.0           0.0      0.0
+           cor_pearson    r_digit large   r/df/p   105      83.8           0.0     16.2
+           cor_pearson    r_digit small      all    61      93.4           0.0      6.6
+           cor_pearson    r_digit small  desc+ci    53      83.0           0.0     17.0
+           cor_pearson    r_digit small desc+t+p    61      93.4           0.0      6.6
+           cor_pearson    r_digit small   r/df/p    61      57.4           0.0     42.6
+           cor_pearson    t_digit large      all   133      68.4           0.0     31.6
+           cor_pearson    t_digit large desc+t+p   133      68.4           0.0     31.6
+           cor_pearson    t_digit large   t/df/p   133      56.4           0.0     43.6
+           cor_pearson    t_digit small      all    34      44.1           0.0     55.9
+           cor_pearson    t_digit small desc+t+p    34      44.1           0.0     55.9
+           cor_pearson    t_digit small   t/df/p    34      44.1           0.0     55.9
+ t_independent_student  ci_change large      all   106      96.2           3.8      0.0
+ t_independent_student  ci_change large  desc+ci   106      96.2           3.8      0.0
+ t_independent_student  ci_change small      all    60      93.3           6.7      0.0
+ t_independent_student  ci_change small  desc+ci    60      93.3           6.7      0.0
+ t_independent_student df_wrong_n n<=10      all    39     100.0           0.0      0.0
+ t_independent_student df_wrong_n n<=10   t/df/p    39      64.1           0.0     35.9
+ t_independent_student df_wrong_n  n>10      all   128      97.7           0.0      2.3
+ t_independent_student df_wrong_n  n>10   t/df/p   128      20.3           0.0     79.7
+ t_independent_student   m_change large      all   111      97.3           2.7      0.0
+ t_independent_student   m_change large  desc+ci   111      97.3           2.7      0.0
+ t_independent_student   m_change large desc+t+p   111      75.7           2.7     21.6
+ t_independent_student   m_change small      all    55      94.5           5.5      0.0
+ t_independent_student   m_change small  desc+ci    55      94.5           5.5      0.0
+ t_independent_student   m_change small desc+t+p    55      54.5           5.5     40.0
+ t_independent_student    p_digit large      all   108      99.1           0.0      0.9
+ t_independent_student    p_digit large desc+t+p   108      96.3           1.9      1.9
+ t_independent_student    p_digit large   t/df/p   108      99.1           0.0      0.9
+ t_independent_student    p_digit small      all    59      69.5           0.0     30.5
+ t_independent_student    p_digit small desc+t+p    59      40.7           5.1     54.2
+ t_independent_student    p_digit small   t/df/p    59      69.5           0.0     30.5
+ t_independent_student    t_digit large      all   129      93.8           0.0      6.2
+ t_independent_student    t_digit large desc+t+p   129      83.7           3.1     13.2
+ t_independent_student    t_digit large   t/df/p   129      92.2           0.0      7.8
+ t_independent_student    t_digit small      all    38      76.3           0.0     23.7
+ t_independent_student    t_digit small desc+t+p    38      60.5           0.0     39.5
+ t_independent_student    t_digit small   t/df/p    38      68.4           0.0     31.6
+   t_independent_welch  ci_change large      all   122      95.9           4.1      0.0
+   t_independent_welch  ci_change large  desc+ci   122      95.9           4.1      0.0
+   t_independent_welch  ci_change small      all    44      93.2           4.5      2.3
+   t_independent_welch  ci_change small  desc+ci    44      93.2           4.5      2.3
+   t_independent_welch df_wrong_n n<=10      all    38     100.0           0.0      0.0
+   t_independent_welch df_wrong_n n<=10   t/df/p    38      94.7           0.0      5.3
+   t_independent_welch df_wrong_n  n>10      all   129      98.4           0.0      1.6
+   t_independent_welch df_wrong_n  n>10   t/df/p   129      72.9           0.0     27.1
+   t_independent_welch   m_change large      all   112      92.9           7.1      0.0
+   t_independent_welch   m_change large  desc+ci   112      92.9           7.1      0.0
+   t_independent_welch   m_change large desc+t+p   112      74.1           7.1     18.8
+   t_independent_welch   m_change small      all    54      88.9           9.3      1.9
+   t_independent_welch   m_change small  desc+ci    54      88.9           9.3      1.9
+   t_independent_welch   m_change small desc+t+p    54      63.0           9.3     27.8
+   t_independent_welch    p_digit large      all   108     100.0           0.0      0.0
+   t_independent_welch    p_digit large desc+t+p   108      83.3           8.3      8.3
+   t_independent_welch    p_digit large   t/df/p   108     100.0           0.0      0.0
+   t_independent_welch    p_digit small      all    59      61.0           0.0     39.0
+   t_independent_welch    p_digit small desc+t+p    59      37.3           1.7     61.0
+   t_independent_welch    p_digit small   t/df/p    59      61.0           0.0     39.0
+   t_independent_welch    t_digit large      all   134      94.8           0.0      5.2
+   t_independent_welch    t_digit large desc+t+p   134      81.3           8.2     10.4
+   t_independent_welch    t_digit large   t/df/p   134      90.3           0.0      9.7
+   t_independent_welch    t_digit small      all    33      78.8           0.0     21.2
+   t_independent_welch    t_digit small desc+t+p    33      54.5           9.1     36.4
+   t_independent_welch    t_digit small   t/df/p    33      60.6           0.0     39.4
+          t_one_sample  ci_change large      all   107     100.0           0.0      0.0
+          t_one_sample  ci_change large  desc+ci   107     100.0           0.0      0.0
+          t_one_sample  ci_change small      all    59     100.0           0.0      0.0
+          t_one_sample  ci_change small  desc+ci    59     100.0           0.0      0.0
+          t_one_sample df_wrong_n n<=10      all    94     100.0           0.0      0.0
+          t_one_sample df_wrong_n n<=10   t/df/p    94      80.9           0.0     19.1
+          t_one_sample df_wrong_n  n>10      all    73     100.0           0.0      0.0
+          t_one_sample df_wrong_n  n>10   t/df/p    73       8.2           0.0     91.8
+          t_one_sample   m_change large      all   111     100.0           0.0      0.0
+          t_one_sample   m_change large  desc+ci   111     100.0           0.0      0.0
+          t_one_sample   m_change large desc+t+p   111      85.6           2.7     11.7
+          t_one_sample   m_change small      all    55     100.0           0.0      0.0
+          t_one_sample   m_change small  desc+ci    55     100.0           0.0      0.0
+          t_one_sample   m_change small desc+t+p    55      78.2           7.3     14.5
+          t_one_sample    p_digit large      all   111      99.1           0.0      0.9
+          t_one_sample    p_digit large desc+t+p   111      99.1           0.0      0.9
+          t_one_sample    p_digit large   t/df/p   111      99.1           0.0      0.9
+          t_one_sample    p_digit small      all    56      75.0           0.0     25.0
+          t_one_sample    p_digit small desc+t+p    56      75.0           0.0     25.0
+          t_one_sample    p_digit small   t/df/p    56      75.0           0.0     25.0
+          t_one_sample    t_digit large      all   129      91.5           0.0      8.5
+          t_one_sample    t_digit large desc+t+p   129      91.5           0.0      8.5
+          t_one_sample    t_digit large   t/df/p   129      78.3           0.0     21.7
+          t_one_sample    t_digit small      all    38      76.3           0.0     23.7
+          t_one_sample    t_digit small desc+t+p    38      76.3           0.0     23.7
+          t_one_sample    t_digit small   t/df/p    38      63.2           0.0     36.8
+              t_paired  ci_change large      all   122      96.7           0.0      3.3
+              t_paired  ci_change large  desc+ci   122      96.7           0.0      3.3
+              t_paired  ci_change small      all    44      84.1           0.0     15.9
+              t_paired  ci_change small  desc+ci    44      84.1           0.0     15.9
+              t_paired df_wrong_n n<=10      all   102     100.0           0.0      0.0
+              t_paired df_wrong_n n<=10   t/df/p   102      69.6           0.0     30.4
+              t_paired df_wrong_n  n>10      all    65     100.0           0.0      0.0
+              t_paired df_wrong_n  n>10   t/df/p    65       6.2           0.0     93.8
+              t_paired   m_change large      all   118      89.8           0.0     10.2
+              t_paired   m_change large  desc+ci   118      89.8           0.0     10.2
+              t_paired   m_change large desc+t+p   118      71.2          10.2     18.6
+              t_paired   m_change small      all    48      91.7           0.0      8.3
+              t_paired   m_change small  desc+ci    48      91.7           0.0      8.3
+              t_paired   m_change small desc+t+p    48      60.4          12.5     27.1
+              t_paired    p_digit large      all   112      99.1           0.0      0.9
+              t_paired    p_digit large desc+t+p   112      99.1           0.0      0.9
+              t_paired    p_digit large   t/df/p   112      99.1           0.0      0.9
+              t_paired    p_digit small      all    55      72.7           0.0     27.3
+              t_paired    p_digit small desc+t+p    55      72.7           0.0     27.3
+              t_paired    p_digit small   t/df/p    55      72.7           0.0     27.3
+              t_paired    t_digit large      all   129      66.7           0.0     33.3
+              t_paired    t_digit large desc+t+p   129      66.7           0.0     33.3
+              t_paired    t_digit large   t/df/p   129      59.7           0.0     40.3
+              t_paired    t_digit small      all    38      68.4           0.0     31.6
+              t_paired    t_digit small desc+t+p    38      68.4           0.0     31.6
+              t_paired    t_digit small   t/df/p    38      63.2           0.0     36.8
+
+CI bound changed by 5 to 20 units (ci_change), by confidence level of the paper
+                 group  subset level cases % flagged % unevaluable % missed
+           cor_pearson     all  0.90    37     100.0           0.0      0.0
+           cor_pearson     all  0.95    85      92.9           0.0      7.1
+           cor_pearson     all  0.99    44      95.5           0.0      4.5
+           cor_pearson desc+ci  0.90    37     100.0           0.0      0.0
+           cor_pearson desc+ci  0.95    85      92.9           0.0      7.1
+           cor_pearson desc+ci  0.99    44      95.5           0.0      4.5
+ t_independent_student     all  0.90    49      95.9           4.1      0.0
+ t_independent_student     all  0.95    70      94.3           5.7      0.0
+ t_independent_student     all  0.99    47      95.7           4.3      0.0
+ t_independent_student desc+ci  0.90    49      95.9           4.1      0.0
+ t_independent_student desc+ci  0.95    70      94.3           5.7      0.0
+ t_independent_student desc+ci  0.99    47      95.7           4.3      0.0
+   t_independent_welch     all  0.90    36      97.2           2.8      0.0
+   t_independent_welch     all  0.95    90      96.7           3.3      0.0
+   t_independent_welch     all  0.99    40      90.0           7.5      2.5
+   t_independent_welch desc+ci  0.90    36      97.2           2.8      0.0
+   t_independent_welch desc+ci  0.95    90      96.7           3.3      0.0
+   t_independent_welch desc+ci  0.99    40      90.0           7.5      2.5
+          t_one_sample     all  0.90    49     100.0           0.0      0.0
+          t_one_sample     all  0.95    74     100.0           0.0      0.0
+          t_one_sample     all  0.99    43     100.0           0.0      0.0
+          t_one_sample desc+ci  0.90    49     100.0           0.0      0.0
+          t_one_sample desc+ci  0.95    74     100.0           0.0      0.0
+          t_one_sample desc+ci  0.99    43     100.0           0.0      0.0
+              t_paired     all  0.90    44      97.7           0.0      2.3
+              t_paired     all  0.95    86      89.5           0.0     10.5
+              t_paired     all  0.99    36      97.2           0.0      2.8
+              t_paired desc+ci  0.90    44      97.7           0.0      2.3
+              t_paired desc+ci  0.95    86      89.5           0.0     10.5
+              t_paired desc+ci  0.99    36      97.2           0.0      2.8
+CI-only detection (desc+ci subset), independent t, % flagged: Student all levels 95.2 , Student 95% 94.3 , Welch all levels 95.2 , Welch 95% 96.7 
+
+Oracle check (t/df/p and r/df/p: every type; desc+t+p: t_digit, m_change, r_digit)
+       oracle     outcome Freq
+   detectable     flagged 5152
+ undetectable      missed 1260
+ undetectable unevaluable   51
+edge cases left out: 409 
+joint-only (detectable only by tying the Student/Welch variant across relations; limitation, not a criterion):
+< table of extent 0 >
+
+flagged on t/df/p or desc+t+p but not on all: 3 of which Welch df printed with decimals (wider df interval than the one derived from n, SD): 3 
+flagged on r/df/p but not on all (printed t is wider than the t derived from r): 4 
+
+pooled large-error rates (%): decision_all = 99.7, decision_tdfp = 99.6, decision_desc = 97.4, decision_rdfp = 82.6, df_wrong_n_all = 99.5, m_large_all = 89.5 
+informational: lowest handler rate, decision/df_wrong_n/m_change-large on all (%): 72.6 
+planted papers: 6000  checks: 16582  runtime (min): 5.2 
+PASS: errors = 0, oracle-detectable not flagged = 0, oracle-undetectable flagged = 0, flagged on a subset but not on all = 0, cells never flagged = 0 (lowest large-error rate, informational = 72.6%)
+
+== Chi-squared planted errors: detection by handler x type x subset ==
+            handler          type       subset   n flagged % flagged
+          chisq_gof   chisq_digit   chisq/df/p 125      10       8.0
+ chisq_independence   chisq_digit   chisq/df/p 100      28      28.0
+          chisq_gof      df_wrong   chisq/df/p 125     125     100.0
+ chisq_independence      df_wrong   chisq/df/p 100     100     100.0
+          chisq_gof       p_digit   chisq/df/p 125     122      97.6
+ chisq_independence       p_digit   chisq/df/p 100      99      99.0
+ chisq_independence yates_pearson   chisq/df/p  97      97     100.0
+          chisq_gof   chisq_digit n/chisq/df/p 125     125     100.0
+ chisq_independence   chisq_digit n/chisq/df/p 100     100     100.0
+          chisq_gof  count_change n/chisq/df/p 125     124      99.2
+ chisq_independence  count_change n/chisq/df/p 100      99      99.0
+          chisq_gof      df_wrong n/chisq/df/p 125     125     100.0
+ chisq_independence      df_wrong n/chisq/df/p 100     100     100.0
+          chisq_gof       p_digit n/chisq/df/p 125     122      97.6
+ chisq_independence       p_digit n/chisq/df/p 100     100     100.0
+ chisq_independence yates_pearson n/chisq/df/p  97      97     100.0
+          chisq_gof   chisq_digit    n/chisq/p 125     125     100.0
+ chisq_independence   chisq_digit    n/chisq/p 100     100     100.0
+          chisq_gof  count_change    n/chisq/p 125     124      99.2
+ chisq_independence  count_change    n/chisq/p 100      99      99.0
+          chisq_gof       p_digit    n/chisq/p 125     122      97.6
+ chisq_independence       p_digit    n/chisq/p 100     100     100.0
+ chisq_independence yates_pearson    n/chisq/p  97      97     100.0
+
+Oracle check
+       oracle outcome Freq
+   detectable flagged 2340
+ undetectable flagged    0
+   detectable  missed    0
+ undetectable  missed  201
+
+PASS: chi-squared planted errors, errors = 0, oracle-detectable not flagged = 0, oracle-undetectable flagged = 0, cells never flagged = 0
+
+== Factorial ANOVA planted errors ==
+             type   subset   n flagged % flagged
+ cell_mean_change      all 120      41      34.2
+        df2_wrong      all 120     120     100.0
+          f_digit      all 120      85      70.8
+          p_digit      all 120     112      93.3
+         type_mix      all 120     102      85.0
+ cell_mean_change desc+f+p 120      41      34.2
+          f_digit desc+f+p 120      85      70.8
+          p_digit desc+f+p 120     112      93.3
+         type_mix desc+f+p 120     102      85.0
+        df2_wrong   f/df/p 120      14      11.7
+          f_digit   f/df/p 120      81      67.5
+          p_digit   f/df/p 120     109      90.8
+         type_mix   f/df/p 120     102      85.0
+       oracle     outcome Freq
+   detectable     flagged  306
+ undetectable     flagged    0
+   detectable not flagged    0
+ undetectable not flagged  144
+
+PASS: factorial planted errors, errors = 0, oracle-detectable not flagged = 0, oracle-undetectable flagged = 0, flagged on f/df/p but not on all = 0, cells never flagged = 0
+
+== Regression family planted errors ==
+       type     subset  n flagged % flagged
+    b_digit        all 88      88     100.0
+ df_wrong_k        all 87      87     100.0
+    f_vs_r2        all 87      83      95.4
+     med_ci        all 87      87     100.0
+     med_df        all 87      87     100.0
+    p_digit        all 88      78      88.6
+   se_digit        all 88      88     100.0
+    t_digit        all 88      88     100.0
+     med_ci b/se/df/ci 87      87     100.0
+    b_digit     b/se/t 88      86      97.7
+   se_digit     b/se/t 88      80      90.9
+    t_digit     b/se/t 88      85      96.6
+ df_wrong_k  n/df1/df2 87      87     100.0
+ df_wrong_k  n/df2 + k 87      87     100.0
+    f_vs_r2    r2/f/df 87      63      72.4
+     med_df     t/df/p 87      87     100.0
+    p_digit     t/df/p 88      78      88.6
+       oracle     outcome Freq
+   detectable     flagged  740
+ undetectable     flagged    0
+   detectable not flagged    0
+ undetectable not flagged   47
+
+PASS: regression planted errors, errors = 0, oracle-detectable not flagged = 0, oracle-undetectable flagged = 0, flagged on a narrow subset but not on all = 0, cells never flagged = 0

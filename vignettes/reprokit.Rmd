@@ -26,6 +26,24 @@ and collected in `vignette("concepts")`.
 library(reprokit)
 ```
 
+## The path in short
+
+An author shares summaries instead of data (share), writes the appendix, and a
+reader later checks the reported numbers (check):
+
+```{r}
+s0 <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
+                       sharing_reason = "Consent did not cover public sharing.")
+s0$verdict
+cat(head(strsplit(appendix(s0, choices = list(convention = "pooled")), "\n")[[1]], 8),
+    sep = "\n")
+check_t(handler = "t_independent",
+        n = c("10", "10"), m = c("0.75", "2.33"), sd = c("1.79", "2.00"),
+        t = "-1.86", df = "17.8", p = ".079")$consistent
+```
+
+The rest of this vignette shows each step in full.
+
 ## For authors: you cannot share the raw data
 
 The built-in `sleep` data (extra hours of sleep under two drugs, 10 people per
@@ -139,7 +157,13 @@ appendix(s, choices = list(convention = "pooled"))
 ```
 
 The disclosure check at the end lowers the risk that a small group identifies a
-participant. It does not remove it.
+participant. It does not remove it, and passing it is not a guarantee. It flags a
+group with fewer than 5 cases (the `threshold`); for a chi-squared test it flags a
+cell or category with a count above 0 and below the threshold (empty cells are not
+flagged), and for a regression with factor predictors a factor level with fewer
+rows than the threshold, counted unweighted. A flag makes `triage()` return
+`needs_raw_data`. Tests with no groups, such as the one-sample t-test, state that
+only the sample size was checked.
 
 ### A test with a missing number: the paired t-test
 
@@ -295,17 +319,66 @@ check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
             p = ".0001", v = ".41")
 ```
 
-`check_t()`, `check_r()`, `check_F()` and `check_chisq()` are shortcuts for `check_reported()`
+### A two-factor ANOVA
+
+For a factorial design, pass the cell n, M and SD as matrices (rows are the levels
+of A, columns the levels of B) and name the `effect`: `"A"`, `"B"` or `"AB"`. In an
+unbalanced design the sums of squares type (III, II or I) is a choice the report
+must settle, and the output lists the types that fit.
+
+```{r}
+cells <- matrix(rep("10", 4), 2)
+check_F(n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
+        sd = matrix(rep("1.50", 4), 2), effect = "A",
+        f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
+```
+
+### A regression
+
+`check_lm()` takes one named value per coefficient. Here are the numbers of
+`mpg ~ wt + hp` in `mtcars` (n = 32); the check tests t = b / SE, p from t and the
+residual df, F from R squared and the df, and so on.
+
+```{r}
+check_lm(b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
+         t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
+         r2 = ".83", f = "69.21", df1 = "2", df2 = "29", n = "32")
+```
+
+Use `handler = "lm_simple"` or `"lm_moderation"` for those designs.
+
+### A simple mediation
+
+`check_mediation()` checks the four paths (a, b, c and c', each a regression
+coefficient). The indirect effect a*b and its bootstrap interval are listed as
+not checkable: a bootstrap resamples cases, and summaries cannot.
+
+```{r}
+check_mediation(
+  b = c(a = "46.16", b = "-0.03", c = "-5.34", c_prime = "-3.88"),
+  se = c(a = "9.63", b = "0.01", c = "0.56", c_prime = "0.63"),
+  t = c(a = "4.80", b = "-3.52", c = "-9.56", c_prime = "-6.13"),
+  df = c(a = "30", b = "29", c = "30", c_prime = "29"),
+  ci_lower = c(a = "26.50", b = "-0.05", c = "-6.49", c_prime = "-5.17"),
+  ci_upper = c(a = "65.82", b = "-0.01", c = "-4.20", c_prime = "-2.58"),
+  n = "32", indirect = "-1.46", indirect_ci_lower = "-2.28", indirect_ci_upper = "-0.80")
+```
+
+`check_t()`, `check_r()`, `check_F()`, `check_chisq()`, `check_lm()` and
+`check_mediation()` are shortcuts for `check_reported()`
 with a default handler. `quantity_names()` lists the names you can pass.
 
 ## Limits
 
 * The check tests agreement between reported numbers, not whether the analysis
   was appropriate or the data plausible. Agreeing numbers can still be wrong.
-* Only the tests in `coverage_table()` are covered, including a one-way
-  between-subjects ANOVA and chi-squared tests of independence and goodness of fit. Factorial
-  ANOVA is planned.
+* Only the tests in `coverage_table()` are covered: chi-squared, t (one-sample,
+  independent, paired), Pearson, one-way and factorial ANOVA, and the regression
+  family (simple, multiple, moderation, simple mediation). Everything else gets
+  triage only.
 * The check is conservative: ambiguity resolves towards silence, because
   flagging a correct paper would be a false accusation.
+* The disclosure check lowers the risk of identifying a participant; it never
+  removes it and is never a guarantee.
 * The share half records a reason and a list of losses; it cannot judge whether
   the reason is good enough.

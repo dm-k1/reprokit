@@ -1,0 +1,60 @@
+script: inst/validation/check-false-positives.R
+seed: 20261123
+package: reprokit 0.1.0
+date: 2026-11-25
+R: R version 4.6.1 (2026-06-24)
+
+                      handler designs checks |r|>=.995 n<=6 sd 0 dec yates w>1
+           chisq_independence     254   2286         0    0        0     9   0
+       chisq_independence_2x2     285   2565         0    0        0   149   0
+                    chisq_gof     300   2700         0    0        0     0 200
+             chisq_gof_w_gt_1     300   2700         0    0        0     0 277
+                     t_paired     300   3020        53  138       91     0   0
+                   t_paired_d     300   1500        56  131       81     0   0
+                  cor_pearson     300   2354        66  133        0     0   0
+        t_independent_student     300   2700         0  212       87     0   0
+          t_independent_welch     300   2700         0  211       93     0   0
+                 t_one_sample     300   2700         0  126       92     0   0
+                 anova_oneway     300   2700         0  192        0     0   0
+ anova_oneway_negative_omega2     476   4284         0  335        0     0   0
+              anova_factorial     300   2700         0    0        0     0   0
+          anova_factorial_2x2     300   2700         0    0        0     0   0
+                    lm_simple     300   6600         0    0        0     0   0
+           lm_simple_weighted     300   6600         0    0        0     0   0
+                  lm_multiple     300   5400         0    0        0     0   0
+           lm_multiple_factor     300   5400         0    0        0     0   0
+         lm_multiple_weighted     300   5400         0    0        0     0   0
+                lm_moderation     300   5400         0    0        0     0   0
+       lm_moderation_weighted     300   5400         0    0        0     0   0
+              mediation_small     300   3900         0    0        0     0   0
+              mediation_large     300   3900         0    0        0     0   0
+              mediation_mixed     300   3900         0    0        0     0   0
+ unbalanced false_positives errors
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+        168               0      0
+        182               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+          0               0      0
+one-way designs with F < 1 and a negative omega2 checked and not flagged: 476 
+goodness-of-fit designs with w > 1 checked and not flagged: 277 
+
+PASS: false positives = 0, errors = 0

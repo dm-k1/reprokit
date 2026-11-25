@@ -92,6 +92,9 @@
 #       level that fits is the printed one, and the same CI with one bound moved is inconsistent.
 #   PASS: claims 12 to 16 hold.
 
+source("inst/validation/record.R")
+record_start("check-known-answers", seed = "none (fixed cases)")
+
 n1 <- 24
 n2 <- 18
 rep_t <- 2.877
@@ -563,3 +566,5 @@ cat("
 print(data.frame(assertion = names(checks6), holds = unname(checks6)), row.names = FALSE)
 cat(if (all(checks6)) "\nPASS" else "\nFAIL",
     ": regression known answers (", sum(checks6), "/", length(checks6), ")\n", sep = "")
+
+record_stop()

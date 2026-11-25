@@ -43,6 +43,9 @@
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-statcheck.R")'
 
+source("inst/validation/record.R")
+record_start("check-statcheck", seed = 20261124)
+
 if (!requireNamespace("statcheck", quietly = TRUE)) {
   cat("SKIPPED: the 'statcheck' package is not installed",
       "(install.packages(\"statcheck\")); nothing was checked.\n")
@@ -69,7 +72,10 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
                 keys = if (form == "t") c("t", "df", "p") else c("r", "df", "p"))
     rows[[length(rows) + 1L]] <<- row # nolint: assignment_linter
   }
-  for (g in names(cases)) {
+  # statcheck reads t(df) and r(df) strings only: the groups of other handlers (the one-way
+  # ANOVA draw, added to planted_groups after this script was written) have no such string.
+  # They are drawn but left out, so the t and r draws stay the same as check-planted-errors.R.
+  for (g in setdiff(names(cases), "anova_oneway")) {
     handler <- planted_groups[[g]]$handler
     for (case in cases[[g]]) {
       add(g, handler, "correct", "none", case$paper, "t")
@@ -209,3 +215,5 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
       ", unexplained statcheck-only errors = ", unexplained,
       ", check-only flags not oracle-detectable = ", unverified, "\n", sep = "")
 }
+
+record_stop()

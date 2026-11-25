@@ -8,13 +8,33 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "")
+results_dir <- system.file("validation", "results", package = "reprokit")
+show_result <- function(script) {
+  path <- file.path(results_dir, paste0(script, ".txt"))
+  if (!file.exists(path)) stop("no precomputed result for ", script)
+  cat(readLines(path, warn = FALSE), sep = "\n")
+}
 ```
 
-This vignette says what evidence backs the claims the package makes, and where
-to find the scripts that produce it. A number quoted about the package is
-backed by a script in the package's `inst/validation/` directory, which you can
-run yourself.
+This vignette says what evidence backs the claims the package makes. Every number
+quoted about the package comes from a script in `inst/validation/`, which you can
+run yourself. Running them takes minutes to an hour, so this vignette does not run
+them: it shows the results each script wrote to `inst/validation/results/` when it
+last ran, from the final tree of this release. Each result starts with a header
+that gives the script, the seed, the package version, the date and the R version,
+and ends with the script's PASS or FAIL line.
+
+To rerun a script, use a source checkout of the repository (GitHub:
+`dm-k1/reprokit`). The scripts call internal functions, so from the repository root
+run, for example:
+
+```r
+devtools::load_all()
+source("inst/validation/check-false-positives.R")
+```
+
+They do not run from the installed package. Each rerun overwrites its results file.
 
 ## Coverage table (generated from the registry)
 
@@ -23,42 +43,59 @@ library(reprokit)
 knitr::kable(coverage_table())
 ```
 
-## Evidence
+## 1. Round trip
 
-For each test:
+Script: `inst/validation/roundtrip-simulation.R`. `reproduce(sufficient_stats(model))` matches the original analysis, for every supported test, over random designs (scaled difference below 1e-8).
 
-1. **Round-trip** (`roundtrip-simulation.R`): `reproduce(sufficient_stats(model))`
-   matches the original with a scaled difference
-   `|original - reproduced| / max(1, |original|)` below `1e-8`, which means
-   roughly 8 significant digits agree.
-2. **Reference implementation**: agreement with `statcheck` on the results it
-   can parse (`check-statcheck.R`).
-3. **Refusal**: requests that need the raw data stop with class
-   `reprokit_impossible`.
-4. **Check rules**: each rule has a test that it fires on a known-bad input
-   and stays silent on a known-good input.
-
-## Scripts
-
-The scripts are installed with the package:
-
-```{r}
-list.files(system.file("validation", package = "reprokit"))
+```{r, echo = FALSE}
+show_result("roundtrip-simulation")
 ```
 
-To run a script, use a source checkout of the repository (GitHub:
-`dm-k1/reprokit`). The scripts call internal functions, so from the repository
-root run, for example:
+## 2. False positives (release gate)
 
-```r
-devtools::load_all()
-source("inst/validation/check-false-positives.R")
+Script: `inst/validation/check-false-positives.R`. Correctly reported, correctly rounded output of every supported test is never flagged inconsistent, and `check_reported()` never errors on it. The release gate is 0 false positives.
+
+```{r, echo = FALSE}
+show_result("check-false-positives")
 ```
 
-They do not run from the installed package.
+## 3. Known answers
 
-Each script begins with a header that states the claim and the criterion for
-passing, uses a fixed seed, and prints a table. For the check direction the
-headline figure is the false-positive rate: results that are correctly
-reported, rounded as a paper prints them, must never be flagged as
-inconsistent.
+Script: `inst/validation/check-known-answers.R`. Published or hand-computed cases give the expected status and range.
+
+```{r, echo = FALSE}
+show_result("check-known-answers")
+```
+
+## 4. Planted errors
+
+Script: `inst/validation/check-planted-errors.R`. Errors planted in correct papers are detected, and the cases that cannot be detected from the numbers are the ones the oracle in the script says cannot be.
+
+```{r, echo = FALSE}
+show_result("check-planted-errors")
+```
+
+## 5. Range exactness
+
+Script: `inst/validation/check-range-exactness.R`. The implied ranges that `check_reported()` gives for a missing number are exact against a brute-force oracle.
+
+```{r, echo = FALSE}
+show_result("check-range-exactness")
+```
+
+## 6. Agreement with statcheck
+
+Script: `inst/validation/check-statcheck.R`. On the results statcheck can parse, `check_reported()` agrees with statcheck, and every disagreement is explained.
+
+```{r, echo = FALSE}
+show_result("check-statcheck")
+```
+
+## What is not validated here
+
+Refusals (requests that need the raw data stop with class `reprokit_impossible`)
+and each check rule's behaviour on a known-bad and a known-good input are covered
+by the package's unit tests (`tests/testthat/`), not by these scripts. The
+disclosure check is tested there too, for every handler: a flagged case drops
+`triage()` to `needs_raw_data`, a clean case is unaffected, zero counts are not
+flagged, and the appendix names what was checked.

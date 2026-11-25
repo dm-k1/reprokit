@@ -15,6 +15,9 @@
 # against the paths of the three lm() fits through the handler's own reported()).
 # Run: Rscript inst/validation/roundtrip-simulation.R   (after devtools::load_all())
 
+source("inst/validation/record.R")
+record_start("roundtrip-simulation", seed = 20261122)
+
 n_designs <- 200L
 tolerance <- 1e-8
 set.seed(20261122)
@@ -234,3 +237,5 @@ rows <- lapply(names(designs), function(name) {
              result = if (worst[["scaled"]] < tolerance) "PASS" else "FAIL")
 })
 print(do.call(rbind, rows), row.names = FALSE)
+
+record_stop()

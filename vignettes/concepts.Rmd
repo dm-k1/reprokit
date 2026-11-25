@@ -42,6 +42,11 @@ between the two conditions. `appendix()` prints these in block B.
 `synthetic_possible` or `needs_raw_data` (see `verdicts()`). A verdict is advice
 about what is enough; it is not a judgement on the author.
 
+**Triage only.** Version 0.1.0 stores statistics and checks reported numbers for
+the tests in `coverage_table()`. For other analyses (repeated-measures ANOVA,
+logistic and Poisson regression, SEM, rank tests, mixed models, GEE) `triage()`
+gives a verdict and advice and nothing more.
+
 **Reason and losses.** Every sufficient-statistics object records why the data
 are not shared (`sharing_reason`) and what readers lose (`lost`). Neither may be
 empty.
@@ -51,9 +56,26 @@ one- or two-sided, confidence level, Student or Welch, and the effect-size
 convention (for example Cohen's d with a pooled SD or Hedges' g). The appendix
 asks you to declare them (block C); `coverage_table()` lists them per test.
 
-**Disclosure check.** A check that no group has fewer than 5 cases and that the
-total is at least 10 (twice the threshold). It lowers the risk that the summaries
-identify someone. It does not remove it.
+**Disclosure check.** A check that the summaries do not single out a small group
+of people. With the default `threshold` of 5 it flags:
+
+* a group with fewer than 5 cases (t tests, one-way and factorial ANOVA);
+* a chi-squared cell (independence) or category (goodness of fit) with a count
+  above 0 and below 5; empty cells are not flagged, because a zero count says that
+  nobody is there;
+* a factor level with fewer than 5 rows in the fit (multiple and moderation
+  regression, and any regression with a factor predictor), counted unweighted;
+* a total below twice the threshold (10), for every test.
+
+For tests with no groups (one-sample and paired t, Pearson, simple mediation) the
+check is the total only, and the appendix says so. A flag makes `triage()` return
+`needs_raw_data`.
+
+The check is risk reduction, never a guarantee. Counts above the threshold can
+still identify someone (a rare combination known to a reader, or a summary that
+is close to one person's data), and the check cannot know what a reader already
+knows. Passing it is not permission to share; a flag is a reason to share the
+raw data under controlled access or not at all.
 
 ## Terms for readers
 

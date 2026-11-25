@@ -1,0 +1,79 @@
+script: inst/validation/check-statcheck.R
+seed: 20261124
+package: reprokit 0.1.0
+date: 2026-11-25
+R: R version 4.6.1 (2026-06-24)
+
+statcheck 1.6.1 - strings: 3527  unparsed by statcheck: 0 
+
+2 x 2 per group: rows = statcheck, columns = check_reported (planted and correct strings)
+
+t_paired
+         check_reported
+statcheck consistent inconsistent
+    error          1          189
+    ok           410            0
+
+t_independent_student
+         check_reported
+statcheck consistent inconsistent
+    error          0          179
+    ok           421            0
+
+t_independent_welch
+         check_reported
+statcheck consistent inconsistent
+    error         15          213
+    ok           372            0
+
+t_one_sample
+         check_reported
+statcheck consistent inconsistent
+    error          2          188
+    ok           410            0
+
+cor_pearson
+         check_reported
+statcheck consistent inconsistent
+    error          2          175
+    ok           423            0
+
+cor_pearson_r
+         check_reported
+statcheck consistent inconsistent
+    error          4          170
+    ok           353            0
+
+r(df), p strings passed as r, df, p (n implied from df): level 0 (not checkable) for 0 of 527 
+
+Correct papers only: check_reported inconsistent / statcheck error, of n
+                 group   n check_reported statcheck
+           cor_pearson 360              0         0
+         cor_pearson_r 316              0         0
+ t_independent_student 360              0         0
+   t_independent_welch 360              0        12
+          t_one_sample 360              0         0
+              t_paired 360              0         1
+
+Disagreements by category (statcheck error & check_reported consistent, or the reverse)
+               group   category Freq
+         cor_pearson one-tailed    2
+       cor_pearson_r one-tailed    4
+ t_independent_welch one-tailed    1
+        t_one_sample one-tailed    2
+ t_independent_welch t-rounding    1
+            t_paired t-rounding    1
+ t_independent_welch   welch-df   13
+
+One example per category and group (text; truth/type; verdicts)
+  [t-rounding | t_paired] t(2) = 0.00, p = .997  (correct/none) statcheck=error check_reported=consistent
+  [welch-df | t_independent_welch] t(5.1) = -1.66, p = .155  (planted/p_digit) statcheck=error check_reported=consistent
+  [one-tailed | t_independent_welch] t(3.5) = -2.63, p = .967  (planted/p_digit) statcheck=error check_reported=consistent
+  [t-rounding | t_independent_welch] t(14.22) = 0.00, p = .998  (correct/none) statcheck=error check_reported=consistent
+  [one-tailed | t_one_sample] t(7) = 5.00, p = .001  (planted/t_digit) statcheck=error check_reported=consistent
+  [one-tailed | cor_pearson_r] r(2) = .95, p = .026  (planted/decision) statcheck=error check_reported=consistent
+  [one-tailed | cor_pearson] t(2) = 22.42, p = .001  (planted/p_digit) statcheck=error check_reported=consistent
+
+check_reported flags, statcheck does not: 0  of which not oracle-detectable: 0 
+runtime (min): 0.3 
+PASS: check_reported false positives = 0, errors = 0, unexplained statcheck-only errors = 0, check-only flags not oracle-detectable = 0

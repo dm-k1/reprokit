@@ -1,0 +1,223 @@
+script: inst/validation/check-known-answers.R
+seed: none (fixed cases)
+package: reprokit 0.1.0
+date: 2026-11-25
+R: R version 4.6.1 (2026-06-24)
+
+== Table 7.8, row 2: recomputed ranges beside the reported values ==
+n = 24 and 18; M and SD to the unit (box +/- 0.5);
+p range is from t's interval 2.8765 to 2.8775
+                  quantity reported range_lower range_upper reported_inside
+                t, Student    2.877       2.855       2.983            TRUE
+                  t, Welch    2.877       3.125       3.270           FALSE
+               df, Student   40.000      40.000      40.000            TRUE
+                 df, Welch   40.000      34.649      35.248           FALSE
+     Cohen's d (pooled SD)    0.840       0.890       0.930           FALSE
+ p from t = 2.877 at df 40    0.006       0.006       0.006            TRUE
+
+== The engine: check_reported("t_independent", ...) ==
+The analysis is consistent with the reported statistics.
+Level 3: the sufficient set is reported (the numbers contain everything needed to reproduce the analysis; that is not itself a check).
+Variants that fit: two-sided
+Tests that fit: Student's t
+Effect-size conventions that fit: none
+
+ quantity reported           status
+        n   24, 18         coherent
+        m 759, 694         coherent
+       sd   87, 42         coherent
+        t    2.877         verified
+       df       40         verified
+        p     .006         coherent
+        d    0.840 not reproducible
+                                         checked_against
+                          df_from_n; t_from_descriptives
+                                     t_from_descriptives
+                          df_from_n; t_from_descriptives
+                           t_from_descriptives; p_from_t
+                                     df_from_n; p_from_t
+                                                p_from_t
+ no convention tried reproduces it (d_from_descriptives)
+
+An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+
+== Assertions ==
+                                                                  assertion
+                                                 engine: overall consistent
+                                             engine: no number inconsistent
+                                                       engine: Student fits
+                                                 engine: Welch does not fit
+                           engine: d is not reproducible (not inconsistent)
+                                        reported t inside the Student range
+                                reported df equals Student df (n1 + n2 - 2)
+                                           p from t at df 40 rounds to .006
+                        fits Student, not Welch (t outside the Welch range)
+                       fits Student, not Welch (df outside the Welch range)
+ Cohen's d outside the pooled-d range (undeclared convention, not an error)
+ holds
+  TRUE
+  TRUE
+  TRUE
+  TRUE
+  TRUE
+  TRUE
+  TRUE
+  TRUE
+  TRUE
+  TRUE
+  TRUE
+
+Cohen's d = 0.840 is outside the range the descriptives imply (0.890 to 0.930). The convention for d is not declared and the manual requires none, so this is
+an unfalsifiable value, not an inconsistency. The note's claim of unequal variance
+does not match the numbers, which fit Student.
+
+PASS: Table 7.8 row 2 is not flagged inconsistent; Student fits, Welch does not;
+d is not reproducible.
+
+== Case 2: sleep data, CI at its own level ==
+ level independent_fits independent_consistent paired_fits paired_consistent
+  0.90             TRUE                   TRUE        TRUE              TRUE
+  0.95             TRUE                   TRUE        TRUE              TRUE
+  0.99             TRUE                   TRUE        TRUE              TRUE
+paired d_z = -1.28 -> status verified ; wrong sign -> not reproducible 
+
+PASS: sleep CIs fit their levels (4/4 groups of claims), paired d verified and sign-flipped d not reproducible (4/4)
+
+== Case 3: PlantGrowth one-way ANOVA ==
+ quantity   true range_lower range_upper
+        F 4.8461      4.7625      5.1555
+     eta2 0.2641      0.2608      0.2764
+                 assertion holds
+       true F inside range  TRUE
+    true eta2 inside range  TRUE
+    full report consistent  TRUE
+    no number inconsistent  TRUE
+ f/df/p only is consistent  TRUE
+  planted df2 = 29 flagged  TRUE
+
+PASS: PlantGrowth F and eta2 inside their ranges, correct report consistent, planted df2 flagged (6/6)
+
+== Case 4: chi-squared from stats::chisq.test() ==
+                                  case  chisq df      p   v consistent
+               HairEyeColor Hair x Eye 138.29  9 < .001 .28       TRUE
+   UCBAdmissions Admit x Gender, Yates  91.61  1 < .001 .14       TRUE
+ UCBAdmissions Admit x Gender, Pearson  92.21  1 < .001 .14       TRUE
+                           cyl uniform   2.31  2  0.315 .27       TRUE
+                     cyl p0 = .3/.2/.5   0.51  2  0.775 .13       TRUE
+ none_inconsistent variant_right wrong_df_flagged
+              TRUE          TRUE             TRUE
+              TRUE          TRUE             TRUE
+              TRUE          TRUE             TRUE
+              TRUE            NA             TRUE
+              TRUE            NA             TRUE
+
+PASS: correct chi-squared reports consistent, test variant identified, wrong df flagged (4/4)
+
+== Case 5: factorial ANOVA ==
+      design type matches_published_and_aov
+ ToothGrowth  III                      TRUE
+ ToothGrowth   II                      TRUE
+ ToothGrowth    I                      TRUE
+ design type F_matches_base_R p_matches_base_R matches_car
+ mtcars  III             TRUE             TRUE        TRUE
+ mtcars   II             TRUE             TRUE        TRUE
+ mtcars    I             TRUE             TRUE          NA
+(matches_car is NA for type I, which car::Anova() does not offer, and when car is not installed.)
+      design effect type consistent none_inconsistent type_identified
+ ToothGrowth      A    -       TRUE              TRUE            TRUE
+ ToothGrowth      B    -       TRUE              TRUE            TRUE
+ ToothGrowth     AB    -       TRUE              TRUE            TRUE
+      mtcars      A  III       TRUE              TRUE            TRUE
+      mtcars      B  III       TRUE              TRUE            TRUE
+      mtcars     AB  III       TRUE              TRUE            TRUE
+      mtcars      A   II       TRUE              TRUE            TRUE
+      mtcars      B   II       TRUE              TRUE            TRUE
+      mtcars     AB   II       TRUE              TRUE            TRUE
+      mtcars      A    I       TRUE              TRUE            TRUE
+      mtcars      B    I       TRUE              TRUE            TRUE
+      mtcars     AB    I       TRUE              TRUE            TRUE
+ wrong_df2_flagged
+              TRUE
+              TRUE
+              TRUE
+              TRUE
+              TRUE
+              TRUE
+              TRUE
+              TRUE
+              TRUE
+              TRUE
+              TRUE
+              TRUE
+                                                        assertion holds
+         ToothGrowth matches published values and aov (all types)  TRUE
+                     mtcars F equals anova()/drop1() at each type  TRUE
+                     mtcars p equals anova()/drop1() at each type  TRUE
+                        mtcars equals car::Anova() when installed  TRUE
+              mtcars main-effect F differs across the three types  TRUE
+                   mtcars interaction F is the same in every type  TRUE
+                                  every correct report consistent  TRUE
+                                              no row inconsistent  TRUE
+ SS type identified (mtcars) / no variant (balanced, interaction)  TRUE
+                                        planted wrong df2 flagged  TRUE
+
+PASS: factorial known answers (10/10)
+
+== Case 6: regression family against summary(lm) on mtcars ==
+        row coef_diff model_diff p_model_diff report_consistent
+     simple  4.99e-16   3.11e-16     4.91e-25              TRUE
+   multiple  2.35e-15   8.71e-16     3.07e-25              TRUE
+ moderation  1.52e-14   1.82e-14     6.75e-26              TRUE
+ no_inconsistent_row
+                TRUE
+                TRUE
+                TRUE
+
+-- mediation paths against three lm() fits --
+    path  estimate scaled_diff
+       a 46.160000    1.08e-15
+       c -5.344500    4.99e-16
+       b -0.031773    1.51e-15
+ c_prime -3.877800    1.59e-15
+
+-- mediation report with a*b and a bootstrap CI --
+          quantity reported        status     checked_against
+               b:a    46.16      coherent       t_from_b_se:a
+               b:b    -0.03      coherent       t_from_b_se:b
+               b:c    -5.34      coherent       t_from_b_se:c
+         b:c_prime    -3.88      coherent t_from_b_se:c_prime
+              se:a     9.63      coherent       t_from_b_se:a
+              se:b     0.01      coherent       t_from_b_se:b
+              se:c     0.56      coherent       t_from_b_se:c
+        se:c_prime     0.63      coherent t_from_b_se:c_prime
+               t:a     4.80      coherent       t_from_b_se:a
+               t:b    -3.52      coherent       t_from_b_se:b
+               t:c    -9.56      coherent       t_from_b_se:c
+         t:c_prime    -6.13      coherent t_from_b_se:c_prime
+                 n       32 not checkable                <NA>
+          indirect    -1.47 not checkable                <NA>
+ indirect_ci_lower    -5.00 not checkable                <NA>
+ indirect_ci_upper    -1.00 not checkable                <NA>
+
+-- mediation path CIs against confint() at three levels --
+ level consistent fits_printed_level_only moved_bound_inconsistent
+  0.90       TRUE                    TRUE                     TRUE
+  0.95       TRUE                    TRUE                     TRUE
+  0.99       TRUE                    TRUE                     TRUE
+
+                                         assertion holds
+            b, SE, t, p equal summary(lm) (3 rows)  TRUE
+              R2, adjusted R2, F equal summary(lm)  TRUE
+                               model p equals pf()  TRUE
+                    each correct report consistent  TRUE
+           no inconsistent row in a correct report  TRUE
+         mediation paths equal the three lm() fits  TRUE
+                       mediation report consistent  TRUE
+       a*b and its CI not checkable (right values)  TRUE
+      a*b and its CI not checkable (absurd values)  TRUE
+          absurd a*b does not make it inconsistent  TRUE
+ path CIs from confint() consistent at 90, 95, 99%  TRUE
+       the printed level is the only one that fits  TRUE
+             a moved path CI bound is inconsistent  TRUE
+
+PASS: regression known answers (13/13)

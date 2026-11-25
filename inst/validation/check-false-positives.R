@@ -48,6 +48,9 @@
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-false-positives.R")'
 
+source("inst/validation/record.R")
+record_start("check-false-positives", seed = 20261123)
+
 n_designs <- 300L
 set.seed(20261123)
 
@@ -342,3 +345,5 @@ cat("one-way designs with F < 1 and a negative omega2 checked and not flagged:",
 cat("goodness-of-fit designs with w > 1 checked and not flagged:", w1_count, "\n")
 cat(if (pass) "\nPASS" else "\nFAIL", ": false positives = ", sum(table_out$false_positives),
     ", errors = ", sum(table_out$errors), "\n", sep = "")
+
+record_stop()

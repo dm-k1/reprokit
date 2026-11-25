@@ -102,6 +102,9 @@
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-planted-errors.R")'
 
+source("inst/validation/record.R")
+record_start("check-planted-errors", seed = c(20261124, 20261125))
+
 options(width = 200)
 n_papers <- 1000L
 set.seed(20261124)
@@ -852,3 +855,5 @@ cat(if (reg_ok) "\nPASS" else "\nFAIL", ": regression planted errors, errors = "
     ", oracle-detectable not flagged = ", reg_missed, ", oracle-undetectable flagged = ",
     reg_false, ", flagged on a narrow subset but not on all = ", reg_hidden,
     ", cells never flagged = ", reg_dead, "\n", sep = "")
+
+record_stop()

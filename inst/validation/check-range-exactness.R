@@ -36,6 +36,9 @@
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-range-exactness.R")'
 
+source("inst/validation/record.R")
+record_start("check-range-exactness", seed = c(20261123, 20261125))
+
 n_boxes <- 300L
 uniform_draws <- 400L
 slice_draws <- 400L
@@ -541,3 +544,5 @@ reg_pass <- reg_escaped == 0L && reg_vertex_miss == 0L && all(span_ok) &&
   sum(vapply(reg_rows, function(r) r$boxes, 0L)) > 0L
 cat(if (reg_pass) "\nPASS" else "\nFAIL", ": regression ranges, escaped draws = ", reg_escaped,
     ", vertex mismatches = ", reg_vertex_miss, ", skipped boxes = ", reg_skipped, "\n", sep = "")
+
+record_stop()
