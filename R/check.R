@@ -12,7 +12,12 @@
 #' anything from 2.845 to 2.855). Where one input is missing but the output is
 #' reported, it gives the range the missing input must lie in.
 #'
-#' @param handler Name of a registered handler, such as `"t_paired"`.
+#' @param test The test the numbers come from, in the vocabulary of [sufficient_stats()]:
+#'   `"student"`, `"welch"` (two independent groups; the name fixes the variant),
+#'   `"one_sample"`, `"paired"`, `"pearson"`, `"oneway"`, `"factorial"`, `"chisq"`,
+#'   `"gof"`, `"mediation"` and `"lm"` (a multiple regression; `"lm_simple"` and
+#'   `"lm_moderation"` for a simple regression and a moderation analysis). It can be given by name or as the first unnamed argument. Any other
+#'   value is refused with the list of valid ones.
 #' @param ... Reported numbers, named by quantity (see [quantity_names()]).
 #'   Pass strings, so the decimals count: `t = "2.85"`, `p = "< .001"`,
 #'   `df = "29"`. A quantity with one value per group or condition is a
@@ -39,15 +44,26 @@
 #'     `"partial_eta2"`, `"partial_omega2"` (factorial ANOVA). Which of
 #'     them a handler has depends on the test.
 #' @param mu The test value the mean (or mean difference) is compared with, for
-#'   handlers whose t depends on it (`t_one_sample`, `t_paired`). A plain
+#'   tests whose t depends on it (`"one_sample"`, `"paired"`). A plain
 #'   number, not a string (`mu = 20`, not `mu = "20"`), unlike the reported
-#'   numbers. Default 0. A handler without a test value errors on `mu` other
+#'   numbers. Default 0. A test without a test value errors on `mu` other
 #'   than 0.
-#' @param k For the regression handlers (`check_lm()`), the number of predictor
+#' @param k For the regression tests (`"lm"` and the like), the number of predictor
 #'   columns (the model's df1), when F is not reported to say it. With `k`, `n`
 #'   and `df2` are checked against each other (df2 = n - k - 1) and either gives
 #'   the other; without it they are not, because k is never guessed from the
 #'   number of coefficients reported (a paper may leave some out). A plain number.
+#' @param dims For `"chisq"`, `"gof"` and `"factorial"`, the table shape: `c(rows, columns)`
+#'   for a test of independence, the number of categories for goodness of fit, the
+#'   levels of each factor for a factorial design. Not needed when `n` is a matrix (its
+#'   `dim()` is read before the counts are parsed). Without a shape `df` cannot be
+#'   checked, because a flat vector of counts does not say whether 12 cells are 2 x 6
+#'   or 3 x 4.
+#' @param p0 For `"gof"`, the H0 proportions, one per category, summing to 1 (within
+#'   1e-8). Without them the categories are taken as equally likely.
+#' @param effect For `"factorial"`, the effect to check: `"A"` (the factor in the rows
+#'   of the cell matrices), `"B"` (the columns) or `"AB"` (the interaction). A paper
+#'   with three F tests gets three calls with the same cell descriptives.
 #' @return A `reprokit_check` object: `$numbers` (status of each reported
 #'   number), `$level` (coverage, 0 to 3), `$missing` (what would raise the
 #'   level, and the range implied for it), `$variants` (a list with one data
@@ -85,13 +101,80 @@
 #'   the coverage level, but `df` is never checked against it.
 #' @export
 #' @examples
-#' check_reported("t_paired", n = "20", t = "2.85", df = "19", p = ".010")
-check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL,
+#' check_reported("paired", n = "20", t = "2.85", df = "19", p = ".010")
+#'
+#' # A 2 x 2 table: Yates' correction is a variant, V is a convention
+#' check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04",
+#'                df = "1", p = ".0001", v = ".41")
+#'
+#' # A regression reports a number per coefficient: name them.
+#' check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
+#'                t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
+#'                r2 = ".83", f = "69.21", df1 = "2", df2 = "29", n = "32")
+check_reported <- function(..., test, variants = NULL, mu = 0, dims = NULL, p0 = NULL,
                            effect = NULL, k = NULL) {
-  if (missing(handler)) {
-    stop("Name the handler first: check_reported(\"t_paired\", t = ...). Handlers that can ",
-         "check: ", paste(handlers_with_relations(), collapse = ", "), ".", call. = FALSE)
+  tests <- check_tests()
+  dots <- list(...)
+  if (missing(test)) {
+    # The first unnamed argument is the test. `test` sits after `...`, so a short quantity
+    # name (t, r, p, n) can never partially match it.
+    nm <- names(dots)
+    unnamed <- if (is.null(nm)) seq_along(dots) else which(!nzchar(nm))
+    if (length(unnamed) > 0L && is.character(dots[[unnamed[1L]]]) &&
+        length(dots[[unnamed[1L]]]) == 1L && !is.na(dots[[unnamed[1L]]])) {
+      test <- dots[[unnamed[1L]]]
+      dots <- dots[-unnamed[1L]]
+    } else {
+      abort_impossible("check without knowing the test",
+                       paste0("name it first: check_reported(\"paired\", t = ...). Valid tests: ",
+                              paste0("\"", names(tests), "\"", collapse = ", "), "."),
+                       alternatives = character())
+    }
   }
+  if (!is.character(test) || length(test) != 1L || is.na(test) || !test %in% names(tests)) {
+    abort_impossible(
+      paste0("check the test ", if (is.character(test) && length(test) == 1L)
+        paste0("\"", test, "\"") else "given"),
+      paste0("it is not a test reprokit knows by that name. Valid values of `test`: ",
+             paste0("\"", names(tests), "\"", collapse = ", "), ". Student and Welch are ",
+             "`\"student\"` and `\"welch\"`, not a handler name."),
+      alternatives = character())
+  }
+  given <- c(mu = !(is.numeric(mu) && length(mu) == 1L && isTRUE(mu == 0)), dims = !is.null(dims),
+             p0 = !is.null(p0), effect = !is.null(effect), k = !is.null(k))
+  allowed <- switch(test,
+    one_sample = , paired = "mu", chisq = "dims", gof = c("dims", "p0"),
+    oneway = c("effect", "dims"), factorial = c("effect", "dims"),
+    lm = , lm_simple = , lm_moderation = "k", character())
+  unused <- setdiff(names(given)[given], allowed)
+  if (length(unused) > 0L) {
+    stop("`", unused[1L], "` does not apply to test \"", test, "\".", call. = FALSE)
+  }
+  handler <- tests[[test]]
+  run <- function(f, ...) do.call(f, c(dots, list(...)))
+  switch(test,
+    student = , welch = {
+      other <- setdiff(c("student", "welch"), test)
+      if (other %in% variants) {
+        stop("`variants` names \"", other, "\" but `test` is \"", test, "\".", call. = FALSE)
+      }
+      run(check_handler, handler = handler, variants = c(variants, test))
+    },
+    one_sample = , paired = run(check_t, handler = handler, variants = variants, mu = mu),
+    pearson = run(check_r, handler = handler, variants = variants),
+    oneway = , factorial = run(check_F, handler = handler, variants = variants,
+                               effect = effect, dims = dims),
+    chisq = , gof = run(check_chisq, handler = handler, variants = variants, dims = dims,
+                        p0 = p0),
+    lm = , lm_simple = , lm_moderation = run(check_lm, handler = handler, variants = variants,
+                                             k = k),
+    mediation = run(check_mediation, variants = variants)
+  )
+}
+
+# The range engine: one handler's relations against the reported numbers.
+check_handler <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p0 = NULL,
+                           effect = NULL, k = NULL) {
   entry <- get_handler(handler)
   if ("effect" %in% entry$test_args && is.null(effect)) {
     stop("Handler '", handler, "' checks one effect at a time: name it with ",
@@ -168,32 +251,14 @@ check_reported <- function(handler, ..., variants = NULL, mu = 0, dims = NULL, p
   ), class = "reprokit_check")
 }
 
-#' @rdname check_reported
-#' @export
 check_t <- function(..., handler = "t_paired", variants = NULL, mu = 0) {
-  check_reported(handler = handler, ..., variants = variants, mu = mu)
+  check_handler(handler = handler, ..., variants = variants, mu = mu)
 }
 
-#' @rdname check_reported
-#' @export
 check_r <- function(..., handler = "cor_pearson", variants = NULL) {
-  check_reported(handler = handler, ..., variants = variants)
+  check_handler(handler = handler, ..., variants = variants)
 }
 
-#' @rdname check_reported
-#' @export
-#' @examples
-#' # A 2 x 2 between-subjects ANOVA: one call per effect, the same cell descriptives.
-#' # Rows of the matrices are the levels of A, columns the levels of B.
-#' cells <- list(n = matrix(rep("10", 4), 2),
-#'               m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
-#'               sd = matrix(rep("1.50", 4), 2))
-#' check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "A",
-#'         f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
-#' check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "B",
-#'         f = "9.34", df1 = "1", df2 = "36", p = ".004", eta2 = ".21")
-#' check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "AB",
-#'         f = "2.50", df1 = "1", df2 = "36", p = ".123", eta2 = ".06")
 check_F <- function(..., handler = NULL, variants = NULL, effect = NULL, # nolint: object_name_linter
                     dims = NULL) {
   dots <- list(...)
@@ -201,7 +266,7 @@ check_F <- function(..., handler = NULL, variants = NULL, effect = NULL, # nolin
     (is.null(handler) && (!is.null(effect) || !is.null(dims)))
   if (is.null(handler)) handler <- if (factorial) "anova_factorial" else "anova_oneway"
   if (!factorial) {
-    return(check_reported(handler = handler, ..., variants = variants, effect = effect,
+    return(check_handler(handler = handler, ..., variants = variants, effect = effect,
                           dims = dims))
   }
   # The cells are a x b matrices: read their shape, check that they agree, flatten.
@@ -232,31 +297,12 @@ check_F <- function(..., handler = NULL, variants = NULL, effect = NULL, # nolin
     }
   }
   if (!is.null(dims)) check_factorial_dims(dims)
-  out <- do.call(check_reported, c(list(handler = handler), dots,
+  out <- do.call(check_handler, c(list(handler = handler), dots,
                                    list(variants = variants, dims = dims, effect = effect)))
   out$notes <- c(out$notes, paste0("Effect checked: ", factorial_effect_words(effect), "."))
   out
 }
 
-#' @rdname check_reported
-#' @param effect For `check_F()` on a two-factor between-subjects design, the effect
-#'   to check: `"A"` (main effect of the factor in the rows of the cell matrices),
-#'   `"B"` (the columns) or `"AB"` (the interaction). A paper with three F tests gets
-#'   three calls with the same cell descriptives. Giving `effect` (or `dims`)
-#'   selects the factorial handler; without it `check_F()` is the one-way ANOVA.
-#' @param dims For `check_chisq()` and `check_F()`, the table shape: `c(rows, columns)` for a
-#'   test of independence, the number of categories for goodness of fit. Not
-#'   needed when `n` is a matrix (its `dim()` is read before the counts are
-#'   parsed). Without a shape `df` cannot be checked, because a flat vector of
-#'   counts does not say whether 12 cells are 2 x 6 or 3 x 4.
-#' @param p0 For `check_chisq()` with goodness of fit, the H0 proportions, one
-#'   per category, summing to 1 (within 1e-8). Without them the categories are
-#'   taken as equally likely.
-#' @export
-#' @examples
-#' # A 2 x 2 table: Yates' correction is a variant, V is a convention
-#' check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
-#'             p = ".0001", v = ".41")
 check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = NULL) {
   dots <- list(...)
   n <- dots[["n"]]
@@ -305,7 +351,7 @@ check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = 
     dots[["v"]] <- abs(dots[["v"]])
     notes <- "A negative V (phi) is compared by absolute value; V is not signed."
   }
-  out <- do.call(check_reported, c(list(handler = handler), dots,
+  out <- do.call(check_handler, c(list(handler = handler), dots,
                                    list(variants = variants, dims = dims, p0 = p0)))
   out$notes <- c(out$notes, notes)
   out
@@ -970,4 +1016,14 @@ print.reprokit_check <- function(x, ...) {
   cat("\nAn inconsistency shows the numbers cannot all be correct as reported, ",
       "not which one is wrong or why.\n", sep = "")
   invisible(x)
+}
+
+# The vocabulary of `test`: sufficient_stats(test=) plus the regression and mediation
+# checks, each mapped to the handler that carries its relations.
+check_tests <- function() {
+  c(student = "t_independent", welch = "t_independent", one_sample = "t_one_sample",
+    paired = "t_paired", pearson = "cor_pearson", oneway = "anova_oneway",
+    factorial = "anova_factorial", chisq = "chisq_independence", gof = "chisq_gof",
+    mediation = "mediation_simple", lm = "lm_multiple", lm_simple = "lm_simple",
+    lm_moderation = "lm_moderation")
 }

@@ -4,10 +4,30 @@
 \alias{appendix}
 \title{Write the reporting appendix for a sufficient-statistics object}
 \usage{
-appendix(s, choices = list(), digits = 2L, digits_added = 4L)
+appendix(
+  x,
+  ...,
+  sharing_reason,
+  choices = list(),
+  digits = 2L,
+  digits_added = 4L,
+  threshold = 5
+)
 }
 \arguments{
-\item{s}{A \code{reprokit_sufficient_stats} object from \code{\link[=sufficient_stats]{sufficient_stats()}}.}
+\item{x}{A fitted model or test result (what \code{\link[=sufficient_stats]{sufficient_stats()}} accepts: \code{lm}, \code{aov},
+\code{chisq.test}, \code{t.test} / \code{cor.test} with \code{data}; two \code{lm} fits for a mediation, the
+second one in \code{...}), a formula with \code{data} and \code{test}, or an object made by
+\code{\link[=sufficient_stats]{sufficient_stats()}}.}
+
+\item{...}{Passed to \code{\link[=sufficient_stats]{sufficient_stats()}} when \code{x} is not already its object (\code{data},
+\code{test}, the second model of a mediation, the choices of a formula analysis).}
+
+\item{sharing_reason}{Optional: why the raw data are not shared, in the author's
+words. reprokit does not suggest reasons. A missing or blank one gives a warning and
+the appendix line "not stated by the author". What
+readers lose is not an argument: reprokit states it, from the test (see
+\code{sufficient_stats(...)$lost}).}
 
 \item{choices}{Named list of answers the object cannot know. \code{convention}:
 the effect-size convention, as a variant code (e.g. \code{"d_z"}, \code{"d_av"}).
@@ -18,16 +38,21 @@ it is reprokit's default, not the author's answer (ADR 0025); checking a paper
 never assumes a type. \code{level}: for a regression or mediation, the
 confidence level of the paper's intervals (\code{"0.95"}, \code{"0.90"} or \code{"0.99"});
 for a regression, \code{convention} is \code{"r2"} or \code{"adj_r2"} (the R-squared the paper
-reports).}
+reports). Choices recorded in a fitted result (tails, level, test variant, test value,
+continuity correction, H0 proportions) are read from it and marked "read from the
+result"; an explicit choice that conflicts with one is refused.}
 
 \item{digits}{Decimals for the APA numbers in block A (p always gets 3).}
 
 \item{digits_added}{Decimals for the added numbers in block B. They feed
 back into the result, so they get more decimals than APA's two; the object
 itself keeps full precision.}
+
+\item{threshold}{Passed to \code{\link[=sufficient_stats]{sufficient_stats()}} when it is called here.}
 }
 \value{
-A character vector of markdown lines, class \code{reprokit_appendix}.
+A character vector of markdown lines, class \code{reprokit_appendix}. Refuses with an
+error of class \code{reprokit_impossible} when summaries do not suffice.
 }
 \description{
 The APA Publication Manual (7th ed., §3.7) says that when the sufficient set
@@ -48,9 +73,12 @@ It ends with the reason for not sharing the raw data, what readers lose, and
 the disclosure check.
 }
 \examples{
+appendix(chisq.test(table(mtcars$cyl, mtcars$am)),
+         sharing_reason = "Consent did not cover public sharing.")
+
 sleep_wide <- data.frame(drug1 = sleep$extra[sleep$group == 1],
                          drug2 = sleep$extra[sleep$group == 2])
-s <- sufficient_stats(Pair(drug1, drug2) ~ 1, data = sleep_wide, test = "paired",
-                      sharing_reason = "Consent did not cover public sharing.")
-appendix(s, choices = list(convention = "d_z"))
+appendix(Pair(drug1, drug2) ~ 1, data = sleep_wide, test = "paired",
+         sharing_reason = "Consent did not cover public sharing.",
+         choices = list(convention = "d_z"))
 }

@@ -23,9 +23,9 @@ paper_pearson <- function() {
        ci_lower = fixed(result$conf.int[1], 3), ci_upper = fixed(result$conf.int[2], 3))
 }
 
-run_check <- function(handler, paper, drop = character()) {
+run_check <- function(test, paper, drop = character()) {
   paper <- paper[setdiff(setdiff(names(paper), "true_r"), drop)]
-  do.call(check_reported, c(list(handler = handler), paper))
+  do.call(check_reported, c(list(test = test), paper))
 }
 
 status_of <- function(checked, quantity) {
@@ -58,3 +58,10 @@ paper_factorial <- function(d, effect, type = "III", digits = 2L) {
        eta2 = fixed(r[[paste0("eta2_", effect)]], 2),
        effect = effect, dims = dims)
 }
+
+check_factorial <- function(...) check_reported(test = "factorial", ...)
+check_paired <- function(...) check_reported(test = "paired", ...)
+check_pearson <- function(...) check_reported(test = "pearson", ...)
+# Student and Welch together: the range engine without fixing the test, so the variants
+# kind lists both (check_reported(test = "student") / ("welch") would fix it).
+check_independent <- function(...) check_handler("t_independent", ...)

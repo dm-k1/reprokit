@@ -12,7 +12,6 @@ new_sufficient_stats(
   stats = list(),
   meta = list(),
   disclosure = list(),
-  sharing_reason,
   lost
 )
 
@@ -34,9 +33,6 @@ is_sufficient_stats(x)
 \item{disclosure}{Named list of disclosure flags (small cells, small
 clusters, extreme values). A risk reduction, never a guarantee.}
 
-\item{sharing_reason}{Required: the author's stated reason for not sharing
-the raw data.}
-
 \item{lost}{Required: character vector of what readers lose compared with
 the raw data.}
 
@@ -51,9 +47,9 @@ The central object of the share direction. Users get one from
 The check functions do not use it: they work from reported numbers.
 }
 \details{
-The object cannot exist without a stated reason for not sharing and a non-empty
-list of what readers lose. This keeps the tool from becoming a respectable
-excuse for not sharing.
+This constructor cannot make an object without a non-empty list of what readers
+lose. The author's reason for not sharing is not stored here: it belongs to
+\code{\link[=appendix]{appendix()}} alone, is optional, and is never filled in by reprokit.
 }
 \examples{
 s <- new_sufficient_stats(
@@ -61,7 +57,6 @@ s <- new_sufficient_stats(
   verdict = "summaries_suffice",
   verdict_reason = "Group means and SDs determine the t statistic.",
   stats = list(n = c(20, 22), mean = c(5.1, 4.3), sd = c(1.2, 1.4)),
-  sharing_reason = "Consent form did not cover public sharing.",
   lost = c("outlier inspection", "alternative analyses")
 )
 s

@@ -32,14 +32,14 @@ test_that("a correctly rounded independent-samples CI fits its own level only", 
   for (level in c(0.90, 0.95, 0.99)) {
     paper <- ci_paper(level)
     paper$n <- as.character(paper$n)
-    checked <- do.call(check_reported, c(list(handler = "t_independent"), paper))
+    checked <- do.call(check_independent, c(paper))
     expect_true(checked$consistent, info = level)
     expect_true(sprintf("%.2f", level) %in% fitting_levels(checked), info = level)
   }
   paper <- ci_paper(0.90)
   paper$ci_upper <- fixed(as.numeric(paper$ci_upper) + 0.2, 2)
-  checked <- do.call(check_reported,
-                     c(list(handler = "t_independent"), lapply(paper, as.character)))
+  checked <- do.call(check_independent,
+                     c(lapply(paper, as.character)))
   expect_false(checked$consistent)
 })
 
@@ -47,14 +47,14 @@ test_that("one-sample, paired and Pearson CIs accept 90, 95 and 99 percent", {
   x <- datasets::sleep$extra[datasets::sleep$group == 1]
   for (level in c(0.90, 0.95, 0.99)) {
     r <- stats::t.test(x, conf.level = level)
-    checked <- check_reported("t_one_sample", n = "10", m = fixed(mean(x), 2),
+    checked <- check_reported(test = "one_sample", n = "10", m = fixed(mean(x), 2),
                               sd = fixed(stats::sd(x), 2),
                               ci_lower = fixed(r$conf.int[1], 2),
                               ci_upper = fixed(r$conf.int[2], 2))
     expect_true(checked$consistent, info = level)
     expect_true(sprintf("%.2f", level) %in% fitting_levels(checked))
     cr <- stats::cor.test(datasets::mtcars$mpg, datasets::mtcars$wt, conf.level = level)
-    checked <- check_reported("cor_pearson", n = "32", r = fixed(cr$estimate, 3),
+    checked <- check_reported(test = "pearson", n = "32", r = fixed(cr$estimate, 3),
                               ci_lower = fixed(cr$conf.int[1], 3),
                               ci_upper = fixed(cr$conf.int[2], 3))
     expect_true(checked$consistent, info = level)
@@ -65,7 +65,7 @@ test_that("one-sample, paired and Pearson CIs accept 90, 95 and 99 percent", {
     pr <- stats::t.test(first, second, paired = TRUE, conf.level = level)
     paper$ci_lower <- fixed(pr$conf.int[1], 2)
     paper$ci_upper <- fixed(pr$conf.int[2], 2)
-    checked <- run_check("t_paired", paper)
+    checked <- run_check("paired", paper)
     expect_true(checked$consistent, info = level)
     expect_true(sprintf("%.2f", level) %in% fitting_levels(checked))
   }
@@ -83,7 +83,7 @@ test_that("paired d: d_z, d_rm and d_av, signed first minus second, never incons
                      mean(c(stats::sd(first), stats::sd(second))))
   for (convention in names(conventions)) {
     paper$d <- fixed(conventions[[convention]], 2)
-    checked <- run_check("t_paired", paper)
+    checked <- run_check("paired", paper)
     expect_true(checked$consistent, info = convention)
     expect_equal(status_of(checked, "d"), "verified", info = convention)
     fitting <- checked$variants$convention
@@ -91,17 +91,17 @@ test_that("paired d: d_z, d_rm and d_av, signed first minus second, never incons
   }
   # A d that no convention reproduces, and the wrong sign, are not reproducible.
   paper$d <- "0.90"
-  expect_equal(status_of(run_check("t_paired", paper), "d"), "not reproducible")
-  expect_true(run_check("t_paired", paper)$consistent)
+  expect_equal(status_of(run_check("paired", paper), "d"), "not reproducible")
+  expect_true(run_check("paired", paper)$consistent)
   paper$d <- fixed(-conventions[["d_z"]], 2)
-  expect_true(run_check("t_paired", paper)$consistent)
+  expect_true(run_check("paired", paper)$consistent)
 })
 
 test_that("paired d is checkable without r through d_av, and r stays missing", {
   first <- datasets::sleep$extra[datasets::sleep$group == 1]
   second <- datasets::sleep$extra[datasets::sleep$group == 2]
   d_av <- (mean(first) - mean(second)) / mean(c(stats::sd(first), stats::sd(second)))
-  checked <- check_reported("t_paired", n = "10", m = fixed(c(mean(first), mean(second)), 2),
+  checked <- check_reported(test = "paired", n = "10", m = fixed(c(mean(first), mean(second)), 2),
                             sd = fixed(c(stats::sd(first), stats::sd(second)), 2),
                             d = fixed(d_av, 2))
   expect_equal(status_of(checked, "d"), "verified")
@@ -133,10 +133,10 @@ test_that("every variant of every registered relation has a readable label", {
 
 test_that("print and choices use the labels, with none as the fallback", {
   paper <- paper_paired()
-  out <- paste(utils::capture.output(print(run_check("t_paired", paper))), collapse = "\n")
+  out <- paste(utils::capture.output(print(run_check("paired", paper))), collapse = "\n")
   expect_match(out, "Confidence levels that fit: 95%", fixed = TRUE)
   expect_false(grepl("two.sided", out, fixed = TRUE))
-  bad <- check_reported("t_paired", n = "10", m = c("1.00", "1.10"), sd = c("1.00", "1.00"),
+  bad <- check_reported(test = "paired", n = "10", m = c("1.00", "1.10"), sd = c("1.00", "1.00"),
                         d = "0.90")
   expect_match(paste(utils::capture.output(print(bad)), collapse = "\n"),
                "conventions that fit: none", fixed = TRUE)
@@ -191,7 +191,7 @@ test_that("an empty evaluation has the per-kind columns", {
 
 test_that("a correct 90 and 99 percent Welch CI each pass and report their level and test", {
   for (level in c(0.90, 0.99)) {
-    checked <- do.call(check_reported, c(list(handler = "t_independent"), welch_paper(level)))
+    checked <- do.call(check_independent, c(welch_paper(level)))
     expect_true(checked$consistent, info = as.character(level))
     expect_identical(fitting_of(checked, "level"), sprintf("%.2f", level),
                      info = as.character(level))
@@ -204,7 +204,7 @@ test_that("bounds at different levels are inconsistent, though each fits some le
   hi <- welch_paper(0.99)
   paper <- lo
   paper$ci_upper <- hi$ci_upper
-  checked <- do.call(check_reported, c(list(handler = "t_independent"), paper))
+  checked <- do.call(check_independent, c(paper))
   expect_false(checked$consistent)
   expect_true(all(c("ci_lower", "ci_upper") %in%
                     checked$numbers$quantity[checked$numbers$status == "inconsistent"]))
@@ -225,32 +225,32 @@ test_that("a Student-only t with a Welch-only CI is inconsistent", {
   welch_t <- fixed((m[1] - m[2]) / welch_se, 2)
   student_t <- fixed((m[1] - m[2]) / pooled_se, 2)
   expect_false(welch_t == student_t)
-  both_welch <- do.call(check_reported,
-                        c(list(handler = "t_independent"), common, list(t = welch_t)))
+  both_welch <- do.call(check_independent,
+                        c(common, list(t = welch_t)))
   expect_true(both_welch$consistent)
-  mixed <- do.call(check_reported,
-                   c(list(handler = "t_independent"), common, list(t = student_t)))
+  mixed <- do.call(check_independent,
+                   c(common, list(t = student_t)))
   expect_false(mixed$consistent)
   expect_length(fitting_of(mixed, "test"), 0L)
 })
 
 test_that("a user value restricts only its own kind", {
   paper <- welch_paper(0.90)
-  both <- do.call(check_reported, c(list(handler = "t_independent"), paper,
+  both <- do.call(check_independent, c(paper,
                                     list(variants = c("welch", "0.90"))))
   expect_true(both$consistent)
   ci <- both$relations[grepl("^ci_", both$relations$relation), ]
   expect_setequal(ci$test, "welch")
   expect_setequal(ci$level, "0.90")
-  only_level <- do.call(check_reported, c(list(handler = "t_independent"), paper,
+  only_level <- do.call(check_independent, c(paper,
                                           list(variants = "0.90")))
   ci <- only_level$relations[grepl("^ci_", only_level$relations$relation), ]
   expect_setequal(ci$test, c("student", "welch"))
   expect_setequal(ci$level, "0.90")
-  wrong <- do.call(check_reported, c(list(handler = "t_independent"), paper,
+  wrong <- do.call(check_independent, c(paper,
                                      list(variants = "0.99")))
   expect_false(wrong$consistent)
-  expect_error(do.call(check_reported, c(list(handler = "t_independent"), paper,
+  expect_error(do.call(check_independent, c(paper,
                                          list(variants = "no_such"))), "Unknown variant")
 })
 
@@ -266,12 +266,12 @@ test_that("a bound that fits under no choice does not drag the holding numbers a
   # every choice, but the lower bound fits, and keeps fitting at 95%.
   paper <- ci_paper(0.95)
   paper$n <- as.character(paper$n)
-  correct <- do.call(check_reported, c(list(handler = "t_independent"), paper))
+  correct <- do.call(check_independent, c(paper))
   expect_true(correct$consistent)
 
   # Far enough that no level fits (+0.2 lands on the 99% bound).
   paper$ci_upper <- fixed(as.numeric(paper$ci_upper) + 1, 2)
-  checked <- do.call(check_reported, c(list(handler = "t_independent"), paper))
+  checked <- do.call(check_independent, c(paper))
   expect_false(checked$consistent)
   expect_equal(status_of(checked, "ci_upper"), "inconsistent")
   expect_false(status_of(checked, "ci_lower") == "inconsistent")

@@ -16,18 +16,17 @@ Two directions use the same statistics.
 
 \strong{Share} (you cannot share the raw data):
 \itemize{
-\item \code{\link[=triage]{triage()}} says whether summary statistics suffice. It never errors.
-\item \code{\link[=sufficient_stats]{sufficient_stats()}} stores them, with a required reason for not sharing
-and a list of what readers lose.
-\item \code{\link[=reproduce]{reproduce()}} recomputes the result from the stored statistics alone.
-\item \code{\link[=appendix]{appendix()}} writes the appendix for the paper.
+\item \code{\link[=sufficient_stats]{sufficient_stats()}} says whether summary statistics suffice and what to publish, and
+stores them. It never errors on the verdict, and its print narrates the verdict,
+what to publish and what readers lose. It takes a fitted model or result, or a formula.
+\item \code{\link[=appendix]{appendix()}} writes the appendix for the paper. It requires a reason for not sharing
+and a non-empty list of what readers lose.
 }
 
 \strong{Check} (you are reading a paper):
 \itemize{
-\item \code{\link[=check_t]{check_t()}}, \code{\link[=check_r]{check_r()}}, \code{\link[=check_F]{check_F()}} and \code{\link[=check_chisq]{check_chisq()}} test whether reported numbers are
-consistent with each other, allowing for rounding. They call
-\code{\link[=check_reported]{check_reported()}}.
+\item \code{\link[=check_reported]{check_reported()}} tests whether reported numbers are consistent with each other,
+allowing for rounding, for the \code{test} you name.
 }
 
 An inconsistency means the numbers cannot all be correct as reported. It does

@@ -6,7 +6,7 @@ pearson_apa <- function() {
 }
 
 test_that("r, df and p from a real cor.test() is checkable and coherent, with n implied", {
-  checked <- run_check("cor_pearson", pearson_apa()[c("r", "df", "p")])
+  checked <- run_check("pearson", pearson_apa()[c("r", "df", "p")])
   expect_true(checked$consistent)
   expect_true(checked$checked)
   # n = df + 2 is determined by df, so the sufficient set (n, r) is covered.
@@ -22,7 +22,7 @@ test_that("r, df and p from a real cor.test() is checkable and coherent, with n 
 })
 
 test_that("the form in the brief is checkable", {
-  checked <- check_reported("cor_pearson", r = ".41", df = "28", p = ".024")
+  checked <- check_reported(test = "pearson", r = ".41", df = "28", p = ".024")
   expect_gt(checked$level, 0L)
   expect_true(checked$consistent)
   expect_equal(checked$implied_inputs$n$lower, 30)
@@ -31,46 +31,46 @@ test_that("the form in the brief is checkable", {
 test_that("a planted r/p mismatch is flagged when n is implied", {
   paper <- pearson_apa()[c("r", "df", "p")]
   paper$p <- "0.500"
-  checked <- run_check("cor_pearson", paper)
+  checked <- run_check("pearson", paper)
   expect_false(checked$consistent)
   expect_equal(status_of(checked, "p"), "inconsistent")
 })
 
 test_that("no df_from_n row exists for an implied n, and df is not checked against it", {
-  checked <- run_check("cor_pearson", pearson_apa()[c("r", "df", "p")])
+  checked <- run_check("pearson", pearson_apa()[c("r", "df", "p")])
   expect_false("df_from_n" %in% checked$relations$relation)
   expect_false(any(checked$relations$checked & checked$relations$output == "df"))
   # df is only ever an input here, never the output of a checked relation
   expect_false(any(grepl("df_from_n", checked$numbers$checked_against)))
   # nor does the skipped relation leave df "unconfirmed" when nothing else reaches it
-  alone <- check_reported("cor_pearson", df = "28")
+  alone <- check_reported(test = "pearson", df = "28")
   expect_equal(status_of(alone, "df"), "not checkable")
 })
 
 test_that("the CI is checked through the implied n", {
-  checked <- run_check("cor_pearson", pearson_apa())
+  checked <- run_check("pearson", pearson_apa())
   expect_true(checked$consistent)
   expect_true(all(c("ci_lower_from_r", "ci_upper_from_r") %in%
                     checked$relations$relation[checked$relations$checked]))
   paper <- pearson_apa()
   paper$ci_upper <- "-0.644"
-  expect_false(run_check("cor_pearson", paper)$consistent)
+  expect_false(run_check("pearson", paper)$consistent)
 })
 
 test_that("paired and one-sample t work from t, df, p and descriptives without n", {
   paired <- paper_paired()
-  checked <- run_check("t_paired", paired[c("m", "sd", "r", "t", "df", "p")])
+  checked <- run_check("paired", paired[c("m", "sd", "r", "t", "df", "p")])
   expect_true(checked$consistent)
   expect_equal(checked$implied_inputs$n$lower, 10)
   expect_equal(status_of(checked, "t"), "verified")
   expect_false("df_from_n" %in% checked$relations$relation)
   bad <- paired[c("m", "sd", "r", "t", "df", "p")]
   bad$t <- "5.85"
-  expect_false(run_check("t_paired", bad)$consistent)
+  expect_false(run_check("paired", bad)$consistent)
 
   x <- datasets::sleep$extra[datasets::sleep$group == 1]
   tt <- stats::t.test(x, mu = 0.5)
-  one <- check_reported("t_one_sample", m = fixed(mean(x), 2), sd = fixed(sd(x), 2),
+  one <- check_reported(test = "one_sample", m = fixed(mean(x), 2), sd = fixed(sd(x), 2),
                         t = fixed(tt$statistic, 2), df = as.character(tt$parameter),
                         p = fixed(tt$p.value, 3), mu = 0.5)
   expect_true(one$consistent)
@@ -80,22 +80,22 @@ test_that("paired and one-sample t work from t, df, p and descriptives without n
 })
 
 test_that("t_independent implies nothing from df", {
-  checked <- check_reported("t_independent", t = "2.10", df = "28", p = ".045")
+  checked <- check_independent(t = "2.10", df = "28", p = ".045")
   expect_length(checked$implied_inputs, 0L)
   expect_null(relation("x", "n", "df", function(vals, variant) vals$n)$inverse)
 })
 
 test_that("with n and df both reported, df_from_n checks df as before", {
-  checked <- run_check("cor_pearson", paper_pearson())
+  checked <- run_check("pearson", paper_pearson())
   expect_length(checked$implied_inputs, 0L)
   expect_true("df_from_n" %in% checked$relations$relation[checked$relations$checked])
   paper <- paper_pearson()
   paper$df <- "29"
-  expect_false(run_check("cor_pearson", paper)$consistent)
+  expect_false(run_check("pearson", paper)$consistent)
 })
 
 test_that("an impossible df implies nothing and a relation inverse needs one input", {
-  expect_length(check_reported("cor_pearson", r = ".41", df = "28.4",
+  expect_length(check_reported(test = "pearson", r = ".41", df = "28.4",
                                p = ".024")$implied_inputs, 0L)
   expect_error(relation("bad", c("n", "r"), "t", function(vals, variant) 1,
                         inverse = function(x) x))

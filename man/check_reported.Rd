@@ -2,15 +2,11 @@
 % Please edit documentation in R/check.R
 \name{check_reported}
 \alias{check_reported}
-\alias{check_t}
-\alias{check_r}
-\alias{check_F}
-\alias{check_chisq}
 \title{Check reported statistics against each other}
 \usage{
 check_reported(
-  handler,
   ...,
+  test,
   variants = NULL,
   mu = 0,
   dims = NULL,
@@ -18,23 +14,20 @@ check_reported(
   effect = NULL,
   k = NULL
 )
-
-check_t(..., handler = "t_paired", variants = NULL, mu = 0)
-
-check_r(..., handler = "cor_pearson", variants = NULL)
-
-check_F(..., handler = NULL, variants = NULL, effect = NULL, dims = NULL)
-
-check_chisq(..., handler = NULL, variants = NULL, dims = NULL, p0 = NULL)
 }
 \arguments{
-\item{handler}{Name of a registered handler, such as \code{"t_paired"}.}
-
 \item{...}{Reported numbers, named by quantity (see \code{\link[=quantity_names]{quantity_names()}}).
 Pass strings, so the decimals count: \code{t = "2.85"}, \code{p = "< .001"},
 \code{df = "29"}. A quantity with one value per group or condition is a
 character vector (\code{m = c("5.1", "4.2")}). Integer-valued numbers are taken
 as exact.}
+
+\item{test}{The test the numbers come from, in the vocabulary of \code{\link[=sufficient_stats]{sufficient_stats()}}:
+\code{"student"}, \code{"welch"} (two independent groups; the name fixes the variant),
+\code{"one_sample"}, \code{"paired"}, \code{"pearson"}, \code{"oneway"}, \code{"factorial"}, \code{"chisq"},
+\code{"gof"}, \code{"mediation"} and \code{"lm"} (a multiple regression; \code{"lm_simple"} and
+\code{"lm_moderation"} for a simple regression and a moderation analysis). It can be given by name or as the first unnamed argument. Any other
+value is refused with the list of valid ones.}
 
 \item{variants}{Character vector restricting which variants to try (such as
 \code{"two.sided"}, \code{"0.95"} or \code{"welch"}), or \code{NULL} for all. Each value
@@ -59,28 +52,26 @@ them a handler has depends on the test.
 }}
 
 \item{mu}{The test value the mean (or mean difference) is compared with, for
-handlers whose t depends on it (\code{t_one_sample}, \code{t_paired}). A plain
+tests whose t depends on it (\code{"one_sample"}, \code{"paired"}). A plain
 number, not a string (\code{mu = 20}, not \code{mu = "20"}), unlike the reported
-numbers. Default 0. A handler without a test value errors on \code{mu} other
+numbers. Default 0. A test without a test value errors on \code{mu} other
 than 0.}
 
-\item{dims}{For \code{check_chisq()} and \code{check_F()}, the table shape: \code{c(rows, columns)} for a
-test of independence, the number of categories for goodness of fit. Not
-needed when \code{n} is a matrix (its \code{dim()} is read before the counts are
-parsed). Without a shape \code{df} cannot be checked, because a flat vector of
-counts does not say whether 12 cells are 2 x 6 or 3 x 4.}
+\item{dims}{For \code{"chisq"}, \code{"gof"} and \code{"factorial"}, the table shape: \code{c(rows, columns)}
+for a test of independence, the number of categories for goodness of fit, the
+levels of each factor for a factorial design. Not needed when \code{n} is a matrix (its
+\code{dim()} is read before the counts are parsed). Without a shape \code{df} cannot be
+checked, because a flat vector of counts does not say whether 12 cells are 2 x 6
+or 3 x 4.}
 
-\item{p0}{For \code{check_chisq()} with goodness of fit, the H0 proportions, one
-per category, summing to 1 (within 1e-8). Without them the categories are
-taken as equally likely.}
+\item{p0}{For \code{"gof"}, the H0 proportions, one per category, summing to 1 (within
+1e-8). Without them the categories are taken as equally likely.}
 
-\item{effect}{For \code{check_F()} on a two-factor between-subjects design, the effect
-to check: \code{"A"} (main effect of the factor in the rows of the cell matrices),
-\code{"B"} (the columns) or \code{"AB"} (the interaction). A paper with three F tests gets
-three calls with the same cell descriptives. Giving \code{effect} (or \code{dims})
-selects the factorial handler; without it \code{check_F()} is the one-way ANOVA.}
+\item{effect}{For \code{"factorial"}, the effect to check: \code{"A"} (the factor in the rows
+of the cell matrices), \code{"B"} (the columns) or \code{"AB"} (the interaction). A paper
+with three F tests gets three calls with the same cell descriptives.}
 
-\item{k}{For the regression handlers (\code{check_lm()}), the number of predictor
+\item{k}{For the regression tests (\code{"lm"} and the like), the number of predictor
 columns (the model's df1), when F is not reported to say it. With \code{k}, \code{n}
 and \code{df2} are checked against each other (df2 = n - k - 1) and either gives
 the other; without it they are not, because k is never guessed from the
@@ -130,19 +121,14 @@ anything from 2.845 to 2.855). Where one input is missing but the output is
 reported, it gives the range the missing input must lie in.
 }
 \examples{
-check_reported("t_paired", n = "20", t = "2.85", df = "19", p = ".010")
-# A 2 x 2 between-subjects ANOVA: one call per effect, the same cell descriptives.
-# Rows of the matrices are the levels of A, columns the levels of B.
-cells <- list(n = matrix(rep("10", 4), 2),
-              m = matrix(c("4.10", "5.20", "4.80", "7.40"), 2),
-              sd = matrix(rep("1.50", 4), 2))
-check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "A",
-        f = "15.21", df1 = "1", df2 = "36", p = "< .001", eta2 = ".30")
-check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "B",
-        f = "9.34", df1 = "1", df2 = "36", p = ".004", eta2 = ".21")
-check_F(n = cells$n, m = cells$m, sd = cells$sd, effect = "AB",
-        f = "2.50", df1 = "1", df2 = "36", p = ".123", eta2 = ".06")
+check_reported("paired", n = "20", t = "2.85", df = "19", p = ".010")
+
 # A 2 x 2 table: Yates' correction is a variant, V is a convention
-check_chisq(n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04", df = "1",
-            p = ".0001", v = ".41")
+check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04",
+               df = "1", p = ".0001", v = ".41")
+
+# A regression reports a number per coefficient: name them.
+check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
+               t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
+               r2 = ".83", f = "69.21", df1 = "2", df2 = "29", n = "32")
 }

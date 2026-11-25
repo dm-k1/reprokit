@@ -10,7 +10,7 @@ quantity_names()
 A character vector.
 }
 \description{
-The shared vocabulary of \code{check_reported()}, \code{check_t()} and \code{check_r()}: the
+The shared vocabulary of \code{check_reported()}: the
 names under which reported numbers are passed in, and the names handlers use
 in their relations.
 }

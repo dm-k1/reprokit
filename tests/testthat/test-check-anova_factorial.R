@@ -10,7 +10,7 @@ test_that("a balanced design has no SS-type variant", {
   names(tg) <- c("y", "a", "b")
   for (effect in c("A", "B", "AB")) {
     paper <- paper_factorial(tg, effect)
-    ok <- do.call(check_F, paper)
+    ok <- do.call(check_factorial, paper)
     expect_true(all(ok$numbers$status != "inconsistent"), info = effect)
     expect_null(sstypes(ok))
     # The interaction has df1 = 2 here: no exact range, so F is checked for coherence only.
@@ -21,22 +21,22 @@ test_that("a balanced design has no SS-type variant", {
 })
 
 test_that("checking never assumes an SS type: III, II and I are all tried (ADR 0025)", {
-  ok <- do.call(check_F, paper_factorial(factorial_unbalanced(), "A", "II"))
+  ok <- do.call(check_factorial, paper_factorial(factorial_unbalanced(), "A", "II"))
   expect_setequal(ok$variants$test$variant, c("III", "II", "I"))
 })
 
 test_that("an unbalanced design: the type the paper used is the one that fits", {
   d <- factorial_unbalanced()
   for (type in ss_type_codes()) {
-    ok <- do.call(check_F, paper_factorial(d, "A", type))
+    ok <- do.call(check_factorial, paper_factorial(d, "A", type))
     expect_true(all(ok$numbers$status != "inconsistent"), info = type)
     expect_identical(sstypes(ok), type)
     # B has df1 = 2 in an unbalanced design: no exact range, so never flagged, never pinned.
-    b <- do.call(check_F, paper_factorial(d, "B", type))
+    b <- do.call(check_factorial, paper_factorial(d, "B", type))
     expect_true(all(b$numbers$status != "inconsistent"), info = type)
     expect_null(sstypes(b))
   }
-  ab <- do.call(check_F, paper_factorial(d, "AB", "I"))
+  ab <- do.call(check_factorial, paper_factorial(d, "AB", "I"))
   expect_true(all(ab$numbers$status != "inconsistent"))
   expect_null(sstypes(ab))
 })
@@ -45,7 +45,7 @@ test_that("an F from one SS type with the p of another does not fit", {
   d <- factorial_unbalanced()
   paper <- paper_factorial(d, "A", "III")
   paper$p <- paper_factorial(d, "A", "II")$p
-  bad <- do.call(check_F, paper)
+  bad <- do.call(check_factorial, paper)
   expect_true(any(bad$numbers$status == "inconsistent"))
 })
 
@@ -54,13 +54,13 @@ test_that("planted errors are flagged: a cell mean, a digit of F, df2 from the w
   paper <- paper_factorial(d, "A", "III")
   moved <- paper
   moved$m[1L, 1L] <- fixed(as.numeric(moved$m[1L, 1L]) + 1.5, 2)
-  expect_true(any(do.call(check_F, moved)$numbers$status == "inconsistent"))
+  expect_true(any(do.call(check_factorial, moved)$numbers$status == "inconsistent"))
   digit <- paper
   digit$f <- fixed(as.numeric(digit$f) + 0.5, 2)
-  expect_true(any(do.call(check_F, digit)$numbers$status == "inconsistent"))
+  expect_true(any(do.call(check_factorial, digit)$numbers$status == "inconsistent"))
   wrong_n <- paper
   wrong_n$df2 <- as.character(as.numeric(wrong_n$df2) + 3)
-  expect_true(any(do.call(check_F, wrong_n)$numbers$status == "inconsistent"))
+  expect_true(any(do.call(check_factorial, wrong_n)$numbers$status == "inconsistent"))
 })
 
 test_that("partial omega squared is accepted as a convention, and plain eta squared is not", {
@@ -69,7 +69,7 @@ test_that("partial omega squared is accepted as a convention, and plain eta squa
   r <- anova_factorial_reported(y ~ a * b, d, "factorial", ss_type = "III")
   gain <- r[["df1_B"]] * (r[["f_B"]] - 1)
   paper$eta2 <- fixed(gain / (gain + r[["df2"]] + 6), 2)
-  ok <- do.call(check_F, paper)
+  ok <- do.call(check_factorial, paper)
   expect_true(all(ok$numbers$status != "inconsistent"))
   fits <- ok$variants$convention
   expect_identical(fits$variant[fits$fits], "partial_omega2")
@@ -84,8 +84,8 @@ test_that("partial omega squared is accepted as a convention, and plain eta squa
 test_that("an effect must be named, and the dims must match the cell matrices", {
   d <- factorial_unbalanced()
   paper <- paper_factorial(d, "A")
-  expect_error(do.call(check_F, replace(paper, "effect", list(NULL))), "effect")
-  expect_error(do.call(check_F, replace(paper, "dims", list(c(3, 2)))), "dims")
+  expect_error(do.call(check_factorial, replace(paper, "effect", list(NULL))), "effect")
+  expect_error(do.call(check_factorial, replace(paper, "dims", list(c(3, 2)))), "dims")
 })
 
 test_that("the lost list states the equal-variance assumption (ADR 0019)", {

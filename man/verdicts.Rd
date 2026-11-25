@@ -2,7 +2,7 @@
 % Please edit documentation in R/core-verdicts.R
 \name{verdicts}
 \alias{verdicts}
-\title{The three triage verdicts}
+\title{The three sufficient_stats verdicts}
 \usage{
 verdicts()
 }

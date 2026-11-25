@@ -2,34 +2,68 @@
 % Please edit documentation in R/core-verbs.R
 \name{sufficient_stats}
 \alias{sufficient_stats}
-\title{Store the sufficient statistics of one analysis}
+\title{What can be shared for this analysis?}
 \usage{
-sufficient_stats(x, ..., sharing_reason, lost = NULL, threshold = 5)
+sufficient_stats(x, ..., threshold = 5)
 }
 \arguments{
-\item{x}{A fitted model or a formula; see \code{\link[=triage]{triage()}}.}
+\item{x}{A fitted model, a test result, or a formula; see above.}
 
-\item{...}{Passed to the handler, e.g. \code{data} and \code{test} for a formula.}
+\item{...}{Passed on: \code{data} for a formula or a \code{t.test} / \code{cor.test} result, \code{test}
+for a formula, and the choices of the analysis for a formula (\code{alternative},
+\code{conf_level}, \code{mu}, \code{correct}, \code{p0}, \code{ss_type}).}
 
-\item{sharing_reason}{Required: why the raw data are not shared.}
-
-\item{lost}{Extra things readers lose. They are added to the handler's own
-list, which cannot be removed.}
-
-\item{threshold}{Smallest group or cell size for the disclosure check.}
+\item{threshold}{Smallest group or cell size whose summaries are clearly less
+identifying than the raw data. Default 5. The total sample size must also be at
+least \code{2 * threshold}.}
 }
 \value{
-An object of class \code{reprokit_sufficient_stats}.
+An object of class \code{reprokit_sufficient_stats} with the verdict
+(\code{verdict}, \code{verdict_reason}), what to publish (\code{publish}), the handler's default
+\code{lost}, the \code{disclosure} check, and \code{stats} and \code{meta} (\code{NULL} and mostly empty
+when the summaries do not suffice).
 }
 \description{
-\code{sufficient_stats()} finds the handler for \code{x}, checks that summaries suffice
-(\code{\link[=triage]{triage()}} must say \code{summaries_suffice}, which includes the disclosure
-check), and stores the statistics that determine the reported results at
-full precision. If summaries do not suffice, it refuses with an error of
-class \code{reprokit_impossible} that says why.
+\code{sufficient_stats()} is the author's verb. Given the analysis, it says whether
+summary statistics can make it reproducible without the raw data, what to publish,
+and what readers lose. When they do, it holds the summaries, stored at full
+precision. The verdict never errors: "summaries do not suffice, because ..." is an
+answer, and the printed object narrates it (the verdict and why, what to publish,
+what is lost, and which group or cell a disclosure flag fired for). Only invalid
+input is an error of class \code{reprokit_impossible}: a formula without \code{data} or
+\code{test}, an unknown \code{test}, a \code{t.test} or \code{cor.test} result without \code{data}, or an
+explicit choice that conflicts with the result.
+}
+\details{
+\code{x} is one of:
+\itemize{
+\item a fitted \code{lm}, a \code{glm}, an \code{aov} (one factor, or two factors with their
+interaction; other designs get a verdict), or the result of \code{chisq.test()}. These
+hold what is needed; the choices recorded in a result (continuity correction,
+H0 proportions) are read from it. An \code{aov} fit does not record the type of sums
+of squares, so \code{\link[=appendix]{appendix()}} asks for it (ADR 0025).
+\item the result of \code{t.test()} or \code{cor.test()} together with \code{data}. These do not hold
+the data, but they record Student or Welch, paired, one-sample, the tails, the
+confidence level and the test value. reprokit rebuilds the test from \code{data}
+and compares it with the result (statistic, df and p, scaled difference below
+1e-8). A result that does not follow from \code{data} (wrong data, a subset of rows) gets
+a verdict saying so. Spearman and Kendall are not supported tests.
+\item a formula with \code{data} and \code{test}, for the analysis the result objects above do not
+cover, or to be explicit: \verb{y ~ group, data = d, test = "welch"}. \code{test} is one of
+\code{"student"}, \code{"welch"}, \code{"one_sample"}, \code{"paired"}, \code{"pearson"}, \code{"oneway"},
+\code{"factorial"}, \code{"chisq"}, \code{"gof"} or \code{"mediation"}.
+}
+
+A result and the formula for the same analysis give the same summaries; the field
+\code{meta$route} records which one was used.
 }
 \examples{
-s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
-                      sharing_reason = "Consent did not cover public sharing.")
-reproduce(s)
+sufficient_stats(extra ~ group, data = sleep, test = "welch")
+
+# From the result you already have:
+sufficient_stats(t.test(extra ~ group, data = sleep), data = sleep)
+sufficient_stats(chisq.test(table(mtcars$cyl, mtcars$am)))
+
+# A verdict, not an error, when summaries cannot do it:
+sufficient_stats(glm(am ~ wt, data = mtcars, family = binomial))
 }
