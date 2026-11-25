@@ -77,11 +77,22 @@ First development version. Not yet on CRAN; names and output may change.
   and beta are conventions that never make a report inconsistent.
 * `check_mediation()` checks the paths a, b, c and c' as regression
   coefficients (t from b and SE, p from t and df, with df = n - 2 or n - 3). A
-  reported indirect effect a*b or its CI is listed as not checkable and is never
+  reported CI of a path (`ci_lower`, `ci_upper`, named by path) is checked from
+  b, SE, the path's df and the level (90, 95 or 99 per cent), as for `check_lm()`;
+  it is optional. A reported indirect effect a*b or its CI is listed as not checkable and is never
   marked as fitting or not fitting; no Sobel-type test is computed.
 * `apa_design()` gains `terms` (a variable number of coefficients) and `model`
   (R squared, F, df1, df2, model p). `check_reported()` takes the test arguments
   `k` and `mediator`.
+* `appendix()` for the regression rows asks for the confidence level of the
+  intervals and, for the three lm rows, the R squared convention (R squared or
+  adjusted R squared): `choices = list(level = "0.95", convention = "r2")`.
+  Mediation asks for the level only. Both appear in block C, "not declared"
+  when not given.
+* The coverage row for simple mediation reads as in the plan: checkable "a, b, c,
+  c' (b, SE, t, p, CI each)", sufficient "n, M, SD and correlations of X, M, Y",
+  missing "the correlations of X, M, Y". `register_handler()` takes an optional
+  `coverage` to declare such wording for a column.
 
 ## Coverage
 
