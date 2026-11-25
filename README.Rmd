@@ -13,28 +13,27 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 <!-- badges: start -->
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![R-CMD-check](https://github.com/dm-k1/reprokit/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/dm-k1/reprokit/actions/workflows/R-CMD-check.yaml)
+[![lint](https://github.com/dm-k1/reprokit/actions/workflows/lint.yaml/badge.svg)](https://github.com/dm-k1/reprokit/actions/workflows/lint.yaml)
 <!-- badges: end -->
 
-> Sharing raw data remains the standard. When sharing is genuinely impossible,
-> reprokit says what the minimum is that authors owe their readers, and what
-> those readers lose.
+Sometimes the raw data behind a paper cannot be shared, for example because
+participants did not consent to it. Readers then have no way to reproduce the
+results, and no way to tell whether the reported numbers fit together. reprokit
+helps from both sides, using the same summary statistics. If you are the
+author, it tells you whether summary statistics are enough for readers to
+reproduce your result exactly, stores them, and writes an appendix that lists
+them and what readers lose by not having the raw data. If you are the reader, it
+tests whether the reported numbers are consistent with each other, taking
+rounding into account.
 
-reprokit works in two directions, using the same statistics.
-
-* **Share.** If you cannot share your raw data, reprokit tells you whether
-  summary statistics are enough for readers to reproduce your result exactly,
-  stores those statistics, and writes an appendix that lists them.
-* **Check.** If you are reading a paper that reports its statistics, reprokit
-  tests whether the reported numbers are consistent with each other, taking
-  rounding into account.
-
-Raw data stays the standard. `sufficient_stats()` and `appendix()` list what
-readers lose by getting summaries instead. `appendix()` records the reason you
-give for not sharing the raw data; without one, it says the author did not state
-one, and reprokit never suggests a reason. reprokit does not make withholding data
+Sharing raw data remains the standard. `appendix()` records the reason you give
+for not sharing the raw data; without one, it says the author did not state one,
+and reprokit never suggests a reason. reprokit does not make withholding data
 easier to justify; it makes the minimum you owe your readers explicit.
 
 reprokit needs R >= 4.1 and depends only on base R (`stats`, `utils`).
+
+Documentation: <https://dm-k1.github.io/reprokit/>
 
 ## Installation
 
@@ -57,13 +56,13 @@ pak::pak("dm-k1/reprokit", dependencies = TRUE, build_vignettes = TRUE)
 remotes::install_github("dm-k1/reprokit", build_vignettes = TRUE)
 ```
 
-Then open them with `vignette("reprokit")`. Without installing, you can read
-the sources on GitHub:
+Then open them with `vignette("reprokit")`. Without installing, read them on the
+[website](https://dm-k1.github.io/reprokit/) or as sources on GitHub:
 [reprokit.Rmd](https://github.com/dm-k1/reprokit/blob/main/vignettes/reprokit.Rmd),
 [concepts.Rmd](https://github.com/dm-k1/reprokit/blob/main/vignettes/concepts.Rmd),
 [validation.Rmd](https://github.com/dm-k1/reprokit/blob/main/vignettes/validation.Rmd).
 
-## Share: you cannot share the raw data
+## Author path: you cannot share the raw data
 
 `sufficient_stats()` says whether summaries suffice. It never errors on the
 verdict, which is one of:
@@ -115,7 +114,7 @@ which effect-size convention), the numbers a reader cannot check from these
 statistics, why the raw data are not shared, what readers lose, and a
 disclosure check on small groups.
 
-## Check: you are reading a paper
+## Reader path: you are reading a paper
 
 Pass the reported numbers as **strings**, so the decimals count: `"2.85"`
 means anything from 2.845 to 2.855.
@@ -151,6 +150,17 @@ rounding or a real mistake all look the same. `check_reported()` names the test
 first: `"student"`, `"welch"`, `"one_sample"`, `"paired"`, `"pearson"`, `"oneway"`,
 `"factorial"`, `"chisq"`, `"gof"`, `"mediation"`, `"lm"`, `"lm_simple"` or
 `"lm_moderation"`.
+
+## Documentation
+
+The [reference](https://dm-k1.github.io/reprokit/reference/) and these articles are on the package website.
+
+* [Get started](https://dm-k1.github.io/reprokit/articles/reprokit.html), or `vignette("reprokit")`: getting started, one worked example for authors and
+  one for readers.
+* [Concepts and terms](https://dm-k1.github.io/reprokit/articles/concepts.html), or `vignette("concepts")`: what the terms mean (sufficient set, APA set,
+  coverage level, verdicts, rounding intervals, and so on).
+* [Validation](https://dm-k1.github.io/reprokit/articles/validation.html), or `vignette("validation")`: the evidence behind the claims, and the scripts that
+  produce it.
 
 ## What it covers
 
@@ -219,15 +229,6 @@ differ a little); the indirect effect's interval is not checkable.
 check_reported("lm", b = c(wt = "-3.19", hp = "-0.04"), se = c(wt = "0.64", hp = "0.01"),
                t = c(wt = "-5.00", hp = "-3.67"), df2 = "29", k = 2)
 ```
-
-## Documentation
-
-* `vignette("reprokit")`: getting started, one worked example for authors and
-  one for readers.
-* `vignette("concepts")`: what the terms mean (sufficient set, APA set,
-  coverage level, verdicts, rounding intervals, and so on).
-* `vignette("validation")`: the evidence behind the claims, and the scripts that
-  produce it.
 
 ## Status and limits
 
