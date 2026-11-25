@@ -1,0 +1,40 @@
+url: https://dm-k1.github.io/reprokit/
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [reference, articles, news]
+    right: [github]
+
+reference:
+  - title: Share your analysis
+    contents:
+      - sufficient_stats
+      - appendix
+      - verdicts
+  - title: Check a published result
+    contents:
+      - check_reported
+  - title: Reference
+    contents:
+      - coverage_table
+      - conventions
+      - handlers
+      - quantity_names
+  - title: Extending reprokit
+    contents:
+      - new_sufficient_stats
+      - is_sufficient_stats
+  - title: Package
+    contents:
+      - reprokit-package
+
+articles:
+  - title: Articles
+    navbar: ~
+    contents:
+      - reprokit
+      - concepts
+      - validation
