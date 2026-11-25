@@ -6,7 +6,7 @@ R: R version 4.6.1 (2026-06-24)
 
                                               relation boxes escaped_samples
                                    t_paired df_from_n    300               0
-                         t_paired t_from_descriptives    284               0
+                         t_paired t_from_descriptives    285               0
                            t_paired p_from_t two.sided   300               0
                                 t_paired p_from_t less   300               0
                              t_paired p_from_t greater   300               0
@@ -16,47 +16,56 @@ R: R version 4.6.1 (2026-06-24)
               t_paired ci_upper_from_descriptives 0.90   300               0
               t_paired ci_upper_from_descriptives 0.95   300               0
               t_paired ci_upper_from_descriptives 0.99   300               0
-                      t_paired d_from_descriptives d_z   284               0
-                     t_paired d_from_descriptives d_rm   284               0
-                  t_paired d_av_from_descriptives d_av   292               0
-                  t_paired d_av_from_descriptives g_av   292               0
+                      t_paired d_from_descriptives d_z   285               0
+                     t_paired d_from_descriptives d_rm   285               0
+                  t_paired d_av_from_descriptives d_av   289               0
+                  t_paired d_av_from_descriptives g_av   289               0
+                               t_paired d_z_from_t d_z   300               0
+                             t_paired eta2_from_t eta2   300               0
+                           t_paired eta2_from_t omega2   300               0
                                 cor_pearson df_from_n    300               0
-                                 cor_pearson t_from_r    171               0
+                                 cor_pearson t_from_r    196               0
                         cor_pearson p_from_t two.sided   300               0
                              cor_pearson p_from_t less   300               0
                           cor_pearson p_from_t greater   300               0
-                      cor_pearson ci_lower_from_r 0.90   274               0
-                      cor_pearson ci_lower_from_r 0.95   274               0
-                      cor_pearson ci_lower_from_r 0.99   274               0
-                      cor_pearson ci_upper_from_r 0.90   274               0
-                      cor_pearson ci_upper_from_r 0.95   274               0
-                      cor_pearson ci_upper_from_r 0.99   274               0
+                                cor_pearson r2_from_r    300               0
+                      cor_pearson ci_lower_from_r 0.90   263               0
+                      cor_pearson ci_lower_from_r 0.95   263               0
+                      cor_pearson ci_lower_from_r 0.99   263               0
+                      cor_pearson ci_upper_from_r 0.90   263               0
+                      cor_pearson ci_upper_from_r 0.95   263               0
+                      cor_pearson ci_upper_from_r 0.99   263               0
                        t_independent df_from_n student   300               0
-                         t_independent df_from_n welch   288               0
-             t_independent t_from_descriptives student   288               0
-               t_independent t_from_descriptives welch   288               0
+                         t_independent df_from_n welch   289               0
+               t_independent df_from_n_student student   300               0
+             t_independent t_from_descriptives student   289               0
+               t_independent t_from_descriptives welch   289               0
                       t_independent p_from_t two.sided   300               0
                            t_independent p_from_t less   300               0
                         t_independent p_from_t greater   300               0
  t_independent ci_lower_from_descriptives 0.90+student   300               0
  t_independent ci_lower_from_descriptives 0.95+student   300               0
  t_independent ci_lower_from_descriptives 0.99+student   300               0
-   t_independent ci_lower_from_descriptives 0.90+welch   288               0
-   t_independent ci_lower_from_descriptives 0.95+welch   288               0
-   t_independent ci_lower_from_descriptives 0.99+welch   288               0
+   t_independent ci_lower_from_descriptives 0.90+welch   289               0
+   t_independent ci_lower_from_descriptives 0.95+welch   289               0
+   t_independent ci_lower_from_descriptives 0.99+welch   289               0
  t_independent ci_upper_from_descriptives 0.90+student   300               0
  t_independent ci_upper_from_descriptives 0.95+student   300               0
  t_independent ci_upper_from_descriptives 0.99+student   300               0
-   t_independent ci_upper_from_descriptives 0.90+welch   288               0
-   t_independent ci_upper_from_descriptives 0.95+welch   288               0
-   t_independent ci_upper_from_descriptives 0.99+welch   288               0
-              t_independent d_from_descriptives pooled   288               0
-            t_independent d_from_descriptives hedges_g   288               0
-             t_independent d_from_descriptives average   288               0
-           t_independent d_from_descriptives glass_sd1   276               0
-           t_independent d_from_descriptives glass_sd2   277               0
+   t_independent ci_upper_from_descriptives 0.90+welch   289               0
+   t_independent ci_upper_from_descriptives 0.95+welch   289               0
+   t_independent ci_upper_from_descriptives 0.99+welch   289               0
+              t_independent d_from_descriptives pooled   289               0
+            t_independent d_from_descriptives hedges_g   289               0
+             t_independent d_from_descriptives average   289               0
+           t_independent d_from_descriptives glass_sd1   281               0
+           t_independent d_from_descriptives glass_sd2   284               0
+                 t_independent d_from_t student+pooled   300               0
+               t_independent d_from_t student+hedges_g   300               0
+                        t_independent eta2_from_t eta2   300               0
+                      t_independent eta2_from_t omega2   300               0
                                t_one_sample df_from_n    300               0
-                     t_one_sample t_from_descriptives    279               0
+                     t_one_sample t_from_descriptives    277               0
                        t_one_sample p_from_t two.sided   300               0
                             t_one_sample p_from_t less   300               0
                          t_one_sample p_from_t greater   300               0
@@ -66,61 +75,75 @@ R: R version 4.6.1 (2026-06-24)
           t_one_sample ci_upper_from_descriptives 0.90   300               0
           t_one_sample ci_upper_from_descriptives 0.95   300               0
           t_one_sample ci_upper_from_descriptives 0.99   300               0
-                t_one_sample d_from_descriptives cohen   279               0
-             t_one_sample d_from_descriptives hedges_g   279               0
+                t_one_sample d_from_descriptives cohen   277               0
+             t_one_sample d_from_descriptives hedges_g   277               0
+                           t_one_sample d_from_t cohen   300               0
+                        t_one_sample d_from_t hedges_g   300               0
+                         t_one_sample eta2_from_t eta2   300               0
+                       t_one_sample eta2_from_t omega2   300               0
  skipped_not_finite
                   0
+                 15
+                  0
+                  0
+                  0
+                  0
+                  0
+                  0
+                  0
+                  0
+                  0
+                 15
+                 15
+                 11
+                 11
+                  0
+                  0
+                  0
+                  0
+                104
+                  0
+                  0
+                  0
+                  0
+                 37
+                 37
+                 37
+                 37
+                 37
+                 37
+                  0
+                 11
+                  0
+                 11
+                 11
+                  0
+                  0
+                  0
+                  0
+                  0
+                  0
+                 11
+                 11
+                 11
+                  0
+                  0
+                  0
+                 11
+                 11
+                 11
+                 11
+                 11
+                 11
+                 19
                  16
                   0
                   0
                   0
                   0
                   0
-                  0
-                  0
-                  0
-                  0
-                 16
-                 16
-                  8
-                  8
-                  0
-                129
-                  0
-                  0
-                  0
-                 26
-                 26
-                 26
-                 26
-                 26
-                 26
-                  0
-                 12
-                 12
-                 12
-                  0
-                  0
-                  0
-                  0
-                  0
-                  0
-                 12
-                 12
-                 12
-                  0
-                  0
-                  0
-                 12
-                 12
-                 12
-                 12
-                 12
-                 12
-                 24
                  23
                   0
-                 21
                   0
                   0
                   0
@@ -129,9 +152,12 @@ R: R version 4.6.1 (2026-06-24)
                   0
                   0
                   0
+                 23
+                 23
                   0
-                 21
-                 21
+                  0
+                  0
+                  0
 
                                             case corner_only_upper true_upper
       t_from_descriptives (sd1 1.95-2.05, r .99)            15.762     15.851
@@ -262,4 +288,4 @@ p from t on a box spanning t = 0: upper bound is 1 in 50 of 50 boxes; named case
 
 PASS: regression ranges, escaped draws = 0, vertex mismatches = 0, skipped boxes = 9
 
-PASS: all range-exactness sections (cores: 8, runtime 3.5 min)
+PASS: all range-exactness sections (cores: 8, runtime 3.2 min)

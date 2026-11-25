@@ -30,14 +30,14 @@ Effect-size conventions that fit: none
        df       40         verified
         p     .006         coherent
         d    0.840 not reproducible
-                                         checked_against
-                          df_from_n; t_from_descriptives
-                                     t_from_descriptives
-                          df_from_n; t_from_descriptives
-                           t_from_descriptives; p_from_t
-                                     df_from_n; p_from_t
-                                                p_from_t
- no convention tried reproduces it (d_from_descriptives)
+                                                checked_against
+              df_from_n; df_from_n_student; t_from_descriptives
+                                            t_from_descriptives
+                                 df_from_n; t_from_descriptives
+                                  t_from_descriptives; p_from_t
+                         df_from_n; df_from_n_student; p_from_t
+                                                       p_from_t
+ no variant tried reproduces it (d_from_descriptives; d_from_t)
 
 An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 The analysis is inconsistent with the reported statistics.
