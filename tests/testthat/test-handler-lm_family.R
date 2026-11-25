@@ -40,7 +40,7 @@ test_that("each handler round-trips through share and reproduce", {
   fits <- list(lm(mpg ~ wt, mt), lm(mpg ~ wt + hp + am, mt), lm(mpg ~ wt * hp, mt),
                lm(mpg ~ wt + hp + am, mt, weights = cyl))
   for (f in fits) {
-    s <- sufficient_stats(f, sharing_reason = "test")
+    s <- sufficient_stats(f)
     expect_true(nzchar(s$lost[[1L]]))
     h <- get_handler(s$handler)
     orig <- h$reported(f)
@@ -51,8 +51,7 @@ test_that("each handler round-trips through share and reproduce", {
 })
 
 test_that("mediation reproduces the four paths of the three regressions", {
-  s <- sufficient_stats(mpg ~ wt, data = mt, test = "mediation", mediator = "hp",
-                        sharing_reason = "test")
+  s <- sufficient_stats(mpg ~ wt, data = mt, test = "mediation", mediator = "hp")
   expect_identical(s$handler, "mediation_simple")
   expect_true(length(s$lost) > 0L && any(grepl("bootstrap", s$lost)))
   r <- reproduce(s)
@@ -63,11 +62,17 @@ test_that("mediation reproduces the four paths of the three regressions", {
   expect_equal(unname(r[["se:b"]]), b["hp", 2L], tolerance = 1e-8)
   expect_equal(unname(r[["t:c_prime"]]), b["wt", 3L], tolerance = 1e-8)
   expect_equal(unname(r[["p:c"]]), cc["wt", 4L], tolerance = 1e-8)
-  expect_false(any(grepl("indirect|sobel", names(r), ignore.case = TRUE)))
+  # a*b is the product of the two paths; there is no bootstrap CI and no Sobel test
+  expect_equal(unname(r[["indirect"]]), a["wt", 1L] * b["hp", 1L], tolerance = 1e-8)
+  expect_false(any(grepl("indirect_ci|sobel", names(r), ignore.case = TRUE)))
 })
 
-test_that("a mediation without a mediator errors", {
-  expect_error(sufficient_stats(mpg ~ wt, data = mt, test = "mediation", sharing_reason = "t"))
+test_that("a mediation without a mediator has no summaries", {
+  expect_no_error(s <- sufficient_stats(mpg ~ wt, data = mt, test = "mediation"))
+  expect_identical(s$verdict, "needs_raw_data")
+  expect_match(s$verdict_reason, "mediator")
+  expect_error(reproduce(s), class = "reprokit_impossible")
+  expect_error(appendix(s, sharing_reason = "t"), class = "reprokit_impossible")
 })
 
 paper_multiple <- list(
@@ -75,14 +80,14 @@ paper_multiple <- list(
   t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"))
 
 test_that("t = b / SE and p from t are checked, and a planted digit is flagged", {
-  ok <- do.call(check_lm, paper_multiple)
+  ok <- do.call(check_reported, c(list(test = "lm"), paper_multiple))
   expect_true(ok$consistent)
   bad <- paper_multiple
   bad$t["wt"] <- "-9.13"
-  expect_false(do.call(check_lm, c(bad, list(df2 = "29")))$consistent)
+  expect_false(do.call(check_reported, c(list(test = "lm"), bad, list(df2 = "29")))$consistent)
   bad <- paper_multiple
   bad$p["hp"] <- ".450"
-  expect_false(do.call(check_lm, c(bad, list(df2 = "29")))$consistent)
+  expect_false(do.call(check_reported, c(list(test = "lm"), bad, list(df2 = "29")))$consistent)
 })
 
 test_that("the CI is checked from b, SE, df and level", {
@@ -92,47 +97,47 @@ test_that("the CI is checked from b, SE, df and level", {
   paper <- list(b = c(wt = fmt2(cs["wt", 1L])), se = c(wt = fmt2(cs["wt", 2L])),
                 ci_lower = c(wt = fmt2(ci["wt", 1L])), ci_upper = c(wt = fmt2(ci["wt", 2L])),
                 df2 = "29")
-  ok <- do.call(check_lm, paper)
+  ok <- do.call(check_reported, c(list(test = "lm"), paper))
   expect_true(ok$consistent)
   paper$ci_upper["wt"] <- fmt2(ci["wt", 2L] + 0.5)
-  expect_false(do.call(check_lm, paper)$consistent)
+  expect_false(do.call(check_reported, c(list(test = "lm"), paper))$consistent)
 })
 
 test_that("F is checked from R2, df1 and df2, and the model p from F", {
   f <- summary(lm(mpg ~ wt + hp, mt))
   fs <- f$fstatistic
   paper <- list(r2 = ".83", f = fmt2(fs[["value"]]), df1 = "2", df2 = "29")
-  expect_true(do.call(check_lm, paper)$consistent)
+  expect_true(do.call(check_reported, c(list(test = "lm"), paper))$consistent)
   paper$f <- "40.00"
-  expect_false(do.call(check_lm, paper)$consistent)
+  expect_false(do.call(check_reported, c(list(test = "lm"), paper))$consistent)
   paper$f <- fmt2(fs[["value"]])
   paper$p_model <- ".900"
-  expect_false(do.call(check_lm, paper)$consistent)
+  expect_false(do.call(check_reported, c(list(test = "lm"), paper))$consistent)
 })
 
 test_that("adjusted R2 reported as R2 is not flagged, and says so", {
   f <- summary(lm(mpg ~ wt + hp, mt))
   paper <- list(r2 = sub("^0", "", fmt2(f$adj.r.squared)), f = fmt2(f$fstatistic[["value"]]),
                 df1 = "2", df2 = "29")
-  ck <- do.call(check_lm, paper)
+  ck <- do.call(check_reported, c(list(test = "lm"), paper))
   expect_true(ck$consistent)
 })
 
 test_that("n is implied by df2 only when k is declared or read from df1", {
-  no_k <- check_lm(df2 = "29", n = "32")
+  no_k <- check_reported(test = "lm", df2 = "29", n = "32")
   expect_identical(no_k$numbers$status[no_k$numbers$quantity == "n"], "not checkable")
-  with_k <- check_lm(df2 = "29", n = "32", k = 2L)
+  with_k <- check_reported(test = "lm", df2 = "29", n = "32", k = 2L)
   expect_false(with_k$numbers$status[with_k$numbers$quantity == "n"] == "not checkable")
-  wrong_k <- check_lm(df2 = "29", n = "32", k = 5L)
+  wrong_k <- check_reported(test = "lm", df2 = "29", n = "32", k = 5L)
   expect_false(wrong_k$consistent)
-  from_df1 <- check_lm(df1 = "2", df2 = "29", n = "32")
+  from_df1 <- check_reported(test = "lm", df1 = "2", df2 = "29", n = "32")
   expect_true(from_df1$consistent)
-  expect_false(check_lm(df1 = "4", df2 = "29", n = "32")$consistent)
+  expect_false(check_reported(test = "lm", df1 = "4", df2 = "29", n = "32")$consistent)
 })
 
 test_that("k is never guessed from the number of terms", {
   # two terms reported, but the model has a third the paper left out: n = 32 fits k = 3
-  ck <- check_lm(b = c(wt = "-3.88", hp = "-0.03"), df2 = "28", n = "32")
+  ck <- check_reported(test = "lm", b = c(wt = "-3.88", hp = "-0.03"), df2 = "28", n = "32")
   expect_true(ck$consistent)
 })
 
@@ -143,55 +148,57 @@ test_that("simple regression: R2 = r^2, t^2 = F and r = b SD_x / SD_y", {
   paper <- list(b = fmt2(cs[2L, 1L]), se = fmt2(cs[2L, 2L]), t = fmt2(cs[2L, 3L]),
                 r2 = fmt2(r^2), f = fmt2(cs[2L, 3L]^2), r = fmt2(r),
                 sd = c(fmt2(sd(mt$wt)), fmt2(sd(mt$mpg))))
-  ok <- do.call(check_lm, c(paper, list(handler = "lm_simple")))
+  ok <- do.call(check_reported, c(list(test = "lm_simple"), paper))
   expect_true(ok$consistent)
   bad <- paper
   bad$r2 <- ".60"
   bad$n <- "32"
-  expect_false(do.call(check_lm, c(bad, list(handler = "lm_simple")))$consistent)
+  expect_false(do.call(check_reported, c(list(test = "lm_simple"), bad))$consistent)
   bad <- paper
   bad$f <- "99.00"
-  expect_false(do.call(check_lm, c(bad, list(handler = "lm_simple")))$consistent)
+  expect_false(do.call(check_reported, c(list(test = "lm_simple"), bad))$consistent)
 })
 
 test_that("an undeclared argument errors", {
-  expect_error(check_reported(handler = "lm_multiple", df2 = "29", bogus = 3), "bogus|argument")
-  expect_error(check_lm(b = c(wt = "1"), handler = "nonsense"))
-  expect_error(check_lm(b = "1.0"), "name them")
+  expect_error(check_reported(test = "lm", df2 = "29", bogus = 3), "bogus|argument")
+  expect_error(check_reported(test = "nonsense", b = c(wt = "1")))
+  expect_error(check_reported(test = "lm", b = "1.0"), "name them")
 })
 
 test_that("a standardised beta that does not fit is not reproducible, never inconsistent", {
-  ck <- check_lm(b = c(wt = "-3.88"), beta = c(wt = "-0.99"),
-                 sd = c(wt = "0.98", mpg = "6.03"))
+  ck <- check_reported(test = "lm", b = c(wt = "-3.88"), beta = c(wt = "-0.99"),
+                       sd = c(wt = "0.98", mpg = "6.03"))
   expect_true(ck$consistent)
   expect_true(any(grepl("beta", ck$notes)))
   expect_identical(ck$numbers$status[ck$numbers$quantity == "beta:wt"], "not reproducible")
 })
 
-test_that("mediation: each path is checked, and the indirect effect never fits or fails", {
-  ok <- check_mediation(b = c(a = "1.0", c = "0.5"), se = c(a = "0.2", c = "0.1"),
-                        t = c(a = "5.00", c = "5.00"), n = "50", indirect = "0.3",
-                        indirect_ci_lower = "0.1", indirect_ci_upper = "0.5")
+test_that("mediation: each path is checked, and a CI of the indirect effect never fits or fails", {
+  ok <- check_reported(test = "mediation", b = c(a = "1.0", c = "0.5"),
+                       se = c(a = "0.2", c = "0.1"), t = c(a = "5.00", c = "5.00"), n = "50",
+                       indirect = "0.3", indirect_ci_lower = "0.1", indirect_ci_upper = "0.5")
   expect_true(ok$consistent)
   ind <- ok$numbers[grepl("indirect", ok$numbers$quantity), ]
   expect_true(all(ind$status == "not checkable"))
   expect_true(any(grepl("bootstrap", ok$notes)))
-  # an absurd a*b changes nothing
-  odd <- check_mediation(b = c(a = "1.0"), se = c(a = "0.2"), t = c(a = "5.00"), n = "50",
-                         indirect = "99", indirect_ci_lower = "-7", indirect_ci_upper = "-6")
+  # an absurd a*b is not compared when a and b are not both reported
+  odd <- check_reported(test = "mediation", b = c(a = "1.0"), se = c(a = "0.2"),
+                        t = c(a = "5.00"), n = "50", indirect = "99",
+                        indirect_ci_lower = "-7", indirect_ci_upper = "-6")
   expect_true(odd$consistent)
   expect_false(any(c("inconsistent", "verified", "coherent") %in%
                      odd$numbers$status[grepl("indirect", odd$numbers$quantity)]))
   # a path with a wrong t is flagged
-  bad <- check_mediation(b = c(a = "1.0"), se = c(a = "0.2"), t = c(a = "9.00"))
+  bad <- check_reported(test = "mediation", b = c(a = "1.0"), se = c(a = "0.2"), t = c(a = "9.00"))
   expect_false(bad$consistent)
 })
 
 test_that("mediation: the wrong df for a path is flagged, the right one is not", {
   f <- summary(lm(mpg ~ wt + hp, mt))$coefficients
-  mk <- function(df) check_mediation(b = c(b = fmt2(f["hp", 1L])), se = c(b = fmt2(f["hp", 2L])),
-                                     t = c(b = fmt2(f["hp", 3L])), p = c(b = fmt3(f["hp", 4L])),
-                                     df = c(b = df))
+  mk <- function(df) check_reported(test = "mediation", b = c(b = fmt2(f["hp", 1L])),
+                                    se = c(b = fmt2(f["hp", 2L])),
+                                    t = c(b = fmt2(f["hp", 3L])), p = c(b = fmt3(f["hp", 4L])),
+                                    df = c(b = df))
   fmt3 <- function(x) formatC(x, format = "f", digits = 3L)
   expect_true(mk("29")$consistent)
   expect_false(mk("5")$consistent)
@@ -213,7 +220,7 @@ mediation_paper <- function(level = 0.95, digits = 2L) {
 
 test_that("mediation: a correct path CI fits, at 90, 95 and 99 percent", {
   for (level in c(0.90, 0.95, 0.99)) {
-    ck <- do.call(check_mediation, mediation_paper(level))
+    ck <- do.call(check_reported, c(list(test = "mediation"), mediation_paper(level)))
     expect_true(ck$consistent, info = as.character(level))
     lv <- ck$variants$level
     expect_true(lv$fits[lv$variant == sprintf("%.2f", level)], info = as.character(level))
@@ -227,33 +234,60 @@ test_that("mediation: a wrong CI bound on any path is flagged", {
   for (path in c("a", "b", "c", "c_prime")) {
     paper <- mediation_paper()
     paper$ci_upper[[path]] <- fmt2(as.numeric(paper$ci_upper[[path]]) + 1)
-    expect_false(do.call(check_mediation, paper)$consistent, info = path)
+    expect_false(do.call(check_reported, c(list(test = "mediation"), paper))$consistent, info = path)
   }
   # bounds from two different levels fit no single level
   paper <- mediation_paper(0.95)
   paper$ci_upper <- mediation_paper(0.99)$ci_upper
-  expect_false(do.call(check_mediation, paper)$consistent)
+  expect_false(do.call(check_reported, c(list(test = "mediation"), paper))$consistent)
 })
 
-test_that("mediation: a reported CI is optional, and a*b still never fits or fails", {
+test_that("mediation: a reported CI of the paths is optional", {
   paper <- mediation_paper()
   paper$ci_lower <- NULL
   paper$ci_upper <- NULL
-  expect_true(do.call(check_mediation, paper)$consistent)
-  paper <- c(mediation_paper(), list(indirect = "-99", indirect_ci_lower = "-98",
-                                     indirect_ci_upper = "-97"))
-  ck <- do.call(check_mediation, paper)
-  expect_true(ck$consistent)
-  expect_true(all(ck$numbers$status[grepl("indirect", ck$numbers$quantity)] == "not checkable"))
+  expect_true(do.call(check_reported, c(list(test = "mediation"), paper))$consistent)
+})
+
+# Changed with check_mediation() (ADR 0028): with a and b reported, the indirect effect is
+# checked against the interval product of a and b; its bootstrap CI is never checkable.
+test_that("mediation: the indirect effect is checked against a*b, its CI is not checkable", {
+  ind_rows <- function(ck) ck$numbers[grepl("indirect", ck$numbers$quantity), ]
+  run <- function(indirect) {
+    paper <- c(mediation_paper(), list(indirect = indirect, indirect_ci_lower = "-98",
+                                       indirect_ci_upper = "-97"))
+    do.call(check_reported, c(list(test = "mediation"), paper))
+  }
+  fits <- summary(lm(hp ~ wt, mt))$coefficients["wt", 1L] *
+    summary(lm(mpg ~ wt + hp, mt))$coefficients["hp", 1L]
+  good <- run(fmt2(fits))
+  expect_true(good$consistent)
+  expect_identical(ind_rows(good)$status[ind_rows(good)$quantity == "indirect"], "coherent")
+  # an absurd a*b is now flagged
+  odd <- run("-99")
+  expect_false(odd$consistent)
+  expect_identical(ind_rows(odd)$status[ind_rows(odd)$quantity == "indirect"], "inconsistent")
+  expect_match(paste(odd$notes, collapse = " "), "not coherent with a")
+  # the indirect CI is not checkable either way, and the note says why
+  for (ck in list(good, odd)) {
+    ci <- ind_rows(ck)[grepl("^indirect_ci", ind_rows(ck)$quantity), ]
+    expect_identical(nrow(ci), 2L)
+    expect_true(all(ci$status == "not checkable"))
+    expect_true(any(grepl("bootstrap", ck$notes)))
+  }
+  # without both a and b reported there is nothing to compare the indirect effect with
+  alone <- check_reported(test = "mediation", b = c(a = "1.0"), se = c(a = "0.2"),
+                          t = c(a = "5.00"), n = "50", indirect = "99")
+  expect_true(alone$consistent)
+  expect_false("indirect" %in% alone$numbers$quantity)
 })
 
 test_that("the appendix works for the four handlers", {
   sr <- "Consent did not cover public sharing."
-  for (s in list(sufficient_stats(lm(mpg ~ wt, mt), sharing_reason = sr),
-                 sufficient_stats(lm(mpg ~ wt + hp + am, mt), sharing_reason = sr),
-                 sufficient_stats(lm(mpg ~ wt * hp, mt), sharing_reason = sr),
-                 sufficient_stats(mpg ~ wt, data = mt, test = "mediation", mediator = "hp",
-                                  sharing_reason = sr))) {
-    expect_no_error(appendix(s))
+  for (s in list(sufficient_stats(lm(mpg ~ wt, mt)),
+                 sufficient_stats(lm(mpg ~ wt + hp + am, mt)),
+                 sufficient_stats(lm(mpg ~ wt * hp, mt)),
+                 sufficient_stats(mpg ~ wt, data = mt, test = "mediation", mediator = "hp"))) {
+    expect_no_error(appendix(s, sharing_reason = sr))
   }
 })

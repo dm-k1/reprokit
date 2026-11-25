@@ -6,7 +6,7 @@ ucb_table <- function() unclass(margin.table(UCBAdmissions, c(1, 2)))
 cyl_data <- function() data.frame(cyl = mtcars$cyl)
 
 chisq_stats <- function(...) {
-  sufficient_stats(..., sharing_reason = "test", threshold = 1)
+  sufficient_stats(..., threshold = 1)
 }
 
 test_that("the independence handler reproduces chisq.test(), with and without Yates", {
@@ -42,18 +42,24 @@ test_that("the summary stores the flat table, the shape and the H0 proportions",
 })
 
 test_that("a bad p0 or a one-category variable is refused", {
-  expect_error(chisq_stats(~ cyl, data = cyl_data(), test = "gof", p0 = c(0.5, 0.5)),
-               "one proportion per category")
-  expect_error(chisq_stats(~ cyl, data = cyl_data(), test = "gof", p0 = c(0.5, 0.5, 0.5)),
-               "sum to 1")
-  expect_error(chisq_stats(~ cyl, data = data.frame(cyl = rep(4, 5)), test = "gof"),
-               "at least 2")
+  bad <- list(
+    list(chisq_stats(~ cyl, data = cyl_data(), test = "gof", p0 = c(0.5, 0.5)),
+         "one proportion per category"),
+    list(chisq_stats(~ cyl, data = cyl_data(), test = "gof", p0 = c(0.5, 0.5, 0.5)),
+         "sum to 1"),
+    list(chisq_stats(~ cyl, data = data.frame(cyl = rep(4, 5)), test = "gof"), "at least 2"))
+  for (b in bad) {
+    expect_identical(b[[1L]]$verdict, "needs_raw_data")
+    expect_match(b[[1L]]$verdict_reason, b[[2L]])
+    expect_error(reproduce(b[[1L]]), class = "reprokit_impossible")
+  }
 })
 
 test_that("an empty row gives chi-squared that is not evaluable, not a failure", {
   expect_true(is.nan(chisq_table_stat(c(5, 0, 7, 0), c(2, 2))))
   expect_true(is.nan(chisq_gof_stat(c(5, 0), c(1, 0))))
-  r <- check_chisq(n = matrix(c(5, 0, 7, 0), 2), chisq = "1.00", df = "1", p = ".32")
+  r <- check_reported("chisq", n = matrix(c(5, 0, 7, 0), 2), chisq = "1.00", df = "1",
+                      p = ".32")
   expect_true(r$consistent)
 })
 
@@ -64,6 +70,8 @@ test_that("low expected counts are listed as lost, not checked", {
 
 test_that("a cell below the threshold refuses the verdict", {
   d <- data.frame(a = c(rep("x", 3), rep("y", 40)), b = c("u", "v", "v", rep(c("u", "v"), 20)))
-  expect_error(sufficient_stats(~ a + b, data = d, test = "chisq", sharing_reason = "test",
-                                threshold = 5), "n = 1 < 5")
+  s <- sufficient_stats(~ a + b, data = d, test = "chisq", threshold = 5)
+  expect_identical(s$verdict, "needs_raw_data")
+  expect_match(s$verdict_reason, "n = 1 < 5")
+  expect_error(reproduce(s), class = "reprokit_impossible")
 })

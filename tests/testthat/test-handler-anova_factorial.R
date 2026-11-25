@@ -1,5 +1,5 @@
 factorial_stats <- function(d, f = y ~ a * b, ...) {
-  sufficient_stats(f, data = d, test = "factorial", sharing_reason = "test", ...)
+  sufficient_stats(f, data = d, test = "factorial", ...)
 }
 
 test_that("the factorial handler reproduces lm() for every SS type, balanced and not", {
@@ -47,17 +47,29 @@ test_that("the summary stores per-cell n, mean and SD at full precision, column-
 test_that("the ADR 0019 limitation is listed and the sharing record is complete", {
   s <- factorial_stats(factorial_unbalanced())
   expect_true("equal variances assumed (pooled error term)" %in% s$lost)
-  expect_true(nzchar(s$sharing_reason))
+  # the sharing reason is stated where something is published: appendix()
+  expect_match(paste(appendix(s, sharing_reason = "test reason XYZ"), collapse = "\n"),
+               "test reason XYZ", fixed = TRUE)
 })
 
 test_that("an empty cell, a cell of one, a missing interaction and a bad SS type are refused", {
   d <- factorial_unbalanced()
   empty <- d[!(d$a == "a1" & d$b == "1"), ]
-  expect_error(factorial_stats(empty), "empty")
+  refused <- function(s, reason = NULL) {
+    expect_identical(s$verdict, "needs_raw_data")
+    if (!is.null(reason)) expect_match(s$verdict_reason, reason)
+    expect_error(reproduce(s), class = "reprokit_impossible")
+    expect_error(appendix(s, sharing_reason = "t"), class = "reprokit_impossible")
+  }
+  expect_no_error(s_empty <- factorial_stats(empty))
+  refused(s_empty, "empty")
   one <- d[!(d$a == "a1" & d$b == "1") | seq_len(nrow(d)) == 1L, ]
-  expect_error(factorial_stats(one), "at least 2")
-  expect_error(factorial_stats(d, y ~ a + b))
-  expect_error(factorial_stats(d, ss_type = "IV"), "ss_type")
+  expect_no_error(s_one <- factorial_stats(one))
+  refused(s_one, "at least 2")
+  expect_no_error(s_add <- factorial_stats(d, y ~ a + b))
+  refused(s_add)
+  expect_no_error(s_ss <- factorial_stats(d, ss_type = "IV"))
+  refused(s_ss, "ss_type")
 })
 
 test_that("the registry row reads like the plan's, with the SS type as the choice", {
@@ -70,6 +82,6 @@ test_that("the registry row reads like the plan's, with the SS type as the choic
 test_that("the registered example round-trips", {
   h <- get_handler("anova_factorial")
   ex <- h$example()
-  s <- do.call(sufficient_stats, c(list(ex$x), ex$args, list(sharing_reason = "test")))
+  s <- do.call(sufficient_stats, c(list(ex$x), ex$args))
   expect_reproduces(do.call(h$reported, c(list(ex$x), ex$args)), reproduce(s))
 })

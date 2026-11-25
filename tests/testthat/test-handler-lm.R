@@ -7,7 +7,7 @@ test_that("lm with numeric and factor predictors reproduces summary(lm)", {
     lm(mpg ~ 0 + factor(am), data = mtcars)
   )
   for (fit in fits) {
-    expect_reproduces(lm_reported(fit), reproduce(sufficient_stats(fit, sharing_reason = "test")))
+    expect_reproduces(lm_reported(fit), reproduce(sufficient_stats(fit)))
   }
 })
 
@@ -26,8 +26,8 @@ test_that("weighted lm and offsets reproduce summary(lm) exactly", {
     lm(mpg ~ wt + offset(qsec), data = mtcars, weights = hp)
   )
   for (fit in fits) {
-    expect_identical(triage(fit)$verdict, "summaries_suffice")
-    expect_reproduces(lm_reported(fit), reproduce(sufficient_stats(fit, sharing_reason = "test")))
+    expect_identical(sufficient_stats(fit)$verdict, "summaries_suffice")
+    expect_reproduces(lm_reported(fit), reproduce(sufficient_stats(fit)))
   }
 })
 
@@ -35,31 +35,39 @@ test_that("rank deficiency is downgraded with a reason", {
   m <- mtcars
   m$wt2 <- 2 * m$wt
   fit <- lm(mpg ~ wt + wt2, data = m)
-  tr <- triage(fit)
+  expect_no_error(tr <- sufficient_stats(fit))
   expect_identical(tr$verdict, "needs_raw_data")
-  expect_match(tr$reason, "rank-deficient")
-  expect_error(sufficient_stats(fit, sharing_reason = "test"), class = "reprokit_impossible")
+  expect_match(tr$verdict_reason, "rank-deficient")
+  expect_error(reproduce(tr), class = "reprokit_impossible")
+  expect_error(appendix(tr, sharing_reason = "t"), class = "reprokit_impossible")
 })
 
 test_that("weights cannot hide a small cell from the disclosure check", {
   m <- mtcars
   m$w <- ifelse(m$cyl == 8 & m$am == 1, 1000, 1)
-  tr <- triage(lm(mpg ~ factor(cyl) + am, data = m, weights = w))
+  tr <- sufficient_stats(lm(mpg ~ factor(cyl) + am, data = m, weights = w))
   expect_identical(tr$verdict, "needs_raw_data")
-  expect_match(tr$reason, "factor\\(cyl\\)8 = 1 & am = 1: n = 2")
+  expect_match(tr$verdict_reason, "factor\\(cyl\\)8 = 1 & am = 1: n = 2")
 })
 
-test_that("glm and aov do not match the lm handler", {
-  expect_identical(triage(glm(am ~ wt, data = mtcars, family = binomial))$verdict,
+test_that("glm gets no verdict of sufficiency, and aov does not match the lm handler", {
+  expect_identical(sufficient_stats(glm(am ~ wt, data = mtcars, family = binomial))$verdict,
                    "needs_raw_data")
-  expect_true(is.na(triage(aov(mpg ~ factor(cyl), data = mtcars))$handler))
+  # aov is accepted through its own route (ADR 0027): one factor is a one-way ANOVA ...
+  one <- sufficient_stats(aov(mpg ~ factor(cyl), data = mtcars))
+  expect_identical(one$handler, "anova_oneway")
+  expect_identical(one$verdict, "summaries_suffice")
+  # ... and a covariate (ANCOVA) has no handler
+  ancova <- sufficient_stats(aov(mpg ~ factor(cyl) + wt, data = mtcars))
+  expect_identical(ancova$verdict, "needs_raw_data")
+  expect_true(is.na(ancova$handler))
 })
 
 test_that("small factor cells are flagged by the disclosure check", {
   # cyl x am: 8 cylinders with manual transmission has n = 2.
   fit <- lm(mpg ~ factor(cyl) + am, data = mtcars)
-  tr <- triage(fit)
+  tr <- sufficient_stats(fit)
   expect_identical(tr$verdict, "needs_raw_data")
-  expect_match(tr$reason, "factor\\(cyl\\)8 = 1 & am = 1: n = 2")
-  expect_identical(triage(fit, threshold = 2)$verdict, "summaries_suffice")
+  expect_match(tr$verdict_reason, "factor\\(cyl\\)8 = 1 & am = 1: n = 2")
+  expect_identical(sufficient_stats(fit, threshold = 2)$verdict, "summaries_suffice")
 })

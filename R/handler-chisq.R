@@ -225,8 +225,25 @@ chisq_independence_frame <- function(x, data) {
   table(factor(mf[[1L]]), factor(mf[[2L]]), dnn = names(mf))
 }
 
-chisq_independence_summarise <- function(x, data, test, correct = TRUE, ...) {
-  tab <- chisq_independence_frame(x, data)
+# A table of observed counts (from a chisq.test result) is the counts path: it is summarised
+# exactly as the table the data would give.
+chisq_table_from_observed <- function(observed, default_names) {
+  obs <- observed
+  storage.mode(obs) <- "integer"
+  dn <- dimnames(obs)
+  if (is.null(dn)) dn <- vector("list", length(dim(obs)))
+  for (i in seq_along(dn)) if (is.null(dn[[i]])) dn[[i]] <- as.character(seq_len(dim(obs)[i]))
+  nm <- names(dn)
+  if (is.null(nm)) nm <- rep("", length(dn))
+  nm[!nzchar(nm)] <- default_names[!nzchar(nm)]
+  names(dn) <- nm
+  dimnames(obs) <- dn
+  as.table(obs)
+}
+
+chisq_independence_summarise <- function(x, data, test, correct = TRUE, table = NULL, ...) {
+  tab <- if (is.null(table)) chisq_independence_frame(x, data) else
+    chisq_table_from_observed(table, c("row", "column"))
   dims <- dim(tab)
   if (any(dims < 2L)) {
     stop("Both variables need at least 2 categories; got ", dims[1L], " and ", dims[2L], ".",
@@ -270,8 +287,9 @@ chisq_gof_table <- function(x, data) {
   table(if (is.factor(f)) f else factor(f), dnn = names(mf))
 }
 
-chisq_gof_summarise <- function(x, data, test, p0 = NULL, ...) {
-  tab <- chisq_gof_table(x, data)
+chisq_gof_summarise <- function(x, data, test, p0 = NULL, table = NULL, ...) {
+  tab <- if (is.null(table)) chisq_gof_table(x, data) else
+    chisq_table_from_observed(table, "category")
   k <- length(tab)
   if (k < 2L) stop("The variable needs at least 2 categories, not ", k, ".", call. = FALSE)
   if (is.null(p0)) p0 <- rep(1 / k, k)
