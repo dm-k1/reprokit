@@ -6,7 +6,7 @@
    reference implementation, what is lost.
 2. Add `R/handler-<name>.R` that calls `register_handler()` from `.onLoad()`.
 3. A `summaries_suffice` handler must supply `summarise`, `reproduce`, `reported` and an `example`
-   model; the round-trip test in `test-core-registry.R` then covers it automatically.
+   model; the round-trip test in `test-infra-registry.R` then covers it automatically.
 4. Add refusal tests for what the handler cannot do (`class = "reprokit_impossible"`).
 5. Document the evidence in `vignettes/validation.Rmd`.
 

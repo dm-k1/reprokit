@@ -1,5 +1,5 @@
 # The regression family (ADR 0020): simple regression, multiple regression and
-# moderation, one handler each, all on the lm share side of handler-lm.R.
+# moderation, one handler each, all on the lm share side of handler-lm_base.R.
 # In one line: the three handlers match different lm fits, reuse lm_summarise(),
 # lm_reproduce() and lm_reported(), and check the reported numbers against each other
 # (t = b / SE, p, CI, F from R squared, n from df, and for simple regression r and

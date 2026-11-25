@@ -1,0 +1,240 @@
+# check_reported(): do the numbers a paper reports agree with each other?
+# In one line: parse the reported numbers into rounding intervals, evaluate each
+# of the handler's relations whose inputs are all reported, compare the derived
+# range with the reported output, and summarise per number, per variant and as a
+# coverage level (ADR 0010). It never says which number is wrong, only whether
+# the set can be correct as reported.
+
+#' Check reported statistics against each other
+#'
+#' Takes the numbers a paper reports for an analysis and tests whether they can
+#' all be right at once, given how precisely they were reported ("2.85" means
+#' anything from 2.845 to 2.855). Where one input is missing but the output is
+#' reported, it gives the range the missing input must lie in.
+#'
+#' @param test The test the numbers come from, in the vocabulary of [sufficient_stats()]:
+#'   `"student"`, `"welch"` (two independent groups; the name fixes the variant),
+#'   `"one_sample"`, `"paired"`, `"pearson"`, `"oneway"`, `"factorial"`, `"chisq"`,
+#'   `"gof"`, `"mediation"` and `"lm"` (a multiple regression; `"lm_simple"` and
+#'   `"lm_moderation"` for a simple regression and a moderation analysis). It can be given by name or as the first unnamed argument. Any other
+#'   value is refused with the list of valid ones.
+#' @param ... Reported numbers, named by quantity (see [quantity_names()]).
+#'   Pass strings, so the decimals count: `t = "2.85"`, `p = "< .001"`,
+#'   `df = "29"`. A quantity with one value per group or condition is a
+#'   character vector (`m = c("5.1", "4.2")`). Integer-valued numbers are taken
+#'   as exact.
+#' @param variants Character vector restricting which variants to try (such as
+#'   `"two.sided"`, `"0.95"` or `"welch"`), or `NULL` for all. Each value
+#'   restricts only its own kind of variant (tail, confidence level, test,
+#'   convention): `c("welch", "0.95")` fixes the test and the level. A kind
+#'   that no value names keeps all its variants. The accepted values are the
+#'   codes below; the printed output shows a readable label instead. A value
+#'   the handler does not have is an error that lists the ones it has.
+#'
+#'   * Tail: `"two.sided"`, `"less"`, `"greater"` (shown as two-sided,
+#'     one-sided (less), one-sided (greater)).
+#'   * Level: `"0.90"`, `"0.95"`, `"0.99"` (shown as 90%, 95%, 99%).
+#'   * Test: `"student"`, `"welch"` (shown as Student's t, Welch's t).
+#'   * SS type (factorial ANOVA, unbalanced designs): `"III"`, `"II"`, `"I"` (shown as
+#'     type III, type II, type I).
+#'   * Effect-size convention: `"pooled"` (Cohen's d, pooled SD), `"hedges_g"`,
+#'     `"average"` (Cohen's d, root mean square of the SDs), `"glass_sd1"`,
+#'     `"glass_sd2"` (Glass's delta), `"cohen"`, `"d_z"`, `"d_rm"`, `"d_av"`,
+#'     `"g_av"`, `"eta2"` (eta squared), `"omega2"` (omega squared),
+#'     `"partial_eta2"`, `"partial_omega2"` (factorial ANOVA). Which of
+#'     them a handler has depends on the test.
+#' @param mu The test value the mean (or mean difference) is compared with, for
+#'   tests whose t depends on it (`"one_sample"`, `"paired"`). A plain
+#'   number, not a string (`mu = 20`, not `mu = "20"`), unlike the reported
+#'   numbers. Default 0. A test without a test value errors on `mu` other
+#'   than 0.
+#' @param k For the regression tests (`"lm"` and the like), the number of predictor
+#'   columns (the model's df1), when F is not reported to say it. With `k`, `n`
+#'   and `df2` are checked against each other (df2 = n - k - 1) and either gives
+#'   the other; without it they are not, because k is never guessed from the
+#'   number of coefficients reported (a paper may leave some out). A plain number.
+#' @param dims For `"chisq"`, `"gof"` and `"factorial"`, the table shape: `c(rows, columns)`
+#'   for a test of independence, the number of categories for goodness of fit, the
+#'   levels of each factor for a factorial design. Not needed when `n` is a matrix (its
+#'   `dim()` is read before the counts are parsed). Without a shape `df` cannot be
+#'   checked, because a flat vector of counts does not say whether 12 cells are 2 x 6
+#'   or 3 x 4.
+#' @param p0 For `"gof"`, the H0 proportions, one per category, summing to 1 (within
+#'   1e-8). Without them the categories are taken as equally likely.
+#' @param effect For `"factorial"`, the effect to check: `"A"` (the factor in the rows
+#'   of the cell matrices), `"B"` (the columns) or `"AB"` (the interaction). A paper
+#'   with three F tests gets three calls with the same cell descriptives.
+#' @return A `reprokit_check` object: `$numbers` (status of each reported
+#'   number), `$level` (coverage, 0 to 3), `$missing` (what would raise the
+#'   level, and the range implied for it), `$variants` (a list with one data
+#'   frame per kind of variant the handler has, each of the variants tried and
+#'   whether they fit: `tail`, `level`, `test` (Student or Welch) and
+#'   `convention` (how an effect size was computed)), `$relations` (one row per
+#'   relation and variant; `$variant` and `$kind` join the values and kinds of a
+#'   relation that varies over several with "+", and there is one column per
+#'   kind, `tail`, `level`, `test`, `convention`, holding the row's value or
+#'   `NA`), `$implied`,
+#'   `$implied_inputs` (numbers derived from reported ones, such as `n` from `df`)
+#'   and `$checked` (whether any relation that can falsify was compared with a
+#'   reported number; without one there is no verdict).
+#'
+#'   The reported numbers come from one analysis, so they share one test and one
+#'   confidence level: a variant fits only if one choice per kind explains every
+#'   relation that can falsify. A CI whose bounds fit different levels, or a t that
+#'   fits only Student next to a CI that fits only Welch, is inconsistent even
+#'   though each relation holds on its own.
+#'
+#'   Some relations cannot falsify: how `d` was computed (pooled SD, average SD,
+#'   Glass) is rarely declared, so a `d` that no convention reproduces gets the
+#'   status `"not reproducible"`, never `"inconsistent"`, and `$consistent` is
+#'   not affected.
+#'
+#'   A reported number is only ever compared within what it can be: `r` lies
+#'   in -1 to 1, `sd` and `df` are not negative, `p` is in 0 to 1, `n` is a
+#'   whole number. A relation whose result is not finite for the reported values
+#'   (`"1.00"` for `r` gives an infinite t) is skipped, as if an input were
+#'   missing; it never counts as a failure.
+#'
+#'   When `n` is not reported but `df` is, `n` is derived from `df` for the
+#'   handlers where that is exact (a correlation, a paired or one-sample t): it
+#'   is used by the other relations, shown as `$implied_inputs`, and counts for
+#'   the coverage level, but `df` is never checked against it.
+#' @export
+#' @examples
+#' check_reported("paired", n = "20", t = "2.85", df = "19", p = ".010")
+#'
+#' # A 2 x 2 table: Yates' correction is a variant, V is a convention
+#' check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04",
+#'                df = "1", p = ".0001", v = ".41")
+#'
+#' # A regression reports a number per coefficient: name them.
+#' check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
+#'                t = c(wt = "-6.13", hp = "-3.52"), p = c(wt = "< .001", hp = ".001"),
+#'                r2 = ".83", f = "69.21", df1 = "2", df2 = "29", n = "32")
+check_reported <- function(..., test, variants = NULL, mu = 0, dims = NULL, p0 = NULL,
+                           effect = NULL, k = NULL) {
+  tests <- check_tests()
+  dots <- list(...)
+  if (missing(test)) {
+    # The first unnamed argument is the test. `test` sits after `...`, so a short quantity
+    # name (t, r, p, n) can never partially match it.
+    nm <- names(dots)
+    unnamed <- if (is.null(nm)) seq_along(dots) else which(!nzchar(nm))
+    if (length(unnamed) > 0L && is.character(dots[[unnamed[1L]]]) &&
+        length(dots[[unnamed[1L]]]) == 1L && !is.na(dots[[unnamed[1L]]])) {
+      test <- dots[[unnamed[1L]]]
+      dots <- dots[-unnamed[1L]]
+    } else {
+      abort_impossible("check without knowing the test",
+                       paste0("name it first: check_reported(\"paired\", t = ...). Valid tests: ",
+                              paste0("\"", names(tests), "\"", collapse = ", "), "."),
+                       alternatives = character())
+    }
+  }
+  if (!is.character(test) || length(test) != 1L || is.na(test) || !test %in% names(tests)) {
+    abort_impossible(
+      paste0("check the test ", if (is.character(test) && length(test) == 1L)
+        paste0("\"", test, "\"") else "given"),
+      paste0("it is not a test reprokit knows by that name. Valid values of `test`: ",
+             paste0("\"", names(tests), "\"", collapse = ", "), ". Student and Welch are ",
+             "`\"student\"` and `\"welch\"`, not a handler name."),
+      alternatives = character())
+  }
+  given <- c(mu = !(is.numeric(mu) && length(mu) == 1L && isTRUE(mu == 0)), dims = !is.null(dims),
+             p0 = !is.null(p0), effect = !is.null(effect), k = !is.null(k))
+  allowed <- switch(test,
+    one_sample = , paired = "mu", chisq = "dims", gof = c("dims", "p0"),
+    oneway = c("effect", "dims"), factorial = c("effect", "dims"),
+    lm = , lm_simple = , lm_moderation = "k", character())
+  unused <- setdiff(names(given)[given], allowed)
+  if (length(unused) > 0L) {
+    stop("`", unused[1L], "` does not apply to test \"", test, "\".", call. = FALSE)
+  }
+  handler <- tests[[test]]
+  run <- function(f, ...) do.call(f, c(dots, list(...)))
+  switch(test,
+    student = , welch = {
+      other <- setdiff(c("student", "welch"), test)
+      if (other %in% variants) {
+        stop("`variants` names \"", other, "\" but `test` is \"", test, "\".", call. = FALSE)
+      }
+      run(check_handler, handler = handler, variants = c(variants, test))
+    },
+    one_sample = , paired = run(check_t, handler = handler, variants = variants, mu = mu),
+    pearson = run(check_r, handler = handler, variants = variants),
+    oneway = , factorial = run(check_F, handler = handler, variants = variants,
+                               effect = effect, dims = dims),
+    chisq = , gof = run(check_chisq, handler = handler, variants = variants, dims = dims,
+                        p0 = p0),
+    lm = , lm_simple = , lm_moderation = run(check_lm, handler = handler, variants = variants,
+                                             k = k),
+    mediation = run(check_mediation, variants = variants)
+  )
+}
+
+format_implied_input <- function(found) {
+  if (found$lower == found$upper) format(found$lower) else paste(found$lower, "to", found$upper)
+}
+
+level_words <- function(level) {
+  words <- c(
+    "Level 0: nothing could be checked with the reported numbers.",
+    paste("Level 1: internal coherence only (statistic, df, p and CI are checked",
+          "against each other, not against the descriptives)."),
+    "Level 2: the test statistic was recomputed from the descriptives.",
+    paste("Level 3: the sufficient set is reported (the numbers contain",
+          "everything needed to reproduce the analysis; that is not itself a check).")
+  )
+  words[level + 1L]
+}
+
+#' @export
+print.reprokit_check <- function(x, ...) {
+  if (!x$checked) {
+    cat("No check was possible with the reported statistics.\n")
+  } else if (x$consistent) {
+    cat("The analysis is consistent with the reported statistics.\n")
+  } else {
+    cat("The analysis is inconsistent with the reported statistics.\n")
+  }
+  cat(level_words(x$level), "\n", sep = "")
+  for (kind in names(x$variants)) {
+    tried <- x$variants[[kind]]
+    if (nrow(tried) == 0L) next
+    fitting <- tried$variant[tried$fits]
+    fitting_text <- if (length(fitting) > 0L) {
+      paste(variant_label(fitting), collapse = ", ")
+    } else {
+      "none"
+    }
+    kind_label <- variant_kind_labels()[[kind]]
+    if (kind == "test" && all(tried$variant %in% ss_type_codes())) kind_label <- "SS types that fit"
+    cat(kind_label, ": ", fitting_text, "\n", sep = "")
+  }
+  if (nrow(x$numbers) > 0L) {
+    cat("\n")
+    print(x$numbers, row.names = FALSE, na.print = "-")
+  }
+  for (note in x$notes) cat("\nNote: ", note, "\n", sep = "")
+  if (length(x$implied) > 0L) {
+    cat("\nImplied ranges for numbers that were not reported:\n")
+    for (quantity in names(x$implied)) {
+      cat("  ", quantity, ": ", format_implied(x$implied[[quantity]]), "\n", sep = "")
+    }
+  }
+  if (length(x$implied_inputs) > 0L) {
+    values <- vapply(x$implied_inputs, format_implied_input, character(1))
+    sources <- vapply(x$implied_inputs, `[[`, character(1), "from")
+    cat("\nDerived from the reported numbers: ",
+        paste0(names(x$implied_inputs), " = ", values, " (from ", sources, ")",
+               collapse = ", "), ".\n", sep = "")
+  }
+  if (nrow(x$missing) > 0L) {
+    cat("\nReporting these would raise the level: ",
+        paste0(x$missing$quantity, " (to level ", x$missing$would_reach_level, ")",
+               collapse = ", "), ".\n", sep = "")
+  }
+  cat("\nAn inconsistency shows the numbers cannot all be correct as reported, ",
+      "not which one is wrong or why.\n", sep = "")
+  invisible(x)
+}

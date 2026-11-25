@@ -223,3 +223,133 @@ check_mediation <- function(..., variants = NULL, indirect_type = NULL, estimato
   }
   res
 }
+
+check_t <- function(..., handler = "t_paired", variants = NULL, mu = 0) {
+  check_handler(handler = handler, ..., variants = variants, mu = mu)
+}
+
+check_r <- function(..., handler = "cor_pearson", variants = NULL) {
+  check_handler(handler = handler, ..., variants = variants)
+}
+
+check_F <- function(..., handler = NULL, variants = NULL, effect = NULL, # nolint: object_name_linter
+                    dims = NULL) {
+  dots <- list(...)
+  factorial <- identical(handler, "anova_factorial") ||
+    (is.null(handler) && (!is.null(effect) || !is.null(dims)))
+  if (is.null(handler)) handler <- if (factorial) "anova_factorial" else "anova_oneway"
+  if (!factorial) {
+    return(check_handler(handler = handler, ..., variants = variants, effect = effect,
+                          dims = dims))
+  }
+  # The cells are a x b matrices: read their shape, check that they agree, flatten.
+  shapes <- lapply(dots[intersect(names(dots), c("n", "m", "sd"))], dim)
+  shapes <- Filter(Negate(is.null), shapes)
+  if (length(shapes) > 0L) {
+    if (any(vapply(shapes, length, integer(1)) != 2L)) {
+      stop("`n`, `m` and `sd` must be matrices with one row per level of the first factor ",
+           "and one column per level of the second, or plain vectors.", call. = FALSE)
+    }
+    if (length(unique(shapes)) > 1L) {
+      stop("`n`, `m` and `sd` must have the same dimensions; got ",
+           paste0(names(shapes), " = ", vapply(shapes, paste, character(1), collapse = " x "),
+                  collapse = ", "), ".", call. = FALSE)
+    }
+    shape <- shapes[[1L]]
+    if (!is.null(dims) && !identical(as.integer(dims), as.integer(shape))) {
+      stop("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of ",
+           "the matrices (", paste(shape, collapse = " x "), ").", call. = FALSE)
+    }
+    dims <- shape
+  }
+  for (q in intersect(names(dots), c("n", "m", "sd"))) {
+    dots[[q]] <- as.vector(unclass(dots[[q]]))
+    if (!is.null(dims) && length(dots[[q]]) != prod(dims)) {
+      stop("`", q, "` has ", length(dots[[q]]), " values, but `dims` says ",
+           paste(dims, collapse = " x "), " = ", prod(dims), " cells.", call. = FALSE)
+    }
+  }
+  if (!is.null(dims)) check_factorial_dims(dims)
+  out <- do.call(check_handler, c(list(handler = handler), dots,
+                                   list(variants = variants, dims = dims, effect = effect)))
+  out$notes <- c(out$notes, paste0("Effect checked: ", factorial_effect_words(effect), "."))
+  out
+}
+
+check_chisq <- function(..., handler = NULL, variants = NULL, dims = NULL, p0 = NULL) {
+  dots <- list(...)
+  n <- dots[["n"]]
+  notes <- character()
+  if (!is.null(n)) {
+    shape <- dim(n)
+    # A 1-d table is a vector of counts.
+    if (length(shape) == 1L) shape <- NULL
+    if (length(shape) > 2L) {
+      stop("`n` must be a matrix or a vector, not an array of ", length(shape),
+           " dimensions.", call. = FALSE)
+    }
+    if (!is.null(shape)) {
+      if (!is.null(dims) && !identical(as.integer(dims), as.integer(shape))) {
+        stop("`dims` (", paste(dims, collapse = " x "), ") does not match the dimensions of `n` (",
+             paste(shape, collapse = " x "), ").", call. = FALSE)
+      }
+      dims <- shape
+    }
+    dots[["n"]] <- as.vector(unclass(n))
+  }
+  if (is.null(handler)) {
+    handler <- if (length(dims) == 1L || (is.null(dims) && !is.null(n) && is.null(shape))) {
+      if (is.null(dims) && is.null(n)) "chisq_independence" else "chisq_gof"
+    } else {
+      "chisq_independence"
+    }
+  }
+  if (!handler %in% c("chisq_independence", "chisq_gof")) {
+    stop("`handler` must be \"chisq_independence\" or \"chisq_gof\".", call. = FALSE)
+  }
+  if (handler == "chisq_gof" && is.null(dims) && !is.null(dots[["n"]])) dims <- length(dots[["n"]])
+  if (handler == "chisq_independence" && !is.null(p0)) {
+    stop("`p0` is for goodness of fit; a test of independence has no H0 proportions.",
+         call. = FALSE)
+  }
+  if (!is.null(p0)) check_p0(p0, if (handler == "chisq_gof") dims else NULL)
+  if (!is.null(dims)) check_table_dims(dims, if (handler == "chisq_gof") "gof" else "independence")
+  if (handler == "chisq_independence" && !is.null(dots[["v"]]) && is.character(dots[["v"]])) {
+    stripped <- sub("^\\s*[-\u2212]\\s*", "", dots[["v"]])
+    if (!identical(stripped, dots[["v"]])) {
+      dots[["v"]] <- stripped
+      notes <- "A negative V (phi) is compared by absolute value; V is not signed."
+    }
+  } else if (handler == "chisq_independence" && is.numeric(dots[["v"]]) && any(dots[["v"]] < 0)) {
+    dots[["v"]] <- abs(dots[["v"]])
+    notes <- "A negative V (phi) is compared by absolute value; V is not signed."
+  }
+  out <- do.call(check_handler, c(list(handler = handler), dots,
+                                   list(variants = variants, dims = dims, p0 = p0)))
+  out$notes <- c(out$notes, notes)
+  out
+}
+
+# The test arguments the user gave, as a named list: `mu` only when it is not its
+# default 0 (so a handler without a test value still accepts mu = 0), `dims`, `p0`
+# and `effect` when not NULL. What a handler does not declare is rejected by
+# relations_at().
+test_arguments <- function(mu = 0, dims = NULL, p0 = NULL, effect = NULL, k = NULL) {
+  args <- list()
+  if (!(is.numeric(mu) && length(mu) == 1L && isTRUE(mu == 0))) args$mu <- mu
+  if (!is.null(dims)) args$dims <- dims
+  if (!is.null(p0)) args$p0 <- p0
+  if (!is.null(effect)) args$effect <- effect
+  if (!is.null(k)) args$k <- k
+  args
+}
+
+# The vocabulary of `test`: sufficient_stats(test=) plus the regression and mediation
+# checks, each mapped to the handler that carries its relations.
+check_tests <- function() {
+  c(student = "t_independent", welch = "t_independent", one_sample = "t_one_sample",
+    paired = "t_paired", pearson = "cor_pearson", oneway = "anova_oneway",
+    factorial = "anova_factorial", chisq = "chisq_independence", gof = "chisq_gof",
+    mediation = "mediation_simple", lm = "lm_multiple", lm_simple = "lm_simple",
+    lm_moderation = "lm_moderation")
+}

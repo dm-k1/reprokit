@@ -18,7 +18,7 @@
 # a named character vector (`variant[["test"]]`, `variant[["level"]]`) for a
 # crossed one. check_reported() additionally requires that the numbers it reports
 # are explained by ONE choice per kind across all relations that can falsify
-# (see shared_choice() in check.R).
+# (see shared_choice() in engine-ranges.R).
 # `falsifies` says whether a failure may count as an inconsistency. It is FALSE
 # for a relation whose formula authors choose freely and rarely declare (the
 # d convention): when none of its variants fits, the number is "not

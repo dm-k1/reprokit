@@ -50,7 +50,7 @@
 #               intervals). check_reported() judges relations one at a time, so a path is
 #               detectable when every variant misses on it, and the paper when either path is.
 #               For an independent t the df range of both tests is hulled before p is judged
-#               (R/check.R, "no variant is ruled out"), so a one-tailed p can be explained by a
+#               (R/engine-ranges.R, "no variant is ruled out"), so a one-tailed p can be explained by a
 #               df between Student's and Welch's: the oracle does the same.
 #               "joint-only" = no path alone, but every variant fails on one of its paths
 #               (needs the variants tied across relations): reported, not counted as a miss.
