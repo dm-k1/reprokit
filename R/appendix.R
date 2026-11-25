@@ -96,6 +96,28 @@ appendix <- function(x, ..., sharing_reason, choices = list(), digits = 2L,
     abort_input("No appendix for the ", analysis_name(h), " yet: its APA set is not declared.")
   }
   extra <- appendix_extra_names(h, extra)
+  # Printed numbers come from the model when there is one; the guard refuses a fit whose own
+  # numbers differ from the ones recomputed from its summaries (ADR 0031 point 5).
+  reference <- if (is_sufficient_stats(x)) NULL else {
+    appendix_model_reference(x, list(...), s$handler)
+  }
+  guard_model_source(reference, appendix_recomputed(h, s))
+  with_model_source(reference, s$handler, appendix_lines(h, s, choices, extra, reason,
+                                                         digits, digits_added))
+}
+
+# The recomputed values the model's numbers are held to: reproduce(), plus the per-model
+# R squared and F of a mediation (read by its extras).
+appendix_recomputed <- function(h, s) {
+  r <- h$reproduce(s)
+  if (identical(h$name, "mediation_simple")) {
+    m <- mediation_model_values(s)
+    r <- c(r, stats::setNames(c(m[, "r2"], m[, "f"]), c(paste0("r2:", 1:3), paste0("F:", 1:3))))
+  }
+  r
+}
+
+appendix_lines <- function(h, s, choices, extra, reason, digits, digits_added) {
   answers <- appendix_answers(h, s, choices)
   vals <- appendix_values(h, s, answers)
   labels <- appendix_cell_labels(h, s)
@@ -269,7 +291,7 @@ appendix_values <- function(h, s, answers) {
   stats <- s$stats
   names(stats)[names(stats) == "mean"] <- "m"
   vals <- stats[intersect(names(stats), quantity_names())]
-  reproduced <- as.list(h$reproduce(s))
+  reproduced <- as.list(source_reproduce(s, h))
   for (q in setdiff(names(reproduced), names(vals))) vals[[q]] <- reproduced[[q]]
   for (q in intersect(names(s$meta), c("p0"))) vals[[q]] <- s$meta[[q]]
   args <- s$meta[intersect(h$test_args, names(s$meta))]

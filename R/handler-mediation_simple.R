@@ -140,6 +140,15 @@ mediation_model_values <- function(s) {
     r <- lm_reproduce(m)
     c(r2 = r[["r.squared"]], f = r[["F"]])
   }, numeric(2)))
+  ref <- .appendix_source$reference
+  if (!is.null(ref) && identical(.appendix_source$handler, s$handler)) {
+    for (k in seq_len(nrow(out))) {
+      for (what in c("r2", "f")) {
+        key <- paste0(if (what == "f") "F" else what, ":", k)
+        if (key %in% names(ref)) out[k, what] <- ref[[key]]
+      }
+    }
+  }
   out
 }
 
@@ -236,7 +245,7 @@ mediation_appendix_table <- function(s, digits = 2L) {
   cov <- s$stats$cov
   vars <- names(s$stats$mean)
   cors <- stats::cov2cor(cov)
-  reproduced <- reproduce(s)
+  reproduced <- source_reproduce(s)
   labels <- c(a = "a (X to M)", b = "b (M to Y, X held constant)", c = "c (X to Y)",
               c_prime = "c' (X to Y, M held constant)")
   c(paste0("n = ", s$stats$n), "",

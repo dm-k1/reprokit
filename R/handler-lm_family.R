@@ -324,7 +324,7 @@ lm_appendix_table <- function(s, digits = 2L) {
   cors <- stats::cov2cor(cov)
   vars <- names(s$stats$mean)
   shown <- sub("^\\(response\\)$", paste0(s$meta$response, " (outcome)"), vars)
-  reproduced <- reproduce(s)
+  reproduced <- source_reproduce(s)
   terms <- sub("^estimate:", "", grep("^estimate:", names(reproduced), value = TRUE))
   coefs <- vapply(terms, function(term) {
     appendix_row(c(term, appendix_number(reproduced[[paste0("estimate:", term)]], digits),
@@ -361,7 +361,7 @@ lm_appendix_table <- function(s, digits = 2L) {
 lm_beta_values <- function(s, answers, digits) {
   cp <- lm_crossproducts(s)
   sd <- sqrt(diag(cp$s / (cp$w - 1)))
-  reproduced <- reproduce(s)
+  reproduced <- source_reproduce(s)
   terms <- setdiff(sub("^estimate:", "", grep("^estimate:", names(reproduced), value = TRUE)),
                    "(Intercept)")
   if (length(terms) == 0L || !all(terms %in% names(sd))) return(NULL)
@@ -371,7 +371,7 @@ lm_beta_values <- function(s, answers, digits) {
 }
 
 lm_appendix_effects <- function(s, answers, digits) {
-  reproduced <- reproduce(s)
+  reproduced <- source_reproduce(s)
   if (is.null(reproduced[["F"]])) return(character())
   c(appendix_row(c("Model", "Value")), appendix_row(c("---", "---")),
     appendix_row(c("R\u00b2", appendix_number(reproduced[["r.squared"]], digits,

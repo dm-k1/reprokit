@@ -216,7 +216,7 @@ t_zero_stationary <- function(what) {
 # stores (reproduce() gives both).
 t_extras <- function() {
   from_t <- function(fn) function(s, answers, digits) {
-    r <- reproduce(s)
+    r <- source_reproduce(s)
     fn(r[["t"]]^2, r[["df"]])
   }
   list(

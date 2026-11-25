@@ -25,9 +25,11 @@ register_cor_pearson <- function() {
     sufficient = c("n", "r"),
     not_checkable = c(m = "r does not depend on them", sd = "r does not depend on them"),
     extras = list(
-      r2 = appendix_extra("R\u00b2", function(s, answers, digits) s$stats$r^2, TRUE),
+      r2 = appendix_extra("R\u00b2", function(s, answers, digits) {
+        source_reproduce(s)[["r"]]^2
+      }, TRUE),
       adj_r2 = appendix_extra("Adjusted R\u00b2", function(s, answers, digits) {
-        1 - (1 - s$stats$r^2) * (s$stats$n - 1) / (s$stats$n - 2)
+        1 - (1 - source_reproduce(s)[["r"]]^2) * (s$stats$n - 1) / (s$stats$n - 2)
       }, TRUE)
     ),
     relations = cor_pearson_relations(),

@@ -171,7 +171,7 @@ anova_oneway_relations <- function() {
 
 # eta squared (= R squared of the one-way model) and omega squared from the stored statistics.
 oneway_effect_sizes <- function(s) {
-  r <- reproduce(s)
+  r <- source_reproduce(s)
   explained <- r[["f"]] * r[["df1"]]
   c(eta2 = explained / (explained + r[["df2"]]),
     omega2 = r[["df1"]] * (r[["f"]] - 1) / (explained + r[["df2"]] + 1))
