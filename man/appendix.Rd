@@ -13,7 +13,10 @@ appendix(s, choices = list(), digits = 2L, digits_added = 4L)
 the effect-size convention, as a variant code (e.g. \code{"d_z"}, \code{"d_av"}).
 Declaring it is a reprokit rule, not an APA requirement. \code{ss_type}: for a
 factorial ANOVA, the type of sums of squares (\code{"III"}, \code{"II"} or \code{"I"}); only
-an unbalanced design needs it.}
+an unbalanced design needs it. \code{level}: for a regression or mediation, the
+confidence level of the paper's intervals (\code{"0.95"}, \code{"0.90"} or \code{"0.99"});
+for a regression, \code{convention} is \code{"r2"} or \code{"adj_r2"} (the R-squared the paper
+reports).}
 
 \item{digits}{Decimals for the APA numbers in block A (p always gets 3).}
 

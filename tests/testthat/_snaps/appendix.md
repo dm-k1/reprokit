@@ -563,7 +563,75 @@
       
       | Choice | Answer |
       | --- | --- |
-      | (none to declare) |  |
+      | Confidence level | not declared |
+      | Effect-size convention | not declared (declaring it is a reprokit rule; APA does not require it) |
+      
+      ### D. APA numbers a reader cannot check from these statistics
+      
+      None: every number in block A follows from blocks A and B.
+      
+      ### Raw data
+      
+      **Why the raw data are not shared.** Consent did not cover public sharing.
+      
+      **What readers lose compared with the raw data:**
+      
+      - residual diagnostics (normality, outliers, influence)
+      - refitting with other predictors or transformations
+      - heteroscedasticity-robust standard errors
+      
+      **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
+
+---
+
+    Code
+      print(appendix(sufficient_stats(lm(mpg ~ wt, mt), sharing_reason = sr),
+      choices = list(level = "0.95", convention = "r2")))
+    Output
+      ## Appendix: sufficient statistics for the simple regression
+      
+      The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (S3.7) and for data that "allow readers to confirm the basic reported analyses" (S6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (S3.7). This is that appendix.
+      
+      ### A. The numbers APA style asks for
+      
+      n = 32
+      
+      | Variable | M | SD |
+      | --- | --- | --- |
+      | wt | 3.22 | 0.98 |
+      | mpg (outcome) | 20.09 | 6.03 |
+      
+      Correlations of the model columns and the outcome:
+      
+      |  | wt | mpg (outcome) |
+      | --- | --- | --- |
+      | wt | 1.00 | -.87 |
+      | mpg (outcome) | -.87 | 1.00 |
+      
+      | Coefficient | b | SE | t | p |
+      | --- | --- | --- | --- | --- |
+      | (Intercept) | 37.29 | 1.88 | 19.86 | < .001 |
+      | wt | -5.34 | 0.56 | -9.56 | < .001 |
+      
+      df = 30 for every coefficient. Each coefficient's confidence interval is b ± t(df) × SE at the level the paper states.
+      
+      | Model | Value |
+      | --- | --- |
+      | R² | .75 |
+      | Adjusted R² | .74 |
+      | F(1, 30) | 91.38 |
+      | p (model) | < .001 |
+      
+      ### B. Numbers APA does not require that the result needs
+      
+      None: the APA numbers in block A determine the result.
+      
+      ### C. Analysis choices
+      
+      | Choice | Answer |
+      | --- | --- |
+      | Confidence level | 95% |
+      | Effect-size convention | R² (declaring it is a reprokit rule; APA does not require it) |
       
       ### D. APA numbers a reader cannot check from these statistics
       
@@ -585,7 +653,7 @@
 
     Code
       print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt), sharing_reason = sr),
-      choices = list(coding = "treatment")))
+      choices = list(level = "0.99", convention = "adj_r2", coding = "treatment")))
     Output
       ## Appendix: sufficient statistics for the multiple regression
       
@@ -637,6 +705,8 @@
       
       | Choice | Answer |
       | --- | --- |
+      | Confidence level | 99% |
+      | Effect-size convention | adjusted R² (declaring it is a reprokit rule; APA does not require it) |
       | Factor coding | am: contr.treatment |
       
       ### D. APA numbers a reader cannot check from these statistics
@@ -659,7 +729,7 @@
 
     Code
       print(appendix(sufficient_stats(lm(mpg ~ wt * hp, mt), sharing_reason = sr),
-      choices = list(centering = "none", coding = "none")))
+      choices = list(level = 0.9, convention = "r2", centering = "none", coding = "none")))
     Output
       ## Appendix: sufficient statistics for the moderation
       
@@ -712,6 +782,8 @@
       
       | Choice | Answer |
       | --- | --- |
+      | Confidence level | 90% |
+      | Effect-size convention | R² (declaring it is a reprokit rule; APA does not require it) |
       | Centering | as analysed |
       | Coding | no factor predictors |
       
@@ -735,7 +807,7 @@
 
     Code
       print(appendix(sufficient_stats(mpg ~ wt, data = mt, test = "mediation",
-      mediator = "hp", sharing_reason = sr)))
+      mediator = "hp", sharing_reason = sr), choices = list(level = "0.95")))
     Output
       ## Appendix: sufficient statistics for the simple mediation
       
@@ -777,7 +849,7 @@
       
       | Choice | Answer |
       | --- | --- |
-      | (none to declare) |  |
+      | Confidence level | 95% |
       
       ### D. APA numbers a reader cannot check from these statistics
       

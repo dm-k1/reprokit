@@ -27,7 +27,10 @@
 #'   the effect-size convention, as a variant code (e.g. `"d_z"`, `"d_av"`).
 #'   Declaring it is a reprokit rule, not an APA requirement. `ss_type`: for a
 #'   factorial ANOVA, the type of sums of squares (`"III"`, `"II"` or `"I"`); only
-#'   an unbalanced design needs it.
+#'   an unbalanced design needs it. `level`: for a regression or mediation, the
+#'   confidence level of the paper's intervals (`"0.95"`, `"0.90"` or `"0.99"`);
+#'   for a regression, `convention` is `"r2"` or `"adj_r2"` (the R-squared the paper
+#'   reports).
 #' @param digits Decimals for the APA numbers in block A (p always gets 3).
 #' @param digits_added Decimals for the added numbers in block B. They feed
 #'   back into the result, so they get more decimals than APA's two; the object
@@ -88,15 +91,6 @@ appendix_analysis_name <- function(h) {
 # Tails, level and test come from how the analysis was run; the effect-size
 # convention only the author knows.
 appendix_answers <- function(h, s, choices) {
-  # A regression's variants (R squared or adjusted, the CI level) are conventions the
-  # checks try, not choices the author declares.
-  if (!is.null(h$design$terms)) {
-    if (!is.null(choices$convention)) {
-      stop("`", h$name, "` has no effect-size convention to declare; drop `choices$convention`.",
-           call. = FALSE)
-    }
-    return(list())
-  }
   kinds <- unique(unlist(lapply(h$relations, function(rel) names(rel$variants))))
   convention_codes <- unique(unlist(lapply(h$relations, function(rel) rel$variants$convention)))
   if (!is.null(choices$convention) && length(convention_codes) == 0L) {
@@ -128,13 +122,38 @@ appendix_answers <- function(h, s, choices) {
   } else if (!is.null(choices$ss_type)) {
     stop("`", h$name, "` has no SS type to declare; drop `choices$ss_type`.", call. = FALSE)
   }
+  # A regression's CI level is not an argument of the analysis: the author declares the
+  # level the paper's intervals use (`choices$level`), like the convention.
+  level <- if (!is.null(h$design$terms)) {
+    appendix_level(choices$level)
+  } else if (is.null(s$meta$conf_level)) {
+    NULL
+  } else {
+    sprintf("%.2f", s$meta$conf_level)
+  }
+  if (is.null(h$design$terms) && !is.null(choices$level)) {
+    stop("`", h$name, "` takes its confidence level from the analysis; drop `choices$level`.",
+         call. = FALSE)
+  }
   answers <- list(
     tail = s$meta$alternative,
-    level = if (is.null(s$meta$conf_level)) NULL else sprintf("%.2f", s$meta$conf_level),
+    level = level,
     test = test,
     convention = convention
   )
   answers[intersect(names(answers), kinds)]
+}
+
+# The author's CI level as a variant code ("0.95"), NA when not declared.
+appendix_level <- function(level) {
+  if (is.null(level)) return(NA_character_)
+  code <- if (is.numeric(level)) sprintf("%.2f", level) else level
+  if (length(code) != 1L || !code %in% confidence_levels()) {
+    stop("`choices$level` must be one of: ",
+         paste0("\"", confidence_levels(), "\"", collapse = ", "), " (or 0.90, 0.95, 0.99).",
+         call. = FALSE)
+  }
+  code
 }
 
 # Whether the handler's `test` variants are SS types (a factorial ANOVA).

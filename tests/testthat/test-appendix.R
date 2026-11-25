@@ -197,13 +197,35 @@ test_that("the regression-family appendices are stable", {
   sr <- "Consent did not cover public sharing."
   expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt, mt), sharing_reason = sr))),
                   transform = ascii_safe)
+  expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt, mt), sharing_reason = sr),
+                                 choices = list(level = "0.95", convention = "r2"))),
+                  transform = ascii_safe)
   expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt + hp + am, mt), sharing_reason = sr),
-                                 choices = list(coding = "treatment"))),
+                                 choices = list(level = "0.99", convention = "adj_r2",
+                                                coding = "treatment"))),
                   transform = ascii_safe)
   expect_snapshot(print(appendix(sufficient_stats(lm(mpg ~ wt * hp, mt), sharing_reason = sr),
-                                 choices = list(centering = "none", coding = "none"))),
+                                 choices = list(level = 0.9, convention = "r2",
+                                                centering = "none", coding = "none"))),
                   transform = ascii_safe)
   expect_snapshot(print(appendix(sufficient_stats(mpg ~ wt, data = mt, test = "mediation",
-                                                  mediator = "hp", sharing_reason = sr))),
+                                                  mediator = "hp", sharing_reason = sr),
+                                 choices = list(level = "0.95"))),
                   transform = ascii_safe)
+})
+
+test_that("the regression appendices validate level and convention", {
+  mt <- datasets::mtcars
+  s <- sufficient_stats(lm(mpg ~ wt, mt), sharing_reason = "x")
+  expect_error(appendix(s, choices = list(level = "0.80")), "level")
+  expect_error(appendix(s, choices = list(convention = "nope")), "convention")
+  m <- sufficient_stats(mpg ~ wt, data = mt, test = "mediation", mediator = "hp",
+                        sharing_reason = "x")
+  expect_error(appendix(m, choices = list(convention = "r2")), "convention")
+  text <- paste(appendix(m), collapse = "\n")
+  expect_match(text, "Confidence level | not declared", fixed = TRUE)
+  t <- sufficient_stats(Pair(drug1, drug2) ~ 1, data = data.frame(
+    drug1 = sleep$extra[sleep$group == 1], drug2 = sleep$extra[sleep$group == 2]),
+    test = "paired", sharing_reason = "x")
+  expect_error(appendix(t, choices = list(level = "0.95", convention = "d_z")), "level")
 })
