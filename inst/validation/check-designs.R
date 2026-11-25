@@ -7,7 +7,31 @@
 # oneway_paper() prints classical oneway.test(var.equal = TRUE) output as a paper does
 # (F 2 dp, p 3 dp or "< .001", M and SD 2 dp, eta2 or omega2 2 dp).
 
-fmt <- function(x, d) formatC(x, format = "f", digits = d)
+# The rounding a paper used: round half to even (what sprintf, formatC and round() do, on the
+# binary value) or half up / away from zero on the decimal value (SPSS, Excel; the 1e-9 stands
+# for the decimal arithmetic of those programs, so that 2.675 prints as 2.68). Chosen with
+# options(reprokit.validation.rounding = "half_up"); default half even. They differ only at an
+# exact tie such as a mean of 2.5 printed at 0 decimals, which integer (Likert) data produce.
+fmt <- function(x, d) {
+  if (identical(getOption("reprokit.validation.rounding"), "half_up")) {
+    x <- sign(x) * floor(abs(x) * 10^d + 0.5 + 1e-9) / 10^d
+  }
+  formatC(x, format = "f", digits = d)
+}
+with_rounding <- function(mode, expr) {
+  old <- options(reprokit.validation.rounding = mode)
+  on.exit(options(old))
+  expr
+}
+# The same draw printed both ways: the RNG state is restored before the second paper, so the
+# two papers differ only in the rounding. Returns a list of the papers that are not NULL.
+both_roundings <- function(make) {
+  seed <- get(".Random.seed", globalenv())
+  even <- with_rounding("half_even", make())
+  assign(".Random.seed", seed, globalenv())
+  up <- with_rounding("half_up", make())
+  Filter(Negate(is.null), list(even = even, half_up = up))
+}
 fmt_p <- function(p) if (p < 0.001) "< .001" else fmt(p, 3L)
 # Confidence level of the CI a paper prints: 95% mostly, 90% and 99% in a quarter of the papers
 # each. The generators draw it with the global RNG.
@@ -28,7 +52,7 @@ paired_design <- function() {
   list(x = x, y = y, dec = sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3)))
 }
 
-paired_paper <- function(d) {
+paired_paper <- function(d, alternative = "two.sided") {
   level <- draw_level()
   tt <- t.test(d$x, d$y, paired = TRUE, conf.level = level)
   r <- cor(d$x, d$y)
@@ -38,8 +62,9 @@ paired_paper <- function(d) {
   paper <- list(n = as.character(n), m = c(fmt(mean(d$x), dec), fmt(mean(d$y), dec)),
                 sd = c(fmt(sd(d$x), dec), fmt(sd(d$y), dec)), r = fmt(r, 3L),
                 t = fmt(unname(tt$statistic), 2L), df = as.character(n - 1L),
-                p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
-                ci_upper = fmt(tt$conf.int[2L], dec))
+                p = fmt_p(if (alternative == "two.sided") tt$p.value else
+                  t.test(d$x, d$y, paired = TRUE, alternative = alternative)$p.value),
+                ci_lower = fmt(tt$conf.int[1L], dec), ci_upper = fmt(tt$conf.int[2L], dec))
   # In 30% of the papers also a d, in one of the conventions of Lakens (2013), 2 decimals.
   if (runif(1L) < 0.3) {
     diff <- d$x - d$y
@@ -50,68 +75,150 @@ paired_paper <- function(d) {
     if (is.finite(value)) paper$d <- fmt(value, 2L)
   }
   attr(paper, "level") <- level
+  attr(paper, "alternative") <- alternative
   paper
 }
 
-pearson_paper <- function() {
-  n <- sample(sizes, 1L)
-  rho <- if (runif(1L) < 0.5) sample(rhos, 1L) else runif(1L, -0.99, 0.99)
-  x <- rnorm(n)
-  y <- rho * x + sqrt(1 - rho^2) * rnorm(n)
+pearson_paper <- function(raw = NULL, alternative = "two.sided") {
+  if (is.null(raw)) {
+    n <- sample(sizes, 1L)
+    rho <- if (runif(1L) < 0.5) sample(rhos, 1L) else runif(1L, -0.99, 0.99)
+    x <- rnorm(n)
+    y <- rho * x + sqrt(1 - rho^2) * rnorm(n)
+  } else {
+    x <- raw$x
+    y <- raw$y
+    n <- length(x)
+  }
   r <- suppressWarnings(cor(x, y))
-  if (!is.finite(r)) return(NULL)
+  if (!is.finite(r) || abs(r) >= 1) return(NULL)  # |r| = 1 has t = Inf: nothing to print
   level <- draw_level()
   ct <- cor.test(x, y, conf.level = level)
   dec <- sample(2:3, 1L)
+  p_value <- if (alternative == "two.sided") ct$p.value else
+    cor.test(x, y, alternative = alternative)$p.value
   paper <- list(n = as.character(n), r = fmt(unname(ct$estimate), dec),
                 df = as.character(n - 2L), t = fmt(unname(ct$statistic), 2L),
-                p = fmt_p(ct$p.value))
+                p = fmt_p(p_value))
   if (n > 3L) {
     paper <- c(paper, list(ci_lower = fmt(ct$conf.int[1L], dec),
                            ci_upper = fmt(ct$conf.int[2L], dec)))
   }
   attr(paper, "level") <- level
+  attr(paper, "alternative") <- alternative
   paper
 }
 
-independent_paper <- function(var_equal) {
-  n1 <- sample(sizes[sizes >= 3], 1L)
-  n2 <- sample(sizes[sizes >= 3], 1L)
-  scale <- 10^runif(1L, -1, 2)
-  x <- rnorm(n1) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
-  y <- rnorm(n2) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
+# `raw = list(x, y)` supplies the data (the Likert families), `dec` the decimals of M, SD and the CI,
+# `df_dec` the decimals of a Welch df (default 1 or 2; 0 prints it as an integer, which a paper
+# that rounds the df does), `alternative` the tail of the p printed (the CI stays two-sided).
+independent_paper <- function(var_equal, raw = NULL, dec = NULL, df_dec = NULL,
+                              alternative = "two.sided") {
+  if (is.null(raw)) {
+    n1 <- sample(sizes[sizes >= 3], 1L)
+    n2 <- sample(sizes[sizes >= 3], 1L)
+    scale <- 10^runif(1L, -1, 2)
+    x <- rnorm(n1) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
+    y <- rnorm(n2) * scale * runif(1L, 0.3, 3) + runif(1L, -1, 1) * scale
+  } else {
+    x <- raw$x
+    y <- raw$y
+    n1 <- length(x)
+    n2 <- length(y)
+  }
   level <- draw_level()
   tt <- t.test(x, y, var.equal = var_equal, conf.level = level)
   if (!is.finite(tt$statistic) || sd(x) == 0 || sd(y) == 0) return(NULL)
-  dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
-  df_dec <- if (var_equal) 0L else sample(1:2, 1L)
+  p_value <- if (alternative == "two.sided") tt$p.value else
+    t.test(x, y, var.equal = var_equal, alternative = alternative)$p.value
+  if (is.null(dec)) dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
+  if (is.null(df_dec)) df_dec <- if (var_equal) 0L else sample(1:2, 1L)
   pooled <- sqrt(((n1 - 1) * var(x) + (n2 - 1) * var(y)) / (n1 + n2 - 2))
   paper <- list(n = as.character(c(n1, n2)), m = c(fmt(mean(x), dec), fmt(mean(y), dec)),
                 sd = c(fmt(sd(x), dec), fmt(sd(y), dec)),
                 t = fmt(unname(tt$statistic), 2L), df = fmt(unname(tt$parameter), df_dec),
-                p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
+                p = fmt_p(p_value), ci_lower = fmt(tt$conf.int[1L], dec),
                 ci_upper = fmt(tt$conf.int[2L], dec))
   if (runif(1L) < 0.3) paper$d <- fmt((mean(x) - mean(y)) / pooled, 2L)
   attr(paper, "level") <- level
+  attr(paper, "alternative") <- alternative
   paper
 }
 
-one_sample_paper <- function() {
-  n <- sample(sizes, 1L)
-  scale <- 10^runif(1L, -1, 2)
-  x <- rnorm(n) * scale + runif(1L, -1, 1) * scale
-  mu <- if (runif(1L) < 0.4) 0 else round(runif(1L, -1, 1) * scale, sample(0:2, 1L))
+one_sample_paper <- function(raw = NULL, dec = NULL, mu = NULL, alternative = "two.sided") {
+  if (is.null(raw)) {
+    n <- sample(sizes, 1L)
+    scale <- 10^runif(1L, -1, 2)
+    x <- rnorm(n) * scale + runif(1L, -1, 1) * scale
+    mu <- if (runif(1L) < 0.4) 0 else round(runif(1L, -1, 1) * scale, sample(0:2, 1L))
+  } else {
+    x <- raw$x
+    n <- length(x)
+  }
   level <- draw_level()
   tt <- t.test(x, mu = mu, conf.level = level)
   if (!is.finite(tt$statistic) || sd(x) == 0) return(NULL)
-  dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
+  if (is.null(dec)) dec <- sample(c(0L, 2L, 3L), 1L, prob = c(0.3, 0.4, 0.3))
+  p_value <- if (alternative == "two.sided") tt$p.value else
+    t.test(x, mu = mu, alternative = alternative)$p.value
   paper <- list(n = as.character(n), m = fmt(mean(x), dec), sd = fmt(sd(x), dec),
                 t = fmt(unname(tt$statistic), 2L), df = as.character(n - 1L),
-                p = fmt_p(tt$p.value), ci_lower = fmt(tt$conf.int[1L], dec),
+                p = fmt_p(p_value), ci_lower = fmt(tt$conf.int[1L], dec),
                 ci_upper = fmt(tt$conf.int[2L], dec))
   attr(paper, "mu") <- mu
   attr(paper, "level") <- level
+  attr(paper, "alternative") <- alternative
   paper
+}
+
+# Integer data (Likert items, counts) -----------------------------------------------------------
+# Means of n integers are multiples of 1/n, so with n in 4, 8, 10, 16, 20, 24, 40, 50 a mean lands
+# on an exact tie at 0, 1 or 2 decimals (2.5 at 0 decimals, 3.25 at 1, 3.125 at 2): the cases
+# where printing with round-half-even and with round-half-up differ. likert_values() draws a
+# 1-5 or 1-7 rating or a count (Poisson); the likert_*_paper() functions give the paper of a
+# t.test()/cor.test() on such data (decimals 0 to 2, so ties occur), `alternative` as for the
+# continuous generators. Use both_roundings() to print the same data under both conventions.
+tie_sizes <- c(4, 8, 10, 16, 20, 24, 40, 50)
+likert_values <- function(n, kind, shift = 0) {
+  switch(kind,
+         l5 = pmin(5, pmax(1, round(rnorm(n, 3 + shift, 1.1)))),
+         l7 = pmin(7, pmax(1, round(rnorm(n, 4 + shift, 1.7)))),
+         count = as.numeric(rpois(n, 6 + 3 * shift)))
+}
+likert_kind <- function() sample(c("l5", "l7", "count"), 1L)
+likert_dec <- function() sample(c(0L, 1L, 2L), 1L, prob = c(0.2, 0.4, 0.4))
+likert_independent_paper <- function(var_equal, alternative = "two.sided", df_dec = NULL) {
+  kind <- likert_kind()
+  x <- likert_values(sample(tie_sizes, 1L), kind)
+  y <- likert_values(sample(tie_sizes, 1L), kind, shift = runif(1L, -0.5, 0.5))
+  independent_paper(var_equal, raw = list(x = x, y = y), dec = likert_dec(), df_dec = df_dec,
+                    alternative = alternative)
+}
+likert_one_sample_paper <- function(alternative = "two.sided") {
+  kind <- likert_kind()
+  x <- likert_values(sample(tie_sizes, 1L), kind)
+  mu <- switch(kind, l5 = 3, l7 = 4, count = sample(c(5, 6, 7), 1L))
+  one_sample_paper(raw = list(x = x), dec = likert_dec(), mu = mu, alternative = alternative)
+}
+likert_paired_paper <- function(alternative = "two.sided") {
+  kind <- likert_kind()
+  n <- sample(tie_sizes, 1L)
+  x <- likert_values(n, kind)
+  y <- x + sample(-1:1, n, replace = TRUE) + sample(0:1, 1L)
+  y <- if (kind == "l5") pmin(5, pmax(1, y)) else if (kind == "l7") pmin(7, pmax(1, y)) else pmax(0, y)
+  paired_paper(list(x = x, y = y, dec = likert_dec()), alternative = alternative)
+}
+likert_pearson_paper <- function(alternative = "two.sided") {
+  kind <- likert_kind()
+  n <- sample(tie_sizes, 1L)
+  x <- likert_values(n, kind)
+  y <- x + sample(-2:2, n, replace = TRUE)
+  y <- if (kind == "l5") pmin(5, pmax(1, y)) else if (kind == "l7") pmin(7, pmax(1, y)) else pmax(0, y)
+  pearson_paper(raw = list(x = x, y = y), alternative = alternative)
+}
+# TRUE when the two papers of a both_roundings() draw differ: an exact tie was met.
+tie_hit <- function(papers) {
+  length(papers) == 2L && !identical(unclass(papers[[1L]]), unclass(papers[[2L]]))
 }
 
 # One-way ANOVA ------------------------------------------------------------------------------
@@ -305,6 +412,40 @@ plant_ci_change <- function(paper) {
   list(paper = paper, quantity = which, size = if (abs(units) < 10) "small" else "large")
 }
 
+# Two adjacent digits of the test statistic transposed ("2.34" -> "2.43", "12.50" -> "15.20": the
+# sign, the decimal point and a leading position are kept in place). The statistic is t, r (Pearson)
+# or F (one-way). Size is small when the change is under 0.1 of its value in absolute terms
+# (the two digits are the last two), else large.
+plant_transposed <- function(paper, handler) {
+  key <- switch(handler, cor_pearson = "r", anova_oneway = "f", "t")
+  s <- paper[[key]]
+  chars <- strsplit(s, "")[[1L]]
+  digit <- which(chars %in% as.character(0:9))
+  pairs <- digit[-length(digit)][diff(digit) == 1L]
+  # a pair of equal digits changes nothing; a leading "0" before the point stays (0.43 -> 0.34 is fine)
+  pairs <- pairs[chars[pairs] != chars[pairs + 1L]]
+  if (!length(pairs)) return(NULL)
+  at <- if (length(pairs) == 1L) pairs else sample(pairs, 1L)
+  chars[c(at, at + 1L)] <- chars[c(at + 1L, at)]
+  new <- paste(chars, collapse = "")
+  if (handler == "cor_pearson" && abs(as.numeric(new)) >= 1) return(NULL)
+  paper[[key]] <- new
+  size <- if (abs(as.numeric(new) - as.numeric(s)) < 0.1) "small" else "large"
+  list(paper = paper, quantity = key, size = size)
+}
+
+# A one-tailed p reported as if it were two-tailed: the paper's p replaced by half the two-sided
+# p of its t and df (the sign of t kept). A one-tailed test is a legitimate analysis, so the
+# result is expected to be UNDETECTABLE, not a miss: check_reported() accepts a p from either
+# tail unless the caller says two.sided. Counted in the table, outside the "flags something" and
+# "large errors are found" criteria.
+plant_one_tailed <- function(paper) {
+  p0 <- p_value(paper$p)
+  if (is.na(p0) || p0 < 0.004 || is.null(paper$t)) return(NULL)
+  paper$p <- fmt_p(p0 / 2)
+  list(paper = paper, quantity = "p", size = "large")
+}
+
 # p moved across .05 with t and df unchanged.
 plant_decision <- function(paper) {
   p0 <- p_value(paper$p)
@@ -331,10 +472,10 @@ plant_oneway_df <- function(paper) {
 
 planted_types <- function(handler) {
   if (handler == "anova_oneway") {
-    return(c("f_digit", "p_digit", "df_wrong_n", "decision", "m_change"))
+    return(c("f_digit", "p_digit", "df_wrong_n", "decision", "m_change", "transposed"))
   }
   c("t_digit", "p_digit", "df_wrong_n", "decision",
-    if (handler == "cor_pearson") "r_digit" else "m_change", "ci_change")
+    if (handler == "cor_pearson") "r_digit" else "m_change", "ci_change", "transposed", "one_tailed")
 }
 
 plant_error <- function(paper, handler, type) {
@@ -344,7 +485,8 @@ plant_error <- function(paper, handler, type) {
   switch(type, t_digit = plant_t_digit(paper), p_digit = plant_p_digit(paper),
          df_wrong_n = plant_df_wrong_n(paper, handler), decision = plant_decision(paper),
          r_digit = plant_r_digit(paper), m_change = plant_m_change(paper),
-         ci_change = plant_ci_change(paper))
+         ci_change = plant_ci_change(paper), transposed = plant_transposed(paper, handler),
+         one_tailed = plant_one_tailed(paper))
 }
 
 # Groups of correct papers, one per handler (independent t split by test), and a driver
@@ -486,8 +628,8 @@ chisq_subsets <- function(paper) {
 # which is what check_reported("lm") takes. The paper carries attributes: handler, k (predictor columns),
 # adj (the adjusted R2 as printed), sd_all (SD of every non-intercept column, then the outcome).
 lm_raw <- function(handler = sample(c("lm_simple", "lm_multiple", "lm_moderation"), 1L),
-                   weighted = runif(1L) < 0.3, with_factor = runif(1L) < 0.4, k = NULL) {
-  n <- sample(c(20, 30, 50, 100, 300), 1L)
+                   weighted = runif(1L) < 0.3, with_factor = runif(1L) < 0.4, k = NULL, n = NULL) {
+  if (is.null(n)) n <- sample(c(20, 30, 50, 100, 300), 1L)
   common <- rnorm(n)
   col <- function() rnorm(n, sd = runif(1L, 0.5, 3)) + 0.5 * common * runif(1L)
   d <- data.frame(x1 = col())
@@ -610,10 +752,20 @@ mediation_paper <- function(d) {
   level <- draw_level()
   dfs <- c(a = n - 2L, b = n - 3L, c = n - 2L, c_prime = n - 3L)
   half <- vapply(names(paths), function(nm) stats::qt(1 - (1 - level) / 2, dfs[[nm]]) * paths[[nm]][[2L]], 0)
+  # 200 resamples of a*b with the closed-form slopes of the two regressions (a: m on x; b: the m
+  # coefficient of y on x and m), so the loop fits no models. The sample() calls are those of
+  # the former lm.fit loop: same draws, same printed paper.
   boot <- vapply(seq_len(200L), function(i) {
-    dd <- d[sample(n, replace = TRUE), ]
-    stats::coef(stats::lm.fit(cbind(1, dd$x), dd$m))[[2L]] *
-      stats::coef(stats::lm.fit(cbind(1, dd$x, dd$m), dd$y))[[3L]]
+    idx <- sample(n, replace = TRUE)
+    xc <- d$x[idx] - mean(d$x[idx])
+    mc <- d$m[idx] - mean(d$m[idx])
+    yc <- d$y[idx] - mean(d$y[idx])
+    sxx <- sum(xc * xc)
+    sxm <- sum(xc * mc)
+    sxy <- sum(xc * yc)
+    smm <- sum(mc * mc)
+    smy <- sum(mc * yc)
+    (sxm / sxx) * ((sxx * smy - sxm * sxy) / (sxx * smm - sxm * sxm))
   }, numeric(1))
   q <- stats::quantile(boot, c(0.025, 0.975))
   get <- function(i, d) stats::setNames(vapply(paths, function(p) fmt(p[[i]], d), ""), names(paths))
@@ -627,6 +779,10 @@ mediation_paper <- function(d) {
     n = as.character(n), indirect = fmt(paths$a[[1L]] * paths$b[[1L]], 2L),
     indirect_ci_lower = fmt(q[[1L]], 2L), indirect_ci_upper = fmt(q[[2L]], 2L))
   attr(paper, "level") <- level
+  # The other way a paper gets its indirect effect: the product of the printed paths,
+  # round(round(a) * round(b)).
+  attr(paper, "indirect_rounded_product") <-
+    fmt(as.numeric(fmt(paths$a[[1L]], 2L)) * as.numeric(fmt(paths$b[[1L]], 2L)), 2L)
   paper
 }
 

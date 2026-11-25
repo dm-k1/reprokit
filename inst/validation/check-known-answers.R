@@ -570,4 +570,6 @@ print(data.frame(assertion = names(checks6), holds = unname(checks6)), row.names
 cat(if (all(checks6)) "\nPASS" else "\nFAIL",
     ": regression known answers (", sum(checks6), "/", length(checks6), ")\n", sep = "")
 
-record_stop()
+all_pass <- all(checks) && all(checks2) && all(checks3) && all(checks4) && all(checks5) && all(checks6)
+cat(if (all_pass) "\nPASS" else "\nFAIL", ": all known-answer sections\n", sep = "")
+finish_validation(all_pass)

@@ -38,11 +38,16 @@
 
 source("inst/validation/record.R")
 record_start("check-range-exactness", seed = c(20261123, 20261125))
+source("inst/validation/parallel-helpers.R")
+started <- Sys.time()
 
 n_boxes <- 300L
 uniform_draws <- 400L
 slice_draws <- 400L
-set.seed(20261123)
+# Parallel and reproducible: every section is cut into tasks that do not depend on the number of
+# cores (a handler x 25 boxes, a relation x variant, ...), each task runs on its own L'Ecuyer-CMRG
+# stream (par_run() in parallel-helpers.R), so the numbers are the same on 1 or 8 cores.
+# REPROKIT_VALIDATION_CORES sets the core count.
 
 fmt <- function(x, d) formatC(x, format = "f", digits = d)
 
@@ -107,11 +112,15 @@ draw_slice <- function(box, inputs) {
   point
 }
 
-rows <- list()
-escaped <- 0L
-for (handler in c("t_paired", "cor_pearson", "t_independent", "t_one_sample")) {
+box_chunk <- 25L
+tasks1 <- do.call(c, lapply(c("t_paired", "cor_pearson", "t_independent", "t_one_sample"), function(h) {
+  lapply(seq_len(n_boxes %/% box_chunk), function(k) list(handler = h, n = box_chunk))
+}))
+chunk_rows <- par_run(tasks1, function(task) {
+  handler <- task$handler
   rels <- get_handler(handler)$relations
-  for (b in seq_len(n_boxes)) {
+  rows <- list()
+  for (b in seq_len(task$n)) {
     box <- box_of(random_paper(handler))
     for (rel in rels) {
       for (variant in variant_combinations(rel$variants)) {
@@ -128,12 +137,15 @@ for (handler in c("t_paired", "cor_pearson", "t_independent", "t_one_sample")) {
         values <- values[is.finite(values)]
         slack <- 1e-9 * max(1, abs(range))
         bad <- sum(values < range[["lower"]] - slack | values > range[["upper"]] + slack)
-        escaped <- escaped + bad
         rows[[key]] <- rbind(rows[[key]], c(1, bad, 0))
       }
     }
   }
-}
+  rows
+}, seed = 20261123)
+rows <- list()
+for (cr in chunk_rows) for (key in names(cr)) rows[[key]] <- rbind(rows[[key]], cr[[key]])
+escaped <- sum(vapply(rows, function(m) sum(m[, 2L]), 0))
 exactness <- do.call(rbind, lapply(names(rows), function(key) {
   m <- rows[[key]]
   data.frame(relation = key, boxes = sum(m[, 1L]), escaped_samples = sum(m[, 2L]),
@@ -209,12 +221,11 @@ print(named, row.names = FALSE)
 
 named_ok <- all(named$corner_only_upper < named$true_upper - 1e-3) &&
   isTRUE(all.equal(named$true_upper, named$scan_upper, tolerance = 1e-3))
-pass <- escaped == 0L && named_ok
+pass <- escaped == 0L && named_ok && all(exactness$boxes > 0L)
 cat(if (pass) "\nPASS" else "\nFAIL", ": escaped samples = ", escaped,
     ", named cases show corner-only < true = ", named_ok, "\n", sep = "")
 
 # One-way ANOVA F range -----------------------------------------------------------
-set.seed(20261123)
 rel_f <- get_handler("anova_oneway")$relations[[3L]]
 stopifnot(identical(rel_f$name, "f_from_descriptives"))
 
@@ -230,30 +241,36 @@ random_oneway_box <- function() {
        m = list(lower = round(m, dec) - half, upper = round(m, dec) + half),
        sd = list(lower = pmax(round(sd, dec) - half, 1e-3), upper = round(sd, dec) + half))
 }
-f_escaped <- 0L
-f_boxes <- 0L
-f_skipped <- 0L
-for (b in seq_len(300L)) {
-  box <- random_oneway_box()
-  range <- relation_range(rel_f, box, NULL)
-  if (!all(is.finite(range))) {
-    f_skipped <- f_skipped + 1L
-    next
+f_parts <- par_run(seq_len(12L), function(chunk) {
+  out <- c(boxes = 0, skipped = 0, escaped = 0)
+  for (b in seq_len(25L)) {
+    box <- random_oneway_box()
+    range <- relation_range(rel_f, box, NULL)
+    if (!all(is.finite(range))) {
+      out[["skipped"]] <- out[["skipped"]] + 1
+      next
+    }
+    out[["boxes"]] <- out[["boxes"]] + 1
+    vals <- vapply(seq_len(20000L), function(i) {
+      pt <- lapply(box[c("n", "m", "sd")], function(x) {
+        x$lower + runif(length(x$lower)) * (x$upper - x$lower)
+      })
+      rel_f$fn(pt, NULL)
+    }, numeric(1))
+    vals <- vals[is.finite(vals)]
+    slack <- 1e-9 * max(1, abs(range))
+    out[["escaped"]] <- out[["escaped"]] +
+      sum(vals < range[["lower"]] - slack | vals > range[["upper"]] + slack)
   }
-  f_boxes <- f_boxes + 1L
-  vals <- vapply(seq_len(20000L), function(i) {
-    pt <- lapply(box[c("n", "m", "sd")], function(x) {
-      x$lower + runif(length(x$lower)) * (x$upper - x$lower)
-    })
-    rel_f$fn(pt, NULL)
-  }, numeric(1))
-  vals <- vals[is.finite(vals)]
-  slack <- 1e-9 * max(1, abs(range))
-  f_escaped <- f_escaped + sum(vals < range[["lower"]] - slack | vals > range[["upper"]] + slack)
-}
+  out
+}, seed = 20261123)
+f_tot <- Reduce(`+`, f_parts)
+f_boxes <- f_tot[["boxes"]]
+f_skipped <- f_tot[["skipped"]]
+f_escaped <- f_tot[["escaped"]]
 
 # (b) exact SSb minimum against optimize() over the shared point c.
-ssb_gap <- vapply(seq_len(1000L), function(i) {
+ssb_gap <- unlist(par_run(seq_len(10L), function(chunk) vapply(seq_len(100L), function(i) {
   k <- sample(2:6, 1L)
   n <- sample(3:40, k, replace = TRUE)
   centre <- rnorm(k)
@@ -264,7 +281,7 @@ ssb_gap <- vapply(seq_len(1000L), function(i) {
   opt <- optimize(g, range(c(lo, hi)), tol = 1e-12)$objective
   exact <- oneway_ssb_min(n, lo, hi)
   abs(exact - opt) / max(1, opt)
-}, numeric(1))
+}, numeric(1)), seed = 20261124))
 
 # (c) overlapping mean intervals: the minimum F is 0, the corners alone say more.
 box_o <- list(n = list(lower = rep(10, 3), upper = rep(10, 3)),
@@ -294,7 +311,6 @@ cat(if (one_pass) "\nPASS" else "\nFAIL", ": one-way F, escaped samples = ", f_e
 # vectors). (b) v_from_chisq (chi-squared rounded to 2 dp, N exact or a range): 300 random boxes
 # per handler against 5000 uniform draws each; none may escape the range, and V stays in [0, 1]
 # for independence after clamping to the domain (it may exceed 1 for w).
-set.seed(20261123)
 indep_rels <- relations_at(get_handler("chisq_independence"), list(dims = c(3L, 4L)))
 rel_v_table <- Filter(function(r) r$name == "v_from_table", indep_rels)[[1L]]
 rel_v_chisq <- Filter(function(r) r$name == "v_from_chisq", indep_rels)[[1L]]
@@ -302,7 +318,7 @@ gof_rels <- relations_at(get_handler("chisq_gof"), list(dims = 5L))
 rel_w_chisq <- Filter(function(r) r$name == "w_from_chisq", gof_rels)[[1L]]
 point <- function(x) list(lower = x, upper = x)
 
-table_gap <- vapply(seq_len(200L), function(i) {
+table_gap <- unlist(par_run(seq_len(4L), function(chunk) vapply(seq_len(50L), function(i) {
   r <- sample(2:4, 1L)
   c_ <- sample(2:5, 1L)
   tab <- matrix(rpois(r * c_, 15) + 1L, r, c_)
@@ -312,8 +328,8 @@ table_gap <- vapply(seq_len(200L), function(i) {
   rng <- relation_range(rel, box, NULL)
   truth <- sqrt(unname(chisq.test(tab, correct = FALSE)$statistic) / (sum(tab) * (min(r, c_) - 1)))
   max(abs(rng - truth)) / max(1, truth)
-}, numeric(1))
-w_gap <- vapply(seq_len(200L), function(i) {
+}, numeric(1)), seed = 20261126))
+w_gap <- unlist(par_run(seq_len(4L), function(chunk) vapply(seq_len(50L), function(i) {
   k <- sample(2:8, 1L)
   n <- rpois(k, 12) + 1L
   rel <- Filter(function(x) x$name == "w_from_counts",
@@ -321,7 +337,7 @@ w_gap <- vapply(seq_len(200L), function(i) {
   rng <- relation_range(rel, list(n = point(n)), NULL)
   truth <- sqrt(unname(chisq.test(n)$statistic) / sum(n))
   max(abs(rng - truth)) / max(1, truth)
-}, numeric(1))
+}, numeric(1)), seed = 20261127))
 
 v_box <- function() {
   chisq <- round(10^runif(1L, -1, 2.5), 2)
@@ -329,22 +345,27 @@ v_box <- function() {
   list(chisq = list(lower = max(chisq - 0.005, 0), upper = chisq + 0.005),
        n_total = if (runif(1L) < 0.5) point(total) else list(lower = total, upper = total + 5))
 }
-v_escaped <- 0L
-v_boxes <- 0L
-for (rel in list(rel_v_chisq, rel_w_chisq)) {
-  for (b in seq_len(300L)) {
+v_tasks <- do.call(c, lapply(1:2, function(r) lapply(seq_len(6L), function(k) list(rel = r, n = 50L))))
+v_parts <- par_run(v_tasks, function(task) {
+  rel <- list(rel_v_chisq, rel_w_chisq)[[task$rel]]
+  out <- c(boxes = 0, escaped = 0)
+  for (b in seq_len(task$n)) {
     box <- v_box()
     range <- relation_range(rel, box, NULL)
     if (!all(is.finite(range))) next
-    v_boxes <- v_boxes + 1L
+    out[["boxes"]] <- out[["boxes"]] + 1
     vals <- vapply(seq_len(5000L), function(i) {
       pt <- lapply(box, function(x) x$lower + runif(1L) * (x$upper - x$lower))
       rel$fn(pt, NULL)
     }, numeric(1))
     slack <- 1e-9 * max(1, abs(range))
-    v_escaped <- v_escaped + sum(vals < range[["lower"]] - slack | vals > range[["upper"]] + slack)
+    out[["escaped"]] <- out[["escaped"]] + sum(vals < range[["lower"]] - slack | vals > range[["upper"]] + slack)
   }
-}
+  out
+}, seed = 20261128)
+v_tot <- Reduce(`+`, v_parts)
+v_boxes <- v_tot[["boxes"]]
+v_escaped <- v_tot[["escaped"]]
 cat("\n== Cramer's V and Cohen's w ==\n")
 print(data.frame(check = c("max |range - chisq.test() V|, 200 tables",
                            "max |range - chisq.test() w|, 200 vectors",
@@ -356,7 +377,6 @@ cat(if (v_pass) "\nPASS" else "\nFAIL", ": V and w ranges, point from counts equ
     max(c(table_gap, w_gap)) < 1e-9, ", escaped samples = ", v_escaped, "\n", sep = "")
 
 # Factorial ANOVA F and p (ADR 0017), a fourth section with its own PASS line ---------------
-set.seed(20261123)
 factorial_box <- function(dims, balanced) {
   cells <- prod(dims)
   n <- if (balanced) rep(sample(c(3, 5, 8, 15), 1L), cells) else sample(c(3, 4, 6, 10, 20), cells, replace = TRUE)
@@ -375,12 +395,18 @@ fact_cases <- list(
   list(dims = c(2L, 4L), effect = "A"), list(dims = c(3L, 2L), effect = "B"),
   list(dims = c(2L, 3L), effect = "B"), list(dims = c(3L, 3L), effect = "A"),
   list(dims = c(3L, 4L), effect = "B"))
-fact_rows <- list()
-fact_unbounded_ok <- TRUE
-for (case in fact_cases) {
-  for (balanced in c(TRUE, FALSE)) {
-    for (type in c("III", "II", "I")) {
-      if (balanced && type != "III") next
+fact_tasks <- list()
+for (case in fact_cases) for (balanced in c(TRUE, FALSE)) for (type in c("III", "II", "I")) {
+  if (balanced && type != "III") next
+  fact_tasks[[length(fact_tasks) + 1L]] <- list(case = case, balanced = balanced, type = type)
+}
+fact_parts <- par_run(fact_tasks, function(task) {
+  case <- task$case
+  balanced <- task$balanced
+  type <- task$type
+  fact_unbounded_ok <- TRUE
+  {
+    {
       rels <- relations_at(get_handler("anova_factorial"),
                            list(dims = case$dims, effect = case$effect, balanced = balanced))
       rel_f <- Filter(function(r) r$name == "f_from_descriptives", rels)[[1L]]
@@ -422,15 +448,17 @@ for (case in fact_cases) {
         lo_gap <- max(lo_gap, (min(fv) - rng[["lower"]]) / width)
         hi_gap <- max(hi_gap, (rng[["upper"]] - max(fv)) / width)
       }
-      fact_rows[[length(fact_rows) + 1L]] <- data.frame(
+      row <- data.frame(
         design = paste(case$dims, collapse = "x"), effect = case$effect, df1 = df1,
         balanced = balanced, type = if (is.null(variant)) "-" else type, boxes = boxes,
         skipped = skipped, escaped = escaped, upper_attained = attained,
         worst_lower_gap = round(lo_gap, 3L), worst_upper_gap = round(hi_gap, 3L))
     }
   }
-}
-fact_table <- do.call(rbind, fact_rows)
+  list(row = row, ok = fact_unbounded_ok)
+}, seed = 20261129)
+fact_table <- do.call(rbind, lapply(fact_parts, `[[`, "row"))
+fact_unbounded_ok <- all(vapply(fact_parts, `[[`, logical(1), "ok"))
 # no-exact-range cases must be unbounded
 unbounded <- vapply(list(list(c(3L, 3L), "AB", TRUE), list(c(2L, 3L), "B", FALSE),
                          list(c(3L, 4L), "AB", FALSE)), function(z) {
@@ -463,7 +491,6 @@ cat(if (fact_pass) "\nPASS" else "\nFAIL", ": factorial ranges, escaped samples 
 # PASS criterion: no escaped draw, bounds equal the vertex extremes (1e-12 relative) for the
 # three monotone relations, p's upper bound is 1 on every box spanning t = 0, and the corner-only
 # upper bound is below 1 in the named case.
-set.seed(20261125)
 reg_rels <- relations_at(get_handler("lm_simple"), list(terms = "x"))
 reg_find <- function(name) Filter(function(r) r$name == name, reg_rels)[[1L]]
 reg_rels_m <- relations_at(get_handler("lm_multiple"), list(terms = "x", k = 2L))
@@ -486,41 +513,52 @@ reg_box <- function(rel) {
   for (nm in c("se:x", "sd:x", "sd:(response)")) box[[nm]]$lower <- max(box[[nm]]$lower, 0)
   box[c(rel$inputs)]
 }
-reg_rows <- list()
-reg_escaped <- 0L
-reg_vertex_miss <- 0L
-reg_skipped <- 0L
+reg_tasks <- list()
 for (rname in c("t_from_b_se:x", "ci_lower_from_b_se:x", "ci_upper_from_b_se:x", "f_from_r2",
                 "r_from_b", "p_from_t:x")) {
-  rel <- reg_find(rname)
-  monotone <- rname != "p_from_t:x"
-  for (variant in variant_combinations(rel$variants)) {
-    boxes <- 0L; esc <- 0L; miss <- 0L; skip <- 0L
-    for (b in seq_len(200L)) {
-      box <- reg_box(rel)
-      range <- relation_range(rel, box, variant)
-      if (!all(is.finite(range))) { skip <- skip + 1L; next }
-      boxes <- boxes + 1L
-      draws <- replicate(2000L, lapply(box, function(x) x$lower + runif(1L) * (x$upper - x$lower)),
-                         simplify = FALSE)
-      vals <- vapply(draws, function(pt) rel$fn(pt, variant), numeric(1))
-      slack <- 1e-9 * max(1, abs(range))
-      esc <- esc + sum(vals < range[["lower"]] - slack | vals > range[["upper"]] + slack)
-      if (monotone) {
-        v <- vertex_values(rel, box, variant)
-        scale <- max(1, abs(range))
-        if (abs(min(v) - range[["lower"]]) > 1e-12 * scale ||
-            abs(max(v) - range[["upper"]]) > 1e-12 * scale) miss <- miss + 1L
-      }
-    }
-    reg_escaped <- reg_escaped + esc
-    reg_vertex_miss <- reg_vertex_miss + miss
-    reg_skipped <- reg_skipped + skip
-    reg_rows[[length(reg_rows) + 1L]] <- data.frame(
-      relation = rname, variant = if (is.null(variant)) "-" else paste(unlist(variant), collapse = "+"),
-      boxes = boxes, skipped = skip, escaped = esc, vertex_mismatch = if (monotone) miss else NA)
+  for (variant in variant_combinations(reg_find(rname)$variants)) {
+    for (chunk in 1:4) reg_tasks[[length(reg_tasks) + 1L]] <- list(rname = rname, variant = variant)
   }
 }
+reg_parts <- par_run(reg_tasks, function(task) {
+  rname <- task$rname
+  variant <- task$variant
+  rel <- reg_find(rname)
+  monotone <- rname != "p_from_t:x"
+  boxes <- 0L; esc <- 0L; miss <- 0L; skip <- 0L
+  for (b in seq_len(50L)) {
+    box <- reg_box(rel)
+    range <- relation_range(rel, box, variant)
+    if (!all(is.finite(range))) { skip <- skip + 1L; next }
+    boxes <- boxes + 1L
+    draws <- replicate(2000L, lapply(box, function(x) x$lower + runif(1L) * (x$upper - x$lower)),
+                       simplify = FALSE)
+    vals <- vapply(draws, function(pt) rel$fn(pt, variant), numeric(1))
+    slack <- 1e-9 * max(1, abs(range))
+    esc <- esc + sum(vals < range[["lower"]] - slack | vals > range[["upper"]] + slack)
+    if (monotone) {
+      v <- vertex_values(rel, box, variant)
+      scale <- max(1, abs(range))
+      if (abs(min(v) - range[["lower"]]) > 1e-12 * scale ||
+          abs(max(v) - range[["upper"]]) > 1e-12 * scale) miss <- miss + 1L
+    }
+  }
+  data.frame(relation = rname,
+             variant = if (is.null(variant)) "-" else paste(unlist(variant), collapse = "+"),
+             boxes = boxes, skipped = skip, escaped = esc,
+             vertex_mismatch = if (monotone) miss else NA_integer_)
+}, seed = 20261125)
+reg_all <- do.call(rbind, reg_parts)
+reg_rows <- lapply(split(reg_all, interaction(reg_all$relation, reg_all$variant, drop = TRUE, lex.order = FALSE)),
+                   function(d) data.frame(relation = d$relation[1L], variant = d$variant[1L],
+                                          boxes = sum(d$boxes), skipped = sum(d$skipped),
+                                          escaped = sum(d$escaped),
+                                          vertex_mismatch = if (all(is.na(d$vertex_mismatch))) NA_integer_ else sum(d$vertex_mismatch)))
+reg_rows <- reg_rows[order(match(vapply(reg_rows, function(r) r$relation, ""),
+                                 unique(reg_all$relation)))]
+reg_escaped <- sum(reg_all$escaped)
+reg_vertex_miss <- sum(reg_all$vertex_mismatch, na.rm = TRUE)
+reg_skipped <- sum(reg_all$skipped)
 # p from t: a box spanning 0 has maximum exactly 1 at its interior point.
 rel_pt <- reg_find("p_from_t:x")
 span_ok <- vapply(1:50, function(i) {
@@ -545,4 +583,7 @@ reg_pass <- reg_escaped == 0L && reg_vertex_miss == 0L && all(span_ok) &&
 cat(if (reg_pass) "\nPASS" else "\nFAIL", ": regression ranges, escaped draws = ", reg_escaped,
     ", vertex mismatches = ", reg_vertex_miss, ", skipped boxes = ", reg_skipped, "\n", sep = "")
 
-record_stop()
+all_pass <- pass && one_pass && v_pass && fact_pass && reg_pass
+cat(if (all_pass) "\nPASS" else "\nFAIL", ": all range-exactness sections (cores: ", par_cores(),
+    ", runtime ", round(as.numeric(difftime(Sys.time(), started, units = "mins")), 1), " min)\n", sep = "")
+finish_validation(all_pass)

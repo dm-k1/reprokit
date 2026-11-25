@@ -24,3 +24,12 @@ record_stop <- function() {
   while (sink.number() > 0L) sink()
   invisible()
 }
+
+# Ends a validation script: closes the record and, when run with Rscript (not interactively),
+# exits with status 0 on PASS and 1 on FAIL so a release script can stop on a failure.
+# Sourced interactively it only returns `pass`.
+finish_validation <- function(pass) {
+  record_stop()
+  if (!interactive()) quit(save = "no", status = if (isTRUE(pass)) 0L else 1L)
+  invisible(pass)
+}
