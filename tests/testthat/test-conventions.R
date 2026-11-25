@@ -30,8 +30,9 @@ test_that("each handler x choice has at most one default, and exactly one where 
   expect_true(all(n_default <= 1L))
   n_codes <- tapply(x$code, paste(x$handler, x$choice), length)
   expect_true(all(n_default[n_codes == 1L] == 1L))
-  # The SS type is the author's to declare: never a default.
-  expect_false(any(x$default[x$choice == "ss_type"]))
+  # Share-side default (ADR 0025): type III.
+  ss <- x[x$choice == "ss_type", ]
+  expect_identical(ss$code[ss$default], "III")
 })
 
 # One design per handler, to run its codes through the real functions.
@@ -95,10 +96,14 @@ test_that("the defaults are what happens when the argument is omitted", {
       expect_false(any(x$default[x$handler == name & x$choice == "convention"]))
     }
   }
-  # Omitting the SS type leaves it undeclared in the appendix (it is never inferred).
-  md <- appendix(sufficient_stats(len ~ supp * dose, data = unbalanced_tooth(),
-                                  test = "factorial", sharing_reason = sharing))
-  expect_match(grep("^\\| SS type \\|", md, value = TRUE), "not declared")
+  # Omitting the SS type gives type III on an unbalanced design, labelled as the default.
+  u <- sufficient_stats(len ~ supp * dose, data = unbalanced_tooth(), test = "factorial",
+                        sharing_reason = sharing)
+  row <- grep("^\\| SS type \\|", appendix(u), value = TRUE)
+  expect_match(row, "type III \\(reprokit default, not stated by the author\\)")
+  row <- grep("^\\| SS type \\|", appendix(u, choices = list(ss_type = "III")), value = TRUE)
+  expect_match(row, "type III")
+  expect_no_match(row, "reprokit default")
 })
 
 test_that("appendix() renders every undeclared choice, for every handler", {

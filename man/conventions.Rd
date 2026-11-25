@@ -26,9 +26,11 @@ validates against, so the list cannot drift from the package.
 }
 \details{
 \code{default} is \code{TRUE} for the code reprokit uses when the argument is left out.
-The sums of squares type never has one: it is the author's to declare, and
-leaving it out means "not declared". The same holds for an effect-size
-convention with several codes. A handler with a single code (V, w) uses it.
+The sums of squares type has one on the share side: type III (ADR 0025), shown
+in the appendix as reprokit's default, not the author's answer. Checking a paper
+never assumes a type. An effect-size convention with several codes has no
+default: leaving it out means "not declared". A handler with a single code (V,
+w) uses it.
 }
 \examples{
 conventions("t_paired")

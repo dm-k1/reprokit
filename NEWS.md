@@ -121,6 +121,10 @@ First release (lifecycle: experimental). Not on CRAN; names and output may chang
 * `conventions()` lists the effect-size conventions (`choices$convention`) and sums-of-squares
   types (`choices$ss_type`) each handler accepts, with the default and the appendix label. It
   reads the registry that `appendix()` validates against.
+* `appendix()` uses type III when a factorial ANOVA's SS type is not declared and says so: "type III
+  (reprokit default, not stated by the author)" (ADR 0025). `check_F()` still tries III, II and I.
+  `appendix()` also shows an undeclared effect-size convention of a one-way ANOVA as not declared
+  (it errored).
 
 ## Documentation
 

@@ -20,6 +20,11 @@ test_that("a balanced design has no SS-type variant", {
   }
 })
 
+test_that("checking never assumes an SS type: III, II and I are all tried (ADR 0025)", {
+  ok <- do.call(check_F, paper_factorial(factorial_unbalanced(), "A", "II"))
+  expect_setequal(ok$variants$test$variant, c("III", "II", "I"))
+})
+
 test_that("an unbalanced design: the type the paper used is the one that fits", {
   d <- factorial_unbalanced()
   for (type in ss_type_codes()) {

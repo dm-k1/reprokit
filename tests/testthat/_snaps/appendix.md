@@ -430,8 +430,8 @@
       
       | Effect | F(df1, df2) | p | effect size |
       | --- | --- | --- | --- |
-      | a | not computed: declare the SS type (block C) | - | - |
-      | b | not computed: declare the SS type (block C) | - | - |
+      | a | F(1, 63) = 1.66 | .202 | not computed: declare the effect-size convention (block C) |
+      | b | F(2, 63) = 11.20 | < .001 | not computed: declare the effect-size convention (block C) |
       | a × b | F(2, 63) = 2.48 | .092 | not computed: declare the effect-size convention (block C) |
       
       ### B. Numbers APA does not require that the result needs
@@ -442,7 +442,7 @@
       
       | Choice | Answer |
       | --- | --- |
-      | SS type | not declared |
+      | SS type | type III (reprokit default, not stated by the author) |
       | Effect-size convention | not declared (declaring it is a reprokit rule; APA does not require it) |
       
       ### D. APA numbers a reader cannot check from these statistics

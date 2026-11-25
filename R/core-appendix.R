@@ -27,7 +27,9 @@
 #'   the effect-size convention, as a variant code (e.g. `"d_z"`, `"d_av"`).
 #'   Declaring it is a reprokit rule, not an APA requirement. `ss_type`: for a
 #'   factorial ANOVA, the type of sums of squares (`"III"`, `"II"` or `"I"`); only
-#'   an unbalanced design needs it. `level`: for a regression or mediation, the
+#'   an unbalanced design needs it. Left out, the appendix uses type III and says
+#'   it is reprokit's default, not the author's answer (ADR 0025); checking a paper
+#'   never assumes a type. `level`: for a regression or mediation, the
 #'   confidence level of the paper's intervals (`"0.95"`, `"0.90"` or `"0.99"`);
 #'   for a regression, `convention` is `"r2"` or `"adj_r2"` (the R-squared the paper
 #'   reports).
@@ -112,9 +114,11 @@ appendix_answers <- function(h, s, choices) {
   test <- if (is.null(s$meta$test_variant)) s$meta$test else s$meta$test_variant
   ss_codes <- variant_codes(h, "test")
   if (has_ss_types(h)) {
-    # The SS type is the author's to declare (never inferred); a stored one counts.
+    # Share side (ADR 0025): a declared SS type (or a stored one) counts; otherwise reprokit's
+    # default, type III, is used and shown as such. The check side never assumes one.
+    ss_defaulted <- is.null(choices$ss_type) && is.null(s$meta$ss_type)
     test <- if (!is.null(choices$ss_type)) choices$ss_type else
-      if (!is.null(s$meta$ss_type)) s$meta$ss_type else NA_character_
+      if (!is.null(s$meta$ss_type)) s$meta$ss_type else ss_type_codes()[1L]
     if (!is.na(test) && !test %in% ss_codes) {
       stop("`choices$ss_type` must be one of: ",
            paste0("\"", ss_codes, "\"", collapse = ", "), ".", call. = FALSE)
@@ -141,7 +145,9 @@ appendix_answers <- function(h, s, choices) {
     test = test,
     convention = convention
   )
-  answers[intersect(names(answers), kinds)]
+  answers <- answers[intersect(names(answers), kinds)]
+  attr(answers, "ss_defaulted") <- has_ss_types(h) && ss_defaulted
+  answers
 }
 
 # The author's CI level as a variant code ("0.95"), NA when not declared.
@@ -310,8 +316,12 @@ appendix_block_c <- function(h, s, answers, labels) {
   rows <- vapply(names(answers), function(kind) {
     answer <- answers[[kind]]
     text <- if (is.na(answer)) "not declared" else variant_label(answer)
-    if (kind == "test" && kind_labels[["test"]] == "SS type" && isTRUE(s$meta$balanced)) {
-      text <- "not needed (balanced design: all types agree)"
+    if (kind == "test" && kind_labels[["test"]] == "SS type") {
+      if (isTRUE(s$meta$balanced)) {
+        text <- "not needed (balanced design: all types agree)"
+      } else if (isTRUE(attr(answers, "ss_defaulted"))) {
+        text <- paste0(text, " (reprokit default, not stated by the author)")
+      }
     }
     if (kind == "convention") {
       text <- paste0(text, " (declaring it is a reprokit rule; APA does not require it)")
