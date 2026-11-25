@@ -13,7 +13,7 @@
 #' @param catch Pitfalls, in words (`NA` if none).
 #' @param lost Character vector: what readers lose compared with raw data.
 #' @param matches `function(x, ...)` returning `TRUE` if this handler handles
-#'   `x`. It receives the same `...` as [triage()], so a formula can be matched
+#'   `x`. It receives the same `...` as [sufficient_stats()], so a formula can be matched
 #'   on the declared `test`.
 #' @param triage `function(x, ..., threshold)` returning a list with `verdict`
 #'   and `reason`; `NULL` means "always `verdict`". A `summaries_suffice`
@@ -109,7 +109,7 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
   }
   stopifnot(
     is.character(name), length(name) == 1L, nzchar(name),
-    is.character(lost), length(lost) >= 1L,
+    is.character(lost), length(lost) >= 1L, !anyNA(lost), all(nzchar(trimws(lost))),
     is.function(matches),
     is.null(triage) || is.function(triage),
     is.null(summarise) || is.function(summarise),

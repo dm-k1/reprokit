@@ -4,9 +4,9 @@
 #' [sufficient_stats()]; `new_sufficient_stats()` is the low-level constructor.
 #' The check functions do not use it: they work from reported numbers.
 #'
-#' The object cannot exist without a stated reason for not sharing and a non-empty
-#' list of what readers lose. This keeps the tool from becoming a respectable
-#' excuse for not sharing.
+#' This constructor cannot make an object without a non-empty list of what readers
+#' lose. The author's reason for not sharing is not stored here: it belongs to
+#' [appendix()] alone, is optional, and is never filled in by reprokit.
 #'
 #' @param handler Name of the registered handler that made the object.
 #' @param verdict One of [verdicts()].
@@ -17,8 +17,6 @@
 #'   `effect_size_conventions`, `rounding`, `ss_type`.
 #' @param disclosure Named list of disclosure flags (small cells, small
 #'   clusters, extreme values). A risk reduction, never a guarantee.
-#' @param sharing_reason Required: the author's stated reason for not sharing
-#'   the raw data.
 #' @param lost Required: character vector of what readers lose compared with
 #'   the raw data.
 #' @return An object of class `reprokit_sufficient_stats`.
@@ -29,7 +27,6 @@
 #'   verdict = "summaries_suffice",
 #'   verdict_reason = "Group means and SDs determine the t statistic.",
 #'   stats = list(n = c(20, 22), mean = c(5.1, 4.3), sd = c(1.2, 1.4)),
-#'   sharing_reason = "Consent form did not cover public sharing.",
 #'   lost = c("outlier inspection", "alternative analyses")
 #' )
 #' s
@@ -39,17 +36,27 @@ new_sufficient_stats <- function(handler,
                                  stats = list(),
                                  meta = list(),
                                  disclosure = list(),
-                                 sharing_reason,
                                  lost) {
+  s <- build_sufficient_stats(handler, verdict, verdict_reason, stats, meta, disclosure, lost)
+  validate_sufficient_stats(s)
+}
+
+# The object itself. `sufficient_stats()` uses it with `stats = NULL` when the summaries do
+# not suffice. It holds no sharing reason: that belongs to appendix() alone (ADR 0030).
+build_sufficient_stats <- function(handler, verdict, verdict_reason, stats = list(),
+                                   meta = list(), disclosure = list(),
+                                   lost,
+                                   publish = NA_character_, choices_read = list()) {
   s <- structure(
     list(
       handler = handler,
       verdict = verdict,
       verdict_reason = verdict_reason,
+      publish = publish,
       stats = stats,
       meta = utils::modifyList(default_meta(), meta),
       disclosure = disclosure,
-      sharing_reason = sharing_reason,
+      choices_read = choices_read,
       lost = lost
     ),
     class = "reprokit_sufficient_stats"
@@ -63,7 +70,8 @@ default_meta <- function() {
     contrasts = NULL,
     effect_size_conventions = NULL,
     rounding = NULL,
-    ss_type = NULL
+    ss_type = NULL,
+    route = "formula"
   )
 }
 
@@ -74,20 +82,15 @@ is_sufficient_stats <- function(x) inherits(x, "reprokit_sufficient_stats")
 
 validate_sufficient_stats <- function(s) {
   is_single_string <- function(x) is.character(x) && length(x) == 1L && !is.na(x)
+  suffice <- identical(s$verdict, "summaries_suffice")
 
-  if (!is_single_string(s$handler) || !nzchar(s$handler)) {
+  if (!(is_single_string(s$handler) && nzchar(s$handler)) &&
+        !(!suffice && identical(s$handler, NA_character_))) {
     stop("`handler` must be a single non-empty string.", call. = FALSE)
   }
   check_verdict(s$verdict)
   if (!is_single_string(s$verdict_reason) || !nzchar(trimws(s$verdict_reason))) {
     stop("`verdict_reason` must explain the verdict in one sentence.", call. = FALSE)
-  }
-  if (!is_single_string(s$sharing_reason) || !nzchar(trimws(s$sharing_reason))) {
-    stop(
-      paste("The sufficient statistics need a stated reason for not sharing the raw data",
-            "(`sharing_reason`)."),
-      call. = FALSE
-    )
   }
   if (!is.character(s$lost) || length(s$lost) == 0L || any(!nzchar(trimws(s$lost)))) {
     stop(
@@ -95,21 +98,56 @@ validate_sufficient_stats <- function(s) {
       call. = FALSE
     )
   }
-  for (field in c("stats", "meta", "disclosure")) {
+  for (field in c("meta", "disclosure")) {
     if (!is.list(s[[field]])) stop("`", field, "` must be a list.", call. = FALSE)
+  }
+  # Summaries exist exactly when they suffice; otherwise there is nothing stored.
+  if (!is.list(s$stats) && !(is.null(s$stats) && !suffice)) {
+    stop("`stats` must be a list (NULL only when summaries do not suffice).", call. = FALSE)
   }
   s
 }
 
 #' @export
 print.reprokit_sufficient_stats <- function(x, ...) {
-  cat("<reprokit sufficient_stats>  handler:", x$handler, "\n")
-  cat("Verdict:        ", x$verdict, " -- ", x$verdict_reason, "\n", sep = "")
-  cat("Not shared because:", x$sharing_reason, "\n")
-  cat("Statistics stored: ",
-      if (length(x$stats)) paste(names(x$stats), collapse = ", ") else "(none)",
-      "\n", sep = "")
-  cat("What readers lose:\n")
-  cat(paste0("  * ", x$lost, collapse = "\n"), "\n", sep = "")
+  cat(sufficient_stats_narration(x), sep = "\n")
   invisible(x)
+}
+
+# The narration of the verdict: what was found, why, what to publish, what is lost and, when
+# a disclosure flag fired, which group or cell. Also the text of the refusal when a verb is
+# given an object whose summaries do not suffice.
+sufficient_stats_narration <- function(x) {
+  suffice <- identical(x$verdict, "summaries_suffice")
+  handler <- if (is.na(x$handler)) "none" else x$handler
+  route <- x$meta$route
+  header <- paste0("<reprokit sufficient_stats>  handler: ", handler,
+                   if (!is.null(route) && !is.na(handler) && handler != "none") {
+                     paste0("  (input: ", route, ")")
+                   })
+  verdict <- c(paste0("Verdict: ", x$verdict), paste0("Because: ", x$verdict_reason))
+  flagged <- x$disclosure$problems
+  disclosure <- if (length(flagged) > 0L) {
+    c("Disclosure flag fired:", paste0("  * ", flagged))
+  } else if (suffice && length(x$disclosure$checked) > 0L) {
+    paste0("Disclosure check: passed (", x$disclosure$checked, ", threshold ",
+           x$disclosure$threshold, ").")
+  }
+  read <- x$choices_read
+  read_lines <- if (length(read) > 0L) {
+    paste0("Choices read from the ", attr(read, "fn"), " result: ",
+           paste0(names(read), " = ", unlist(read), collapse = ", "), ".")
+  }
+  if (suffice) {
+    c(header, verdict,
+      paste0("To publish: ", x$publish, " (appendix() writes this out)."),
+      disclosure, read_lines,
+      "What readers lose compared with the raw data:", paste0("  * ", x$lost),
+      paste0("Statistics stored: ", paste(names(x$stats), collapse = ", ")))
+  } else {
+    c(header, verdict, disclosure, read_lines,
+      "Nothing is stored: summary statistics do not make this analysis reproducible.",
+      "What readers lose without the raw data:", paste0("  * ", x$lost),
+      "Instead you could:", paste0("  * ", default_alternatives()))
+  }
 }

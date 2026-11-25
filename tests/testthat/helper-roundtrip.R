@@ -43,7 +43,6 @@ valid_stats_args <- function() {
     verdict = "summaries_suffice",
     verdict_reason = "Group means and SDs determine the t statistic.",
     stats = list(n = c(20, 22), mean = c(5.1, 4.3), sd = c(1.2, 1.4)),
-    sharing_reason = "Consent form did not cover public sharing.",
     lost = c("outlier inspection", "alternative analyses")
   )
 }

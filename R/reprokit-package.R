@@ -8,16 +8,15 @@
 #' Two directions use the same statistics.
 #'
 #' **Share** (you cannot share the raw data):
-#' * [triage()] says whether summary statistics suffice. It never errors.
-#' * [sufficient_stats()] stores them, with a required reason for not sharing
-#'   and a list of what readers lose.
-#' * [reproduce()] recomputes the result from the stored statistics alone.
-#' * [appendix()] writes the appendix for the paper.
+#' * [sufficient_stats()] says whether summary statistics suffice and what to publish, and
+#'   stores them. It never errors on the verdict, and its print narrates the verdict,
+#'   what to publish and what readers lose. It takes a fitted model or result, or a formula.
+#' * [appendix()] writes the appendix for the paper. It requires a reason for not sharing
+#'   and a non-empty list of what readers lose.
 #'
 #' **Check** (you are reading a paper):
-#' * [check_t()], [check_r()], [check_F()] and [check_chisq()] test whether reported numbers are
-#'   consistent with each other, allowing for rounding. They call
-#'   [check_reported()].
+#' * [check_reported()] tests whether reported numbers are consistent with each other,
+#'   allowing for rounding, for the `test` you name.
 #'
 #' An inconsistency means the numbers cannot all be correct as reported. It does
 #' not say which number is wrong or why.

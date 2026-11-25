@@ -6,7 +6,7 @@
 
 #' Names of the quantities the checks know
 #'
-#' The shared vocabulary of `check_reported()`, `check_t()` and `check_r()`: the
+#' The shared vocabulary of `check_reported()`: the
 #' names under which reported numbers are passed in, and the names handlers use
 #' in their relations.
 #'

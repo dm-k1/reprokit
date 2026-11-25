@@ -5,10 +5,8 @@ test_that("a valid object is created and printed", {
   expect_output(print(k), "What readers lose")
 })
 
-test_that("the object cannot exist without a sharing reason", {
-  args <- valid_stats_args()
-  args$sharing_reason <- "   "
-  expect_error(do.call(new_sufficient_stats, args), "sharing_reason")
+test_that("the object holds no sharing reason", {
+  expect_false("sharing_reason" %in% names(do.call(new_sufficient_stats, valid_stats_args())))
 })
 
 test_that("the object cannot exist without a list of what is lost", {
@@ -31,6 +29,6 @@ test_that("statistics are stored at full precision", {
 
 test_that("meta gets the documented defaults", {
   k <- do.call(new_sufficient_stats, valid_stats_args())
-  expect_named(k$meta, c("n", "contrasts", "effect_size_conventions", "rounding", "ss_type"),
+  expect_named(k$meta, c("n", "contrasts", "effect_size_conventions", "rounding", "ss_type", "route"),
                ignore.order = TRUE)
 })

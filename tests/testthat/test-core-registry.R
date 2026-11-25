@@ -36,7 +36,7 @@ test_that("every handler that claims exact reproduction round-trips (scaled diff
   for (name in exact) {
     h <- get_handler(name)
     ex <- h$example()
-    k <- do.call(sufficient_stats, c(list(ex$x), ex$args, list(sharing_reason = "test")))
+    k <- do.call(sufficient_stats, c(list(ex$x), ex$args))
     expect_reproduces(do.call(h$reported, c(list(ex$x), ex$args)), reproduce(k))
   }
 })

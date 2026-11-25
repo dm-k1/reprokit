@@ -1,57 +1,97 @@
-#' Store the sufficient statistics of one analysis
+#' What can be shared for this analysis?
 #'
-#' `sufficient_stats()` finds the handler for `x`, checks that summaries suffice
-#' ([triage()] must say `summaries_suffice`, which includes the disclosure
-#' check), and stores the statistics that determine the reported results at
-#' full precision. If summaries do not suffice, it refuses with an error of
-#' class `reprokit_impossible` that says why.
+#' `sufficient_stats()` is the author's verb. Given the analysis, it says whether
+#' summary statistics can make it reproducible without the raw data, what to publish,
+#' and what readers lose. When they do, it holds the summaries, stored at full
+#' precision. The verdict never errors: "summaries do not suffice, because ..." is an
+#' answer, and the printed object narrates it (the verdict and why, what to publish,
+#' what is lost, and which group or cell a disclosure flag fired for). Only invalid
+#' input is an error of class `reprokit_impossible`: a formula without `data` or
+#' `test`, an unknown `test`, a `t.test` or `cor.test` result without `data`, or an
+#' explicit choice that conflicts with the result.
 #'
-#' @param x A fitted model or a formula; see [triage()].
-#' @param ... Passed to the handler, e.g. `data` and `test` for a formula.
-#' @param sharing_reason Required: why the raw data are not shared.
-#' @param lost Extra things readers lose. They are added to the handler's own
-#'   list, which cannot be removed.
-#' @param threshold Smallest group or cell size for the disclosure check.
-#' @return An object of class `reprokit_sufficient_stats`.
+#' `x` is one of:
+#'
+#' * a fitted `lm`, a `glm`, an `aov` (one factor, or two factors with their
+#'   interaction; other designs get a verdict), or the result of `chisq.test()`. These
+#'   hold what is needed; the choices recorded in a result (continuity correction,
+#'   H0 proportions) are read from it. An `aov` fit does not record the type of sums
+#'   of squares, so [appendix()] asks for it (ADR 0025).
+#' * the result of `t.test()` or `cor.test()` together with `data`. These do not hold
+#'   the data, but they record Student or Welch, paired, one-sample, the tails, the
+#'   confidence level and the test value. reprokit rebuilds the test from `data`
+#'   and compares it with the result (statistic, df and p, scaled difference below
+#'   1e-8). A result that does not follow from `data` (wrong data, a subset of rows) gets
+#'   a verdict saying so. Spearman and Kendall are not supported tests.
+#' * a formula with `data` and `test`, for the analysis the result objects above do not
+#'   cover, or to be explicit: `y ~ group, data = d, test = "welch"`. `test` is one of
+#'   `"student"`, `"welch"`, `"one_sample"`, `"paired"`, `"pearson"`, `"oneway"`,
+#'   `"factorial"`, `"chisq"`, `"gof"` or `"mediation"`.
+#'
+#' A result and the formula for the same analysis give the same summaries; the field
+#' `meta$route` records which one was used.
+#'
+#' @param x A fitted model, a test result, or a formula; see above.
+#' @param ... Passed on: `data` for a formula or a `t.test` / `cor.test` result, `test`
+#'   for a formula, and the choices of the analysis for a formula (`alternative`,
+#'   `conf_level`, `mu`, `correct`, `p0`, `ss_type`).
+#' @param threshold Smallest group or cell size whose summaries are clearly less
+#'   identifying than the raw data. Default 5. The total sample size must also be at
+#'   least `2 * threshold`.
+#' @return An object of class `reprokit_sufficient_stats` with the verdict
+#'   (`verdict`, `verdict_reason`), what to publish (`publish`), the handler's default
+#'   `lost`, the `disclosure` check, and `stats` and `meta` (`NULL` and mostly empty
+#'   when the summaries do not suffice).
 #' @export
 #' @examples
-#' s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
-#'                       sharing_reason = "Consent did not cover public sharing.")
-#' reproduce(s)
-sufficient_stats <- function(x, ..., sharing_reason, lost = NULL, threshold = 5) {
-  handler <- find_handler(x, ...)
-  tr <- triage(x, ..., threshold = threshold)
-  if (is.null(handler) || tr$verdict != "summaries_suffice") {
-    abort_impossible("store sufficient statistics that reproduce this result exactly", tr$reason)
+#' sufficient_stats(extra ~ group, data = sleep, test = "welch")
+#'
+#' # From the result you already have:
+#' sufficient_stats(t.test(extra ~ group, data = sleep), data = sleep)
+#' sufficient_stats(chisq.test(table(mtcars$cyl, mtcars$am)))
+#'
+#' # A verdict, not an error, when summaries cannot do it:
+#' sufficient_stats(glm(am ~ wt, data = mtcars, family = binomial))
+sufficient_stats <- function(x, ..., threshold = 5) {
+  dots <- list(...)
+  if ("lost" %in% names(dots)) {
+    stop("`lost` is not an argument: reprokit states what readers lose, from the test.",
+         call. = FALSE)
   }
-  summary <- handler$summarise(x, ...)
-  disclosure <- if (is.null(handler$disclosure)) list() else handler$disclosure(summary, threshold)
-  new_sufficient_stats(
-    handler = handler$name,
-    verdict = tr$verdict,
-    verdict_reason = tr$reason,
-    stats = summary$stats,
-    meta = summary$meta,
-    disclosure = c(disclosure, list(threshold = threshold)),
-    sharing_reason = sharing_reason,
-    lost = unique(c(handler$lost, lost))
+  a <- do.call(assess, c(list(x), dots, list(threshold = threshold)))
+  build_sufficient_stats(
+    handler = a$handler,
+    verdict = a$verdict,
+    verdict_reason = a$reason,
+    stats = a$summary$stats,
+    meta = if (is.null(a$summary)) list(route = a$prep$route) else a$summary$meta,
+    disclosure = a$disclosure,
+    lost = a$lost,
+    publish = a$publish,
+    choices_read = a$prep$read
   )
 }
 
-#' Recompute the reported results from the sufficient statistics
-#'
-#' @param s An object made by [sufficient_stats()].
-#' @return A named numeric vector of what a paper reports (test statistic,
-#'   df, p, estimates, CI, ...), computed from `s` alone.
-#' @export
-#' @examples
-#' s <- sufficient_stats(extra ~ group, data = sleep, test = "welch",
-#'                       sharing_reason = "Consent did not cover public sharing.")
-#' reproduce(s)
-reproduce <- function(s) {
-  if (!is_sufficient_stats(s)) stop("`s` must be made by sufficient_stats().", call. = FALSE)
-  if (s$verdict != "summaries_suffice") {
-    abort_impossible("reproduce these statistics", s$verdict_reason)
+# The object a verb works from: the one it was given, or the one sufficient_stats() makes.
+as_sufficient_stats <- function(x, ...) {
+  if (is_sufficient_stats(x)) x else sufficient_stats(x, ...)
+}
+
+# A verb that needs the summaries refuses, with the narration, when there are none.
+require_summaries <- function(s, what) {
+  if (!identical(s$verdict, "summaries_suffice") || is.null(s$stats)) {
+    abort_impossible(what, paste0("the verdict is ", s$verdict, ".\n",
+                                  paste(sufficient_stats_narration(s), collapse = "\n")),
+                  alternatives = character())
   }
+  invisible(s)
+}
+
+# Recompute the reported results from the stored summaries (ADR 0029: internal, the engine
+# under appendix() and the match check; it is not exported). Accepts what sufficient_stats()
+# accepts, or its object. Refuses with abort_impossible() when summaries do not suffice.
+reproduce <- function(x, ...) {
+  s <- as_sufficient_stats(x, ...)
+  require_summaries(s, "reproduce these results")
   get_handler(s$handler)$reproduce(s)
 }

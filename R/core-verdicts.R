@@ -1,4 +1,4 @@
-#' The three triage verdicts
+#' The three sufficient_stats verdicts
 #'
 #' * `summaries_suffice`  -- exact reproduction from summary statistics
 #' * `synthetic_possible` -- approximate reproduction via synthetic data

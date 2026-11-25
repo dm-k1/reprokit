@@ -42,7 +42,7 @@ big_table <- function() {
 }
 
 convention_stats <- function(name) {
-  share <- function(...) sufficient_stats(..., sharing_reason = sharing)
+  share <- function(...) sufficient_stats(...)
   switch(name,
     t_one_sample = share(extra ~ 1, data = sleep, test = "one_sample"),
     t_independent = share(extra ~ group, data = sleep, test = "welch"),
@@ -71,7 +71,8 @@ test_that("every code is accepted by appendix() and gives its own row", {
       pattern <- if (choice == "convention") "^\\| Effect-size convention \\|" else
         "^\\| SS type \\|"
       rows <- vapply(codes, function(code) {
-        md <- appendix(s, choices = stats::setNames(list(code), choice))
+        md <- appendix(s, sharing_reason = sharing,
+                       choices = stats::setNames(list(code), choice))
         row <- grep(pattern, md, value = TRUE)
         expect_length(row, 1L)
         row
@@ -91,33 +92,34 @@ test_that("the defaults are what happens when the argument is omitted", {
     if (length(codes) == 1L) {
       s <- convention_stats(name)
       expect_identical(x$code[x$handler == name & x$choice == "convention" & x$default], codes)
-      expect_identical(appendix(s), appendix(s, choices = list(convention = codes)))
+      expect_identical(appendix(s, sharing_reason = sharing),
+                       appendix(s, sharing_reason = sharing,
+                                choices = list(convention = codes)))
     } else {
       expect_false(any(x$default[x$handler == name & x$choice == "convention"]))
     }
   }
   # Omitting the SS type gives type III on an unbalanced design, labelled as the default.
-  u <- sufficient_stats(len ~ supp * dose, data = unbalanced_tooth(), test = "factorial",
-                        sharing_reason = sharing)
-  row <- grep("^\\| SS type \\|", appendix(u), value = TRUE)
+  u <- sufficient_stats(len ~ supp * dose, data = unbalanced_tooth(), test = "factorial")
+  row <- grep("^\\| SS type \\|", appendix(u, sharing_reason = sharing), value = TRUE)
   expect_match(row, "type III \\(reprokit default, not stated by the author\\)")
-  row <- grep("^\\| SS type \\|", appendix(u, choices = list(ss_type = "III")), value = TRUE)
+  row <- grep("^\\| SS type \\|",
+              appendix(u, sharing_reason = sharing, choices = list(ss_type = "III")),
+              value = TRUE)
   expect_match(row, "type III")
   expect_no_match(row, "reprokit default")
 })
 
 test_that("appendix() renders every undeclared choice, for every handler", {
   extra <- list(
-    cor_pearson = sufficient_stats(~ mpg + wt, data = mtcars, test = "pearson",
-                                   sharing_reason = sharing),
+    cor_pearson = sufficient_stats(~ mpg + wt, data = mtcars, test = "pearson"),
     mediation_simple = sufficient_stats(mpg ~ wt, data = mtcars,
-                                        test = "mediation", mediator = "hp",
-                                        sharing_reason = sharing))
+                                        test = "mediation", mediator = "hp"))
   for (name in handlers()) {
     if (is.null(get_handler(name)$design)) next  # `lm`: no appendix by design
     s <- if (name %in% names(extra)) extra[[name]] else convention_stats(name)
     expect_identical(s$handler, name)
-    expect_error(md <- appendix(s), NA, info = name)
+    expect_error(md <- appendix(s, sharing_reason = sharing), NA, info = name)
     expect_s3_class(md, "reprokit_appendix")
   }
 })
