@@ -1,5 +1,5 @@
 Package: reprokit
-Title: Reproduce and Check Results When Raw Data Cannot Be Shared
+Title: Reproduce and Check Results When Raw Data Cannot be Shared
 Version: 0.1.0
 Authors@R:
     person("D.M.", "Kloppenburg", , "192165061+dm-k1@users.noreply.github.com",
@@ -7,9 +7,9 @@ Authors@R:
 Description: Helps authors who cannot share raw data report the sufficient
     statistics that let readers reproduce their results exactly, or decide
     that synthetic data or the raw data are needed. Helps readers check
-    whether reported test statistics are consistent with each other. Authors
-    must state why the data are not shared, and the output lists what readers
-    lose, because sharing raw data remains the standard.
+    whether reported test statistics are consistent with each other. The output
+    lists what readers lose without the raw data, because sharing raw data
+    remains the standard.
 License: MIT + file LICENSE
 URL: https://github.com/dm-k1/reprokit
 BugReports: https://github.com/dm-k1/reprokit/issues

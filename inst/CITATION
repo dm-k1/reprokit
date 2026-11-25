@@ -1,8 +1,8 @@
 bibentry(
   "Manual",
-  title = "reprokit: Reproduce and Check Results When Raw Data Cannot Be Shared",
+  title = "reprokit: Reproduce and Check Results When Raw Data Cannot be Shared",
   author = person("D.M.", "Kloppenburg"),
-  year = "2026",
-  note = "R package version 0.0.0.9000",
+  year = sub("-.*", "", if (is.null(meta$Date)) "2026" else meta$Date),
+  note = paste("R package version", meta$Version),
   url = "https://github.com/dm-k1/reprokit"
 )

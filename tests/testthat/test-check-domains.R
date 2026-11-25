@@ -124,19 +124,37 @@ test_that("apa is built from the design and cannot be hand-written", {
                "unused argument")
 })
 
-test_that("level 2 is unreachable for t_paired and cor_pearson", {
+level2_names <- function() {
   # the quantities of the t and correlation family: the regression quantities cannot occur in
   # these two handlers, and enumerating every subset of all of them (2^28) is not feasible
-  names <- setdiff(quantity_names(), c("b", "se", "beta", "r2", "p_model", "r_all", "xz",
-                                       "indirect", "indirect_ci_lower", "indirect_ci_upper"))
-  bits <- 2^(seq_along(names) - 1)
-  subsets <- lapply(0:(2^length(names) - 1), function(i) names[bitwAnd(i, bits) > 0])
-  expect_length(subsets, 2^length(names))
+  setdiff(quantity_names(), c("b", "se", "beta", "r2", "p_model", "r_all", "xz",
+                              "indirect", "indirect_ci_lower", "indirect_ci_upper"))
+}
+
+expect_level2_unreachable <- function(subsets) {
   for (handler in c("t_paired", "cor_pearson")) {
     entry <- get_handler(handler)
     levels <- vapply(subsets, function(s) coverage_level(entry, s), integer(1))
     expect_false(2L %in% levels, info = handler)
   }
+}
+
+test_that("level 2 is unreachable for t_paired and cor_pearson (random subsets)", {
+  names <- level2_names()
+  set.seed(1)
+  subsets <- c(list(character(), names), lapply(seq_len(1500), function(i) {
+    names[stats::runif(length(names)) < stats::runif(1)]
+  }))
+  expect_level2_unreachable(subsets)
+})
+
+test_that("level 2 is unreachable for t_paired and cor_pearson (every subset)", {
+  skip_on_cran() # exhaustive: about 20 s
+  names <- level2_names()
+  bits <- 2^(seq_along(names) - 1)
+  subsets <- lapply(0:(2^length(names) - 1), function(i) names[bitwAnd(i, bits) > 0])
+  expect_length(subsets, 2^length(names))
+  expect_level2_unreachable(subsets)
 })
 
 test_that("solve_for reports when the feasible set reaches the edge of the domain", {

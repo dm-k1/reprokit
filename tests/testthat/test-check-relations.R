@@ -89,14 +89,13 @@ expect_range_contains <- function(range, sampled, info) {
   testthat::expect_lte(max(sampled), range[["upper"]] + slack, label = paste(info, "sampled max"))
 }
 
-test_that("relation_range contains a dense random sample for every registered relation", {
-  set.seed(1)
+expect_samples_contained <- function(draws) {
   for (spec in sample_boxes) {
     box <- box_of(spec$paper)
     for (rel in get_handler(spec$handler)$relations) {
       for (variant in variant_combinations(rel$variants)) {
         range <- relation_range(rel, box, variant)
-        sampled <- sampled_outputs(rel, box, variant, 20000L)
+        sampled <- sampled_outputs(rel, box, variant, draws)
         # Where the relation is not finite the range is not evaluable and
         # check_reported() skips it; the containment claim is for finite ranges.
         if (!all(is.finite(range))) next
@@ -105,6 +104,17 @@ test_that("relation_range contains a dense random sample for every registered re
       }
     }
   }
+}
+
+test_that("relation_range contains a random sample for every registered relation", {
+  set.seed(1)
+  expect_samples_contained(300L)
+})
+
+test_that("relation_range contains a dense random sample for every registered relation", {
+  skip_on_cran() # exhaustive: about 80 s
+  set.seed(1)
+  expect_samples_contained(20000L)
 })
 
 test_that("t_from_descriptives has an interior maximum that the corners miss", {
