@@ -6,7 +6,7 @@ R: R version 4.6.1 (2026-06-24)
 
                                               relation boxes escaped_samples
                                    t_paired df_from_n    300               0
-                         t_paired t_from_descriptives    288               0
+                         t_paired t_from_descriptives    284               0
                            t_paired p_from_t two.sided   300               0
                                 t_paired p_from_t less   300               0
                              t_paired p_from_t greater   300               0
@@ -16,47 +16,47 @@ R: R version 4.6.1 (2026-06-24)
               t_paired ci_upper_from_descriptives 0.90   300               0
               t_paired ci_upper_from_descriptives 0.95   300               0
               t_paired ci_upper_from_descriptives 0.99   300               0
-                      t_paired d_from_descriptives d_z   288               0
-                     t_paired d_from_descriptives d_rm   288               0
+                      t_paired d_from_descriptives d_z   284               0
+                     t_paired d_from_descriptives d_rm   284               0
                   t_paired d_av_from_descriptives d_av   292               0
                   t_paired d_av_from_descriptives g_av   292               0
                                 cor_pearson df_from_n    300               0
-                                 cor_pearson t_from_r    181               0
+                                 cor_pearson t_from_r    171               0
                         cor_pearson p_from_t two.sided   300               0
                              cor_pearson p_from_t less   300               0
                           cor_pearson p_from_t greater   300               0
-                      cor_pearson ci_lower_from_r 0.90   265               0
-                      cor_pearson ci_lower_from_r 0.95   265               0
-                      cor_pearson ci_lower_from_r 0.99   265               0
-                      cor_pearson ci_upper_from_r 0.90   265               0
-                      cor_pearson ci_upper_from_r 0.95   265               0
-                      cor_pearson ci_upper_from_r 0.99   265               0
+                      cor_pearson ci_lower_from_r 0.90   274               0
+                      cor_pearson ci_lower_from_r 0.95   274               0
+                      cor_pearson ci_lower_from_r 0.99   274               0
+                      cor_pearson ci_upper_from_r 0.90   274               0
+                      cor_pearson ci_upper_from_r 0.95   274               0
+                      cor_pearson ci_upper_from_r 0.99   274               0
                        t_independent df_from_n student   300               0
-                         t_independent df_from_n welch   290               0
-             t_independent t_from_descriptives student   290               0
-               t_independent t_from_descriptives welch   290               0
+                         t_independent df_from_n welch   288               0
+             t_independent t_from_descriptives student   288               0
+               t_independent t_from_descriptives welch   288               0
                       t_independent p_from_t two.sided   300               0
                            t_independent p_from_t less   300               0
                         t_independent p_from_t greater   300               0
  t_independent ci_lower_from_descriptives 0.90+student   300               0
  t_independent ci_lower_from_descriptives 0.95+student   300               0
  t_independent ci_lower_from_descriptives 0.99+student   300               0
-   t_independent ci_lower_from_descriptives 0.90+welch   290               0
-   t_independent ci_lower_from_descriptives 0.95+welch   290               0
-   t_independent ci_lower_from_descriptives 0.99+welch   290               0
+   t_independent ci_lower_from_descriptives 0.90+welch   288               0
+   t_independent ci_lower_from_descriptives 0.95+welch   288               0
+   t_independent ci_lower_from_descriptives 0.99+welch   288               0
  t_independent ci_upper_from_descriptives 0.90+student   300               0
  t_independent ci_upper_from_descriptives 0.95+student   300               0
  t_independent ci_upper_from_descriptives 0.99+student   300               0
-   t_independent ci_upper_from_descriptives 0.90+welch   290               0
-   t_independent ci_upper_from_descriptives 0.95+welch   290               0
-   t_independent ci_upper_from_descriptives 0.99+welch   290               0
-              t_independent d_from_descriptives pooled   290               0
-            t_independent d_from_descriptives hedges_g   290               0
-             t_independent d_from_descriptives average   290               0
-           t_independent d_from_descriptives glass_sd1   281               0
-           t_independent d_from_descriptives glass_sd2   285               0
+   t_independent ci_upper_from_descriptives 0.90+welch   288               0
+   t_independent ci_upper_from_descriptives 0.95+welch   288               0
+   t_independent ci_upper_from_descriptives 0.99+welch   288               0
+              t_independent d_from_descriptives pooled   288               0
+            t_independent d_from_descriptives hedges_g   288               0
+             t_independent d_from_descriptives average   288               0
+           t_independent d_from_descriptives glass_sd1   276               0
+           t_independent d_from_descriptives glass_sd2   277               0
                                t_one_sample df_from_n    300               0
-                     t_one_sample t_from_descriptives    282               0
+                     t_one_sample t_from_descriptives    279               0
                        t_one_sample p_from_t two.sided   300               0
                             t_one_sample p_from_t less   300               0
                          t_one_sample p_from_t greater   300               0
@@ -66,11 +66,11 @@ R: R version 4.6.1 (2026-06-24)
           t_one_sample ci_upper_from_descriptives 0.90   300               0
           t_one_sample ci_upper_from_descriptives 0.95   300               0
           t_one_sample ci_upper_from_descriptives 0.99   300               0
-                t_one_sample d_from_descriptives cohen   282               0
-             t_one_sample d_from_descriptives hedges_g   282               0
+                t_one_sample d_from_descriptives cohen   279               0
+             t_one_sample d_from_descriptives hedges_g   279               0
  skipped_not_finite
                   0
-                 12
+                 16
                   0
                   0
                   0
@@ -80,58 +80,58 @@ R: R version 4.6.1 (2026-06-24)
                   0
                   0
                   0
-                 12
-                 12
+                 16
+                 16
                   8
                   8
                   0
-                119
+                129
                   0
                   0
                   0
-                 35
-                 35
-                 35
-                 35
-                 35
-                 35
+                 26
+                 26
+                 26
+                 26
+                 26
+                 26
                   0
-                 10
-                 10
-                 10
-                  0
-                  0
-                  0
-                  0
-                  0
-                  0
-                 10
-                 10
-                 10
-                  0
-                  0
-                  0
-                 10
-                 10
-                 10
-                 10
-                 10
-                 10
-                 19
-                 15
-                  0
-                 18
+                 12
+                 12
+                 12
                   0
                   0
                   0
                   0
                   0
                   0
+                 12
+                 12
+                 12
                   0
                   0
                   0
-                 18
-                 18
+                 12
+                 12
+                 12
+                 12
+                 12
+                 12
+                 24
+                 23
+                  0
+                 21
+                  0
+                  0
+                  0
+                  0
+                  0
+                  0
+                  0
+                  0
+                  0
+                 21
+                 21
 
                                             case corner_only_upper true_upper
       t_from_descriptives (sd1 1.95-2.05, r .99)            15.762     15.851
@@ -147,13 +147,13 @@ R: R version 4.6.1 (2026-06-24)
 PASS: escaped samples = 0, named cases show corner-only < true = TRUE
 
 == One-way F range ==
-                                    check     value
-         random boxes with a finite range 3.000e+02
-            boxes skipped (not evaluable) 0.000e+00
-                samples outside the range 0.000e+00
-         max |exact - optimize()| SSb min 5.599e-16
- corner-only minimum F, overlapping means 3.300e-04
-       exact minimum F, overlapping means 0.000e+00
+                                    check   value
+         random boxes with a finite range 3.0e+02
+            boxes skipped (not evaluable) 0.0e+00
+                samples outside the range 0.0e+00
+         max |exact - optimize()| SSb min 4.8e-16
+ corner-only minimum F, overlapping means 3.3e-04
+       exact minimum F, overlapping means 0.0e+00
 
 PASS: one-way F, escaped samples = 0, SSb min agrees with optimize() = TRUE, corner-only min > 0 and exact min = 0: TRUE
 
@@ -205,39 +205,39 @@ PASS: V and w ranges, point from counts equals chisq.test() = TRUE, escaped samp
     3x4      B   3    FALSE   II     0      60       0           TRUE
     3x4      B   3    FALSE    I     0      60       0           TRUE
  worst_lower_gap worst_upper_gap
-           0.179           1.000
-           0.171           1.000
-           0.170           0.781
-           0.139           0.744
-           0.185           0.718
-           0.170           0.811
-           0.180           0.818
-           0.194           1.000
-           0.173           0.745
-           0.155           0.747
-           0.177           1.000
-           0.171           1.000
-           0.219           1.000
-           0.236           0.820
-           0.222           0.879
-           0.207           1.000
-           0.268           0.874
-           0.253           0.874
-           0.238           1.000
-           0.234           0.916
-           0.204           0.833
-           0.227           0.842
-           0.180           1.000
-           0.211           0.813
-           0.225           0.787
+           0.196           1.000
+           0.165           1.000
+           0.171           0.742
+           0.169           0.742
+           0.157           1.000
+           0.162           1.000
+           0.146           1.000
+           0.142           1.000
+           0.173           0.721
+           0.208           0.705
+           0.166           0.752
+           0.160           1.000
+           0.214           1.000
+           0.214           0.860
+           0.222           1.000
+           0.183           0.822
+           0.222           0.881
+           0.248           0.899
+           0.227           0.894
+           0.225           0.876
+           0.210           0.821
+           0.215           0.775
+           0.234           0.783
+           0.196           0.807
+           0.208           1.000
            0.000           0.000
            0.000           0.000
            0.000           0.000
-           0.256           0.876
+           0.275           1.000
            0.000           0.000
            0.000           0.000
            0.000           0.000
-           0.285           0.896
+           0.286           0.891
            0.000           0.000
            0.000           0.000
            0.000           0.000
@@ -247,17 +247,19 @@ PASS: factorial ranges, escaped samples = 0, F upper bound attained at a vertex 
 
 == Regression family ranges ==
              relation variant boxes skipped escaped vertex_mismatch
-        t_from_b_se:x       -   195       5       0               0
+        t_from_b_se:x       -   191       9       0               0
  ci_lower_from_b_se:x    0.90   200       0       0               0
  ci_lower_from_b_se:x    0.95   200       0       0               0
  ci_lower_from_b_se:x    0.99   200       0       0               0
  ci_upper_from_b_se:x    0.90   200       0       0               0
  ci_upper_from_b_se:x    0.95   200       0       0               0
  ci_upper_from_b_se:x    0.99   200       0       0               0
-            f_from_r2      r2   200       0       0               0
             f_from_r2  adj_r2   200       0       0               0
+            f_from_r2      r2   200       0       0               0
              r_from_b       -   200       0       0               0
            p_from_t:x       -   200       0       0              NA
 p from t on a box spanning t = 0: upper bound is 1 in 50 of 50 boxes; named case t in [-0.5, 0.7], df 20: corner-only upper = 0.6225, true upper = 1
 
-PASS: regression ranges, escaped draws = 0, vertex mismatches = 0, skipped boxes = 5
+PASS: regression ranges, escaped draws = 0, vertex mismatches = 0, skipped boxes = 9
+
+PASS: all range-exactness sections (cores: 7, runtime 18.1 min)

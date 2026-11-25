@@ -245,3 +245,5 @@ PASS: factorial known answers (10/10)
                        a moved path CI bound is inconsistent  TRUE
 
 PASS: regression known answers (13/13)
+
+PASS: all known-answer sections

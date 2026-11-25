@@ -18,6 +18,13 @@
 #               (small = 5-9, large = 10-20); t-tests only
 #   decision    p replaced by one across .05, t and df unchanged
 #   r_digit     one decimal digit of r replaced (small = last, large = earlier); Pearson only
+#   transposed  two adjacent digits of the statistic (t, r for Pearson, F for one-way) swapped
+#               ("2.34" -> "2.43"); small = the value moves by less than 0.1, else large
+#   one_tailed  the p halved: a one-tailed p printed as if two-tailed. A legitimate-looking
+#               analysis that the t/df/p numbers cannot refute (a p from either tail is accepted
+#               unless the caller states two.sided), so it is EXPECTED undetectable: the oracle
+#               says undetectable, a miss there is not a gate miss and the cell is left out of the
+#               "every cell flags something" criterion; the count of flagged ones is printed
 #   ci_change   one CI bound off by 5 to 20 units of its last printed digit (small = 5-9, large
 #               = 10-20); the papers print the CI at 90%, 95% or 99% (a quarter, a half, a
 #               quarter), so a CI relation that assumed 95% would flag the correct papers
@@ -38,6 +45,12 @@
 # Outcome per case: flagged = inconsistent; unevaluable = not flagged and the planted number
 # has status not checkable / unconfirmed / not reproducible; missed = called consistent.
 # Oracles (base R, no check_reported code):
+#   Grids: the desc+t+p oracle takes the two ends of a printed number's rounding interval where
+#   t is monotone in it (the exact vertices) and 9 points where it is not (SDs and r of a paired
+#   t, SDs behind the Welch df); the script also runs the old 5-point grid and prints how many
+#   cases change class. The "all" subset has a regression gate: a case the oracle calls
+#   detectable on t/df/p, f/df/p or desc+t+p must be flagged on "all" (Welch df printed with
+#   decimals excepted; Pearson r/df/p-only detections are outside the gate, both counted).
 #   t/df/p      detectable iff, for every p tail (two-sided, less, greater), the p implied by
 #               every t and df in their rounding intervals misses the rounding interval of p
 #               (a grid of 101 t values x 11 df values; "< .001" is (0, .001)).
@@ -156,12 +169,18 @@ oracle_rdfp <- function(paper) {
                 greater = pt(t, grid$df, lower.tail = FALSE))
   verdict(vapply(tails, function(p) overlap(range(p), pi), ""))
 }
-oracle_desc <- function(handler, paper, test = NULL) {
+oracle_desc <- function(handler, paper, test = NULL, legacy = FALSE) {
   ti <- interval(paper$t)
   pi <- pmin(pmax(interval(paper$p), 0), 1)
-  five <- function(s, lower = -Inf, upper = Inf) {
+  # Points of a printed number's rounding interval. A quantity the t is monotone in (the means,
+  # r for Pearson, SDs in a one-sample t, the SDs of the Student and Welch t) needs only the two
+  # interval ends: those are the exact vertices. A quantity t is not monotone in (the SDs and r
+  # of a paired t, whose SD of the difference has an interior minimum; the SDs that drive the
+  # Welch df) gets 9 points. `legacy = TRUE` is the old 5-point grid for every quantity, kept
+  # to count how many cases change class.
+  five <- function(s, lower = -Inf, upper = Inf, monotone = FALSE) {
     i <- pmin(pmax(interval(s), lower), upper)
-    seq(i[1L], i[2L], length.out = 5L)
+    seq(i[1L], i[2L], length.out = if (legacy) 5L else if (monotone) 2L else 9L)
   }
   # A non-finite t anywhere in the box means "not evaluable": check_reported() must stay quiet.
   span <- function(x) if (all(is.finite(x))) range(x) else c(-Inf, Inf)
@@ -190,22 +209,23 @@ oracle_desc <- function(handler, paper, test = NULL) {
   # nolint start: indentation_linter, line_length_linter
   variants <- switch(handler,
     cor_pearson = {
-      r <- five(paper$r, -1, 1)
+      r <- five(paper$r, -1, 1, monotone = TRUE)
       list(variant(r * sqrt(n - 2) / sqrt(1 - r^2), n - 2))
     },
     t_one_sample = {
-      g <- expand.grid(m = five(paper$m), s = five(paper$sd, 0))
+      g <- expand.grid(m = five(paper$m, monotone = TRUE), s = five(paper$sd, 0, monotone = TRUE))
       list(variant((g$m - attr(paper, "mu")) / (g$s / sqrt(n)), n - 1))
     },
     t_paired = {
-      g <- expand.grid(m1 = five(paper$m[1L]), m2 = five(paper$m[2L]), s1 = five(paper$sd[1L], 0),
-                       s2 = five(paper$sd[2L], 0), r = five(paper$r, -1, 1))
+      g <- expand.grid(m1 = five(paper$m[1L], monotone = TRUE), m2 = five(paper$m[2L], monotone = TRUE),
+                       s1 = five(paper$sd[1L], 0), s2 = five(paper$sd[2L], 0),
+                       r = five(paper$r, -1, 1, monotone = TRUE))
       list(variant((g$m1 - g$m2) /
                      (sqrt(pmax(g$s1^2 + g$s2^2 - 2 * g$r * g$s1 * g$s2, 0)) / sqrt(n)), n - 1))
     },
     t_independent = {
-      g <- expand.grid(m1 = five(paper$m[1L]), m2 = five(paper$m[2L]), s1 = five(paper$sd[1L], 0),
-                       s2 = five(paper$sd[2L], 0))
+      g <- expand.grid(m1 = five(paper$m[1L], monotone = TRUE), m2 = five(paper$m[2L], monotone = TRUE),
+                       s1 = five(paper$sd[1L], 0), s2 = five(paper$sd[2L], 0))
       pooled <- sqrt(((n[1L] - 1) * g$s1^2 + (n[2L] - 1) * g$s2^2) / (sum(n) - 2))
       v1 <- g$s1^2 / n[1L]
       v2 <- g$s2^2 / n[2L]
@@ -291,20 +311,26 @@ run_job <- function(job) {
 oracle_job <- function(job) {
   if (job$subset == "t/df/p") return(oracle_tdfp(job$paper))
   if (job$subset == "r/df/p") return(oracle_rdfp(job$paper))
-  if (job$subset == "desc+t+p" && job$type %in% c("t_digit", "m_change", "r_digit")) {
+  if (job$subset == "desc+t+p" && job$type %in% c("t_digit", "m_change", "r_digit", "transposed")) {
     return(oracle_desc(job$handler, job$paper, job$test))
   }
   if (job$handler == "anova_oneway" && job$subset == "f/df/p") {
     return(oracle_oneway(job$paper, job$subset))
   }
   if (job$handler == "anova_oneway" && job$subset == "desc+f+p" &&
-        job$type %in% c("f_digit", "m_change")) {
+        job$type %in% c("f_digit", "m_change", "transposed")) {
     return(oracle_oneway(job$paper, job$subset))
   }
   NA_character_
 }
 outcome <- unlist(parallel::mclapply(jobs, run_job, mc.cores = 6L))
 oracle <- unlist(parallel::mclapply(jobs, oracle_job, mc.cores = 6L))
+# The same oracle on the old 5-point grid, for the jobs that use it, to count class changes.
+desc_jobs <- which(vapply(jobs, function(j) j$subset == "desc+t+p" &&
+                            j$type %in% c("t_digit", "m_change", "r_digit", "transposed"), NA))
+oracle_legacy <- unlist(parallel::mclapply(jobs[desc_jobs], function(j) {
+  oracle_desc(j$handler, j$paper, j$test, legacy = TRUE)
+}, mc.cores = 6L))
 # nolint start: indentation_linter
 results <- data.frame(
   case = vapply(jobs, `[[`, "", "case"), group = vapply(jobs, `[[`, "", "group"),
@@ -361,6 +387,10 @@ cat("\nOracle check (t/df/p and r/df/p: every type; desc+t+p: t_digit, m_change,
 oracle_table <- as.data.frame(table(oracle = covered$oracle, outcome = covered$outcome))
 print(oracle_table[oracle_table$Freq > 0, ], row.names = FALSE)
 cat("edge cases left out:", sum(!is.na(results$oracle) & results$oracle == "edge"), "\n")
+changed_class <- oracle[desc_jobs] != oracle_legacy
+cat("desc+t+p oracle, finer grid (2 vertices for monotone quantities, 9 points otherwise) against",
+    "the old 5-point grid:", sum(changed_class), "of", length(desc_jobs), "cases change class\n")
+print(table(old = oracle_legacy[changed_class], new = oracle[desc_jobs][changed_class]))
 joint_only <- results[!is.na(results$oracle) & results$oracle == "joint-only", ]
 cat("joint-only (detectable only by tying the Student/Welch variant across relations;",
     "limitation, not a criterion):\n")
@@ -370,6 +400,31 @@ print(table(outcome = joint_only$outcome))
 errors <- sum(results$outcome == "error")
 detectable_not_flagged <- sum(covered$oracle == "detectable" & covered$outcome != "flagged")
 false_flags <- sum(covered$oracle == "undetectable" & covered$outcome == "flagged")
+# The "all" subset has no oracle of its own (every printed number at once). Regression gate on
+# it: a case the oracle calls detectable on t/df/p, one-way f/df/p or desc+t+p (a
+# relation among a subset of the printed numbers that no printed number can explain away) must
+# also be flagged on "all", where those numbers and relations are all present. The one exception
+# is a Welch paper printing df with decimals under desc+t+p or t/df/p (wider df interval, see criterion 3
+# in the header), counted and printed. A Pearson case detectable on r/df/p only is outside the
+# gate for the documented reason (the printed t is wider than the t derived from r, criterion 3
+# of the header); counted in the "flagged on r/df/p but not on all" line.
+sub_detectable <- results$oracle %in% "detectable" &
+  results$subset %in% c("t/df/p", "f/df/p", "desc+t+p")
+welch_df_dec <- results$group == "t_independent_welch" & results$df_decimals > 0L &
+  results$subset %in% c("desc+t+p", "t/df/p")
+gate_cases <- unique(results$case[sub_detectable & !welch_df_dec])
+all_rows <- results$subset == "all" & results$case %in% gate_cases
+all_gate_rows <- sum(all_rows)
+all_gate_missed <- sum(all_rows & results$outcome != "flagged")
+if (all_gate_missed > 0L) {
+  cat("gate misses (group, subset of the oracle, df decimals):\n")
+  print(unique(results[all_rows & results$outcome != "flagged", c("case", "group", "df_decimals")]))
+}
+excepted <- unique(results$case[sub_detectable & welch_df_dec])
+excepted <- setdiff(excepted, gate_cases)
+cat("\"all\" subset regression gate: cases oracle-detectable on a subset:", all_gate_rows,
+    "; not flagged on all:", all_gate_missed, "; Welch df-decimals (desc+t+p or t/df/p) cases excepted:",
+    length(excepted), "\n")
 flagged_cases <- function(s) {
   unique(results$case[results$subset == s & results$outcome == "flagged"])
 }
@@ -394,7 +449,13 @@ cat("flagged on r/df/p but not on all (printed t is wider than the t derived fro
     length(rdfp_hidden), "\n")
 hidden_by_more <- length(hidden_cases) - hidden_by_df_rounding
 cells <- summarise_cells(results, c("group", "type", "subset"))
-dead_cells <- sum(cells$`% flagged` == 0)
+# one_tailed (a one-tailed p printed as two-tailed) is expected undetectable: its cells may flag
+# nothing, so they are left out of the "every cell flags something" criterion.
+one_tailed_cells <- cells[cells$type == "one_tailed", ]
+dead_cells <- sum(cells$`% flagged` == 0 & cells$type != "one_tailed")
+cat("one-tailed p printed as two-tailed (expected undetectable, not a criterion): papers x subsets",
+    sum(one_tailed_cells$cases), ", flagged", sum(round(one_tailed_cells$cases * one_tailed_cells$`% flagged` / 100)),
+    "\n")
 rate <- function(type, subset, size = NULL) {
   d <- results[results$type == type & results$subset == subset, ]
   if (!is.null(size)) d <- d[d$size %in% size, ]
@@ -421,11 +482,11 @@ cat("informational: lowest handler rate, decision/df_wrong_n/m_change-large on a
 cat("planted papers:", sum(lengths(cases)), " checks:", nrow(results), " runtime (min):",
     round(as.numeric(difftime(Sys.time(), t_start, units = "mins")), 1), "\n")
 ok <- errors == 0 && detectable_not_flagged == 0 && false_flags == 0 && hidden_by_more == 0 &&
-  dead_cells == 0
+  dead_cells == 0 && all_gate_missed == 0 && all_gate_rows > 0
 cat(if (ok) "PASS" else "FAIL", ": errors = ", errors, ", oracle-detectable not flagged = ",
     detectable_not_flagged, ", oracle-undetectable flagged = ", false_flags,
-    ", flagged on a subset but not on all = ", hidden_by_more, ", cells never flagged = ",
-    dead_cells, " (lowest large-error rate, informational = ", round(by_group_min, 1), "%)\n",
+    ", flagged on a subset but not on all = ", hidden_by_more, ", oracle-detectable on a subset",
+    " but not flagged on all = ", all_gate_missed, ", cells never flagged = ", dead_cells, " (lowest large-error rate, informational = ", round(by_group_min, 1), "%)\n",
     sep = "")
 
 # Chi-squared planted errors -------------------------------------------------------------------
@@ -678,6 +739,14 @@ cat(if (fact_ok) "\nPASS" else "\nFAIL", ": factorial planted errors, errors = "
 #                               since n, df1 and df2 are exact integers
 #   med_df                      one mediation path's df_resid replaced by n - 1, n - 2 or n - 3
 #                               (not its own); the four df share one n, so exact integers decide
+#   lm_ci_bound                 one bound of one term's lm CI shifted by 5-30 units of its last
+#                               digit (oracle: b -/+ t_crit SE over the b and SE boxes at df2, at
+#                               each of 90/95/99 per cent; detectable when no level has every
+#                               bound of every term fitting)
+#   med_indirect                the printed indirect effect a*b replaced by one 25-100 per cent
+#                               larger or smaller (at least .1 away); oracle: its interval misses
+#                               the range of products over the a and b rounding boxes, which holds
+#                               round(a*b) and round(round(a) * round(b)) alike
 #   med_ci                      one bound of one mediation path's CI shifted by 5-30 units of its
 #                               last digit (oracle: b -/+ t_crit SE over the b and SE rounding
 #                               boxes at the exact df; detectable when no level of 90/95/99 per
@@ -686,7 +755,7 @@ cat(if (fact_ok) "\nPASS" else "\nFAIL", ": factorial planted errors, errors = "
 # type x subset cell flags at least once; nothing flagged on the narrow subset is missed on all.
 set.seed(20261125)
 reg_types <- c("b_digit", "se_digit", "t_digit", "p_digit", "f_vs_r2", "df_wrong_k", "med_df",
-               "med_ci")
+               "med_ci", "lm_ci_bound", "med_indirect")
 reg_subsets <- list(
   b_digit = list(all = NULL, `b/se/t` = c("b", "se", "t")),
   se_digit = list(all = NULL, `b/se/t` = c("b", "se", "t")),
@@ -695,7 +764,9 @@ reg_subsets <- list(
   f_vs_r2 = list(all = NULL, `r2/f/df` = c("r2", "f", "df1", "df2")),
   df_wrong_k = list(all = NULL, `n/df1/df2` = c("n", "df1", "df2"), `n/df2 + k` = c("n", "df2")),
   med_df = list(all = NULL, `t/df/p` = c("t", "p", "df")),
-  med_ci = list(all = NULL, `b/se/df/ci` = c("b", "se", "df", "ci_lower", "ci_upper")))
+  med_ci = list(all = NULL, `b/se/df/ci` = c("b", "se", "df", "ci_lower", "ci_upper")),
+  lm_ci_bound = list(all = NULL, `b/se/df/ci` = c("b", "se", "df2", "ci_lower", "ci_upper")),
+  med_indirect = list(all = NULL, `a/b/indirect` = c("b", "indirect")))
 reg_shift <- function(s, units) {
   d <- n_decimals(s)
   fmt(as.numeric(s) + units * 10^-d, d)
@@ -719,6 +790,14 @@ reg_paper <- function(type) {
                                         sample(5:30, 1L) * sample(c(-1, 1), 1L))
     return(list(paper = paper, path = path, mediation = TRUE))
   }
+  if (type == "med_indirect") {
+    paper <- mediation_paper(mediation_raw())
+    ind <- as.numeric(paper$indirect)
+    new <- ind * (1 + sample(c(-1, 1), 1L) * sample(25:100, 1L) / 100)
+    if (abs(new - ind) < 0.1) return(NULL)
+    paper$indirect <- fmt(new, 2L)
+    return(list(paper = paper, mediation = TRUE))
+  }
   raw <- lm_raw()
   paper <- lm_paper(raw)
   terms <- setdiff(names(paper$b), "(Intercept)")
@@ -740,6 +819,10 @@ reg_paper <- function(type) {
       ch <- change_digit(paper$p[[term]])
       if (is.null(ch)) return(NULL)
       paper$p[[term]] <- ch$value
+      TRUE },
+    lm_ci_bound = {
+      bound <- sample(c("ci_lower", "ci_upper"), 1L)
+      paper[[bound]][[term]] <- reg_shift(paper[[bound]][[term]], sample(5:30, 1L) * sample(c(-1, 1), 1L))
       TRUE },
     f_vs_r2 = {
       f0 <- as.numeric(paper$f)
@@ -768,6 +851,26 @@ reg_oracle <- function(type, p) {
       if (all(parts == "fit")) "fit" else if (any(parts == "miss")) "miss" else "edge"
     }, "")
     return(verdict(fits_level))
+  }
+  if (type == "lm_ci_bound") {
+    df2 <- as.numeric(paper$df2)
+    fits_level <- vapply(c(0.90, 0.95, 0.99), function(level) {
+      tc <- qt(1 - (1 - level) / 2, df2)
+      parts <- unlist(lapply(names(paper$b), function(term) {
+        bi <- interval(paper$b[[term]])
+        si <- interval(paper$se[[term]])
+        c(overlap(c(bi[1L] - tc * si[2L], bi[2L] - tc * si[1L]), interval(paper$ci_lower[[term]])),
+          overlap(c(bi[1L] + tc * si[1L], bi[2L] + tc * si[2L]), interval(paper$ci_upper[[term]])))
+      }))
+      if (all(parts == "fit")) "fit" else if (any(parts == "miss")) "miss" else "edge"
+    }, "")
+    return(verdict(fits_level))
+  }
+  if (type == "med_indirect") {
+    ai <- interval(paper$b[["a"]])
+    bi <- interval(paper$b[["b"]])
+    products <- c(ai[1L] * bi[1L], ai[1L] * bi[2L], ai[2L] * bi[1L], ai[2L] * bi[2L])
+    return(verdict(overlap(range(products), interval(paper$indirect))))
   }
   if (type == "med_df") {
     # the four df are n - 2, n - 3, n - 2, n - 3 for one n: exact integers, so a path whose df
@@ -807,7 +910,7 @@ reg_check <- function(type, p, sub) {
   keys <- reg_subsets[[type]][[sub]]
   if (p$mediation) {
     keys <- if (is.null(keys)) names(p$paper) else keys
-    return(run_mediation_check(p$paper, keys))
+    return(run_mediation_check(p$paper, keys, if (sub == "a/b/indirect") c("a", "b")))
   }
   paper <- p$paper
   if (is.null(keys)) keys <- setdiff(names(paper), c("n"))
@@ -818,7 +921,7 @@ reg_check <- function(type, p, sub) {
   run_lm_check(paper, keys)
 }
 reg_rows <- list()
-n_reg <- 700L
+n_reg <- 1000L
 for (i in seq_len(n_reg)) {
   type <- reg_types[(i - 1L) %% length(reg_types) + 1L]
   planted <- NULL
@@ -861,4 +964,6 @@ cat(if (reg_ok) "\nPASS" else "\nFAIL", ": regression planted errors, errors = "
     reg_false, ", flagged on a narrow subset but not on all = ", reg_hidden,
     ", cells never flagged = ", reg_dead, "\n", sep = "")
 
-record_stop()
+pass_all <- ok && chisq_ok && fact_ok && reg_ok
+cat(if (pass_all) "\nPASS" else "\nFAIL", ": all planted-error sections (t/r/F, chi-squared, factorial, regression and mediation)\n", sep = "")
+finish_validation(pass_all)

@@ -4,76 +4,102 @@ package: reprokit 0.1.0
 date: 2026-11-25
 R: R version 4.6.1 (2026-06-24)
 
-statcheck 1.6.1 - strings: 3527  unparsed by statcheck: 0 
+statcheck 1.6.1 - strings: 3682  unparsed by statcheck: 0 
 
 2 x 2 per group: rows = statcheck, columns = check_reported (planted and correct strings)
 
 t_paired
          check_reported
 statcheck consistent inconsistent
-    error          1          189
-    ok           410            0
+    error         45          178
+    ok           407            0
 
 t_independent_student
          check_reported
 statcheck consistent inconsistent
-    error          0          179
-    ok           421            0
+    error         46          165
+    ok           419            0
 
 t_independent_welch
          check_reported
 statcheck consistent inconsistent
-    error         15          213
-    ok           372            0
+    error         59          189
+    ok           382            0
 
 t_one_sample
          check_reported
 statcheck consistent inconsistent
-    error          2          188
-    ok           410            0
+    error         40          187
+    ok           403            0
 
 cor_pearson
          check_reported
 statcheck consistent inconsistent
-    error          2          175
-    ok           423            0
+    error         42          137
+    ok           406            0
 
 cor_pearson_r
          check_reported
 statcheck consistent inconsistent
-    error          4          170
-    ok           353            0
+    error         42          178
+    ok           357            0
 
-r(df), p strings passed as r, df, p (n implied from df): level 0 (not checkable) for 0 of 527 
+r(df), p strings passed as r, df, p (n implied from df): level 0 (not checkable) for 0 of 577 
 
 Correct papers only: check_reported inconsistent / statcheck error, of n
                  group   n check_reported statcheck
            cor_pearson 360              0         0
-         cor_pearson_r 316              0         0
+         cor_pearson_r 328              0         1
  t_independent_student 360              0         0
-   t_independent_welch 360              0        12
+   t_independent_welch 360              0        11
           t_one_sample 360              0         0
               t_paired 360              0         1
 
 Disagreements by category (statcheck error & check_reported consistent, or the reverse)
-               group   category Freq
-         cor_pearson one-tailed    2
-       cor_pearson_r one-tailed    4
- t_independent_welch one-tailed    1
-        t_one_sample one-tailed    2
- t_independent_welch t-rounding    1
-            t_paired t-rounding    1
- t_independent_welch   welch-df   13
+                 group   category Freq
+           cor_pearson one-tailed   42
+         cor_pearson_r one-tailed   41
+ t_independent_student one-tailed   46
+   t_independent_welch one-tailed   47
+          t_one_sample one-tailed   40
+              t_paired one-tailed   43
+         cor_pearson_r r-rounding    1
+              t_paired t-rounding    2
+   t_independent_welch   welch-df   12
+
+The t-rounding and one-tailed categories by group, truth and planted type (a real miss hiding in a category would show as an unexpected type)
+   category                 group   truth       type Freq
+ one-tailed              t_paired planted df_wrong_n    1
+ t-rounding              t_paired planted df_wrong_n    1
+ r-rounding         cor_pearson_r correct       none    1
+ t-rounding              t_paired correct       none    1
+ one-tailed           cor_pearson planted one_tailed   41
+ one-tailed         cor_pearson_r planted one_tailed   39
+ one-tailed t_independent_student planted one_tailed   42
+ one-tailed   t_independent_welch planted one_tailed   44
+ one-tailed          t_one_sample planted one_tailed   40
+ one-tailed              t_paired planted one_tailed   42
+ one-tailed           cor_pearson planted    p_digit    1
+ one-tailed         cor_pearson_r planted    p_digit    1
+ one-tailed t_independent_student planted    p_digit    1
+ one-tailed   t_independent_welch planted    p_digit    3
+ one-tailed         cor_pearson_r planted    r_digit    1
+ one-tailed t_independent_student planted    t_digit    1
+ one-tailed t_independent_student planted transposed    2
+planted one_tailed strings: statcheck error 266 of 266 ; check_reported inconsistent 18 
+one-tailed category: 259 cases, of which decision / df_wrong_n errors: 1 (limit 10%: 25)
 
 One example per category and group (text; truth/type; verdicts)
-  [t-rounding | t_paired] t(2) = 0.00, p = .997  (correct/none) statcheck=error check_reported=consistent
-  [welch-df | t_independent_welch] t(5.1) = -1.66, p = .155  (planted/p_digit) statcheck=error check_reported=consistent
-  [one-tailed | t_independent_welch] t(3.5) = -2.63, p = .967  (planted/p_digit) statcheck=error check_reported=consistent
-  [t-rounding | t_independent_welch] t(14.22) = 0.00, p = .998  (correct/none) statcheck=error check_reported=consistent
-  [one-tailed | t_one_sample] t(7) = 5.00, p = .001  (planted/t_digit) statcheck=error check_reported=consistent
-  [one-tailed | cor_pearson_r] r(2) = .95, p = .026  (planted/decision) statcheck=error check_reported=consistent
-  [one-tailed | cor_pearson] t(2) = 22.42, p = .001  (planted/p_digit) statcheck=error check_reported=consistent
+  [one-tailed | t_paired] t(5) = -0.63, p = .279  (planted/one_tailed) statcheck=error check_reported=consistent
+  [t-rounding | t_paired] t(3) = -0.00, p = .999  (correct/none) statcheck=error check_reported=consistent
+  [one-tailed | t_independent_student] t(22) = 0.06, p = .476  (planted/one_tailed) statcheck=error check_reported=consistent
+  [one-tailed | t_independent_welch] t(3.48) = 2.10, p = .057  (planted/one_tailed) statcheck=error check_reported=consistent
+  [welch-df | t_independent_welch] t(2.7) = -2.72, p = .083  (correct/none) statcheck=error check_reported=consistent
+  [one-tailed | t_one_sample] t(7) = 3.17, p = .008  (planted/one_tailed) statcheck=error check_reported=consistent
+  [one-tailed | cor_pearson] t(18) = 1.84, p = .041  (planted/one_tailed) statcheck=error check_reported=consistent
+  [one-tailed | cor_pearson_r] r(18) = .398, p = .041  (planted/one_tailed) statcheck=error check_reported=consistent
+  [r-rounding | cor_pearson_r] r(18) = -.00, p = .996  (correct/none) statcheck=error check_reported=consistent
 
 check_reported flags, statcheck does not: 0  of which not oracle-detectable: 0 
-runtime (min): 0.4 
-PASS: check_reported false positives = 0, errors = 0, unexplained statcheck-only errors = 0, check-only flags not oracle-detectable = 0
+runtime (min): 0.9 
+PASS: check_reported false positives = 0, errors = 0, unexplained statcheck-only errors = 0, check-only flags not oracle-detectable = 0, gross errors inside the one-tailed category = 1

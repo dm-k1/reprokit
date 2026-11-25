@@ -1,9 +1,19 @@
 # Round-trip simulation: for each exact handler, random designs ->
-# sufficient_stats() -> reprokit:::reproduce() and compare with the base-R result on the raw data.
-# PASS criterion, worst over all designs and all reported numbers:
+# sufficient_stats() -> reprokit:::reproduce(), compared two ways:
+#   (1) with the handler's own reported() on the raw data (what the package says the analysis
+#       gives; the oracle is reprokit itself), and
+#   (2) with an independent base-R computation on the raw data, written in this script and not
+#       using reprokit: t.test(), cor.test(), chisq.test(), summary(aov()), anova() and drop1()
+#       for the factorial SS types I, II and III, summary(lm()) and confint() for the regression
+#       family, and three lm() fits for the mediation paths. The numbers compared are the ones the
+#       handler reports (t, df, p, mean difference, CI bounds, r, chi-squared, V, F, eta2,
+#       estimates, SEs, t, p, sigma, R2, adjusted R2, F, the lm confint bounds, the paths and a*b).
+# PASS criterion, worst over all designs and all numbers, for both comparisons:
 #   scaled difference |original - reproduced| / max(1, |original|) < 1e-8
 #   (= absolute for numbers up to 1, relative for larger ones such as a big F).
-# The worst absolute difference is shown for information only.
+# The worst absolute difference is shown for information only. "compared" is the smallest
+# number of values compared against base R in any design of the row (it must be above 0).
+# The script ends with an overall PASS or FAIL line and exits with status 1 on FAIL under Rscript.
 # Chi-squared (ADR 0016): independence tables 2 x 2 to 4 x 5 (Yates or Pearson in a 2 x 2) and
 # goodness of fit with k = 2..8 (uniform or given p0), both with empty cells.
 # Factorial ANOVA (ADR 0017): 2 x 2 to 3 x 4 designs, balanced (types agree) and unbalanced with
@@ -18,6 +28,7 @@
 # Run: Rscript inst/validation/roundtrip-simulation.R   (after devtools::load_all())
 
 source("inst/validation/record.R")
+source("inst/validation/check-designs.R")  # factorial_truth(): anova()/drop1() on the raw data
 record_start("roundtrip-simulation", seed = 20261122)
 
 n_designs <- 200L
@@ -28,6 +39,139 @@ worst_diff <- function(original, reproduced) {
   stopifnot(identical(names(original), names(reproduced)))
   d <- ifelse(original == reproduced, 0, abs(original - reproduced))
   c(absolute = max(d), scaled = max(d / pmax(1, abs(original))))
+}
+
+# Independent base-R reference values on the raw data, named like h$reported() (a subset of them;
+# only the names present in both are compared). Nothing here calls reprokit.
+reference_of <- function(name, ex) {
+  a <- ex$args
+  d <- a$data
+  one <- function(x) unlist(x)
+  switch(name,
+    t_independent = {
+      g <- levels(factor(d$g))
+      tt <- stats::t.test(d$y[d$g == g[1L]], d$y[d$g == g[2L]], var.equal = a$test == "student",
+                          alternative = a$alternative, conf.level = a$conf_level)
+      c(t = unname(tt$statistic), df = unname(tt$parameter), p = tt$p.value,
+        mean_diff = unname(tt$estimate[1L] - tt$estimate[2L]), ci_lower = tt$conf.int[[1L]],
+        ci_upper = tt$conf.int[[2L]])
+    },
+    t_one_sample = {
+      tt <- stats::t.test(d$y, mu = a$mu, alternative = a$alternative, conf.level = a$conf_level)
+      c(t = unname(tt$statistic), df = unname(tt$parameter), p = tt$p.value,
+        mean = unname(tt$estimate), ci_lower = tt$conf.int[[1L]], ci_upper = tt$conf.int[[2L]])
+    },
+    t_paired = {
+      tt <- stats::t.test(d$pre, d$post, paired = TRUE, mu = a$mu, alternative = a$alternative,
+                          conf.level = a$conf_level)
+      c(t = unname(tt$statistic), df = unname(tt$parameter), p = tt$p.value,
+        mean_diff = mean(d$pre - d$post), ci_lower = tt$conf.int[[1L]], ci_upper = tt$conf.int[[2L]])
+    },
+    cor_pearson = {
+      ct <- stats::cor.test(d$a, d$b, alternative = a$alternative, conf.level = a$conf_level)
+      c(r = unname(ct$estimate), t = unname(ct$statistic), df = unname(ct$parameter),
+        p = ct$p.value, ci_lower = ct$conf.int[[1L]], ci_upper = ct$conf.int[[2L]])
+    },
+    chisq_independence = {
+      tab <- table(d$a, d$b)
+      ct <- suppressWarnings(stats::chisq.test(tab, correct = a$correct))
+      pearson <- suppressWarnings(stats::chisq.test(tab, correct = FALSE))$statistic
+      c(chisq = unname(ct$statistic), df = unname(ct$parameter), p = ct$p.value, n_total = sum(tab),
+        v = unname(sqrt(pearson / (sum(tab) * (min(dim(tab)) - 1)))))
+    },
+    chisq_gof = {
+      tab <- table(d$a)
+      p0 <- if (is.null(a$p0)) rep(1 / length(tab), length(tab)) else a$p0
+      ct <- suppressWarnings(stats::chisq.test(tab, p = p0))
+      c(chisq = unname(ct$statistic), df = unname(ct$parameter), p = ct$p.value, n_total = sum(tab),
+        v = unname(sqrt(ct$statistic / sum(tab))))
+    },
+    anova_oneway = {
+      fit <- summary(stats::aov(y ~ g, data = d))[[1L]]
+      c(f = fit[["F value"]][1L], df1 = fit[["Df"]][1L], df2 = fit[["Df"]][2L],
+        p = fit[["Pr(>F)"]][1L], eta2 = fit[["Sum Sq"]][1L] / sum(fit[["Sum Sq"]]))
+    },
+    anova_factorial = {
+      truth <- factorial_truth(d, a$ss_type)
+      ss_res <- stats::deviance(stats::lm(y ~ a * b, d))
+      out <- c(unlist(lapply(c("A", "B", "AB"), function(e) {
+        stats::setNames(c(truth$f[[e]], truth$df1[[e]], truth$p[[e]], truth$eta2[[e]]),
+                        paste0(c("f_", "df1_", "p_", "eta2_"), e))
+      })), df2 = truth$df2)
+      out
+    },
+    mediation_simple = {
+      fa <- summary(stats::lm(m ~ x, d))$coefficients["x", ]
+      fb <- summary(stats::lm(y ~ x + m, d))$coefficients
+      fc <- summary(stats::lm(y ~ x, d))$coefficients["x", ]
+      n <- nrow(d)
+      path <- function(row, df, nm) stats::setNames(c(row[1:2], row[3], row[4], df),
+        paste0(c("estimate:", "se:", "t:", "p:", "df:"), nm))
+      c(path(fa, n - 2L, "a"), path(fb["m", ], n - 3L, "b"), path(fc, n - 2L, "c"),
+        path(fb["x", ], n - 3L, "c_prime"), indirect = unname(fa[1L] * fb["m", 1L]))
+    },
+    # the lm family: ex$x is the fit; summary() and confint() of base R on the raw data
+    {
+      fit <- ex$x
+      sm <- stats::summary.lm(fit)
+      cf <- sm$coefficients
+      out <- c(stats::setNames(cf[, 1L], paste0("estimate:", rownames(cf))),
+               stats::setNames(cf[, 2L], paste0("se:", rownames(cf))),
+               stats::setNames(cf[, 3L], paste0("t:", rownames(cf))),
+               stats::setNames(cf[, 4L], paste0("p:", rownames(cf))),
+               sigma = sm$sigma, r.squared = sm$r.squared, adj.r.squared = sm$adj.r.squared)
+      if (!is.null(sm$fstatistic)) {
+        out <- c(out, F = unname(sm$fstatistic[["value"]]), numdf = unname(sm$fstatistic[["numdf"]]),
+                 dendf = unname(sm$fstatistic[["dendf"]]))
+      }
+      out
+    })
+}
+
+# The lm confint() bounds from base R against estimate -/+ qt * se rebuilt from the reproduced
+# estimate, SE and residual df (the CI is not among reported(); this checks the quantities a CI
+# is made of at the 95% level). Returns the reproduced bounds named like confint(fit)'s.
+lm_confint_pair <- function(fit, repro) {
+  ci <- stats::confint(fit, level = 0.95)
+  terms <- rownames(ci)
+  est <- repro[paste0("estimate:", terms)]
+  se <- repro[paste0("se:", terms)]
+  q <- stats::qt(0.975, stats::df.residual(fit))
+  list(ref = c(stats::setNames(ci[, 1L], paste0("lower:", terms)),
+               stats::setNames(ci[, 2L], paste0("upper:", terms))),
+       repro = c(stats::setNames(est - q * se, paste0("lower:", terms)),
+                 stats::setNames(est + q * se, paste0("upper:", terms))))
+}
+
+# Both comparisons for one design: returns c(absolute, scaled) against reported(), c(absolute,
+# scaled) against base R, and the number of values compared with base R.
+compare_both <- function(name_base, h, ex, s) {
+  repro <- reprokit:::reproduce(s)
+  ours <- worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), repro)
+  ref <- reference_of(name_base, ex)
+  common <- intersect(names(ref), names(repro))
+  stopifnot(length(common) > 0L, !anyNA(ref[common]), !anyNA(repro[common]))
+  base <- worst_diff(ref[common], repro[common])
+  n_compared <- length(common)
+  if (inherits(ex$x, "lm")) {
+    ci <- lm_confint_pair(ex$x, repro)
+    base_ci <- worst_diff(ci$ref, ci$repro)
+    base <- pmax(base, base_ci)
+    n_compared <- n_compared + length(ci$ref)
+  }
+  c(ours, base_absolute = base[["absolute"]], base_scaled = base[["scaled"]], compared = n_compared)
+}
+
+# One table row from the per-design results (5 x n matrix from vapply).
+row_of <- function(label, diffs) {
+  worst <- apply(diffs[1:4, , drop = FALSE], 1L, max)
+  data.frame(handler = label, designs = ncol(diffs),
+             worst_absolute = signif(worst[["absolute"]], 3),
+             worst_scaled = signif(worst[["scaled"]], 3),
+             base_R_worst_scaled = signif(worst[["base_scaled"]], 3),
+             compared = min(diffs["compared", ]),
+             result = if (max(worst[["scaled"]], worst[["base_scaled"]]) < tolerance &&
+                          min(diffs["compared", ]) > 0) "PASS" else "FAIL")
 }
 
 # One random t-test design: unbalanced groups, unequal SDs, random shift.
@@ -223,6 +367,11 @@ designs <- list(chisq_independence = chisq_independence_design, chisq_gof = chis
                 anova_factorial_unbalanced_III = function() factorial_design(FALSE, "III"),
                 anova_factorial_unbalanced_II = function() factorial_design(FALSE, "II"),
                 anova_factorial_unbalanced_I = function() factorial_design(FALSE, "I"))
+base_design_of <- function(name) {
+  if (name %in% c("lm", "lm_simple", "lm_multiple", "lm_moderation")) return("lm")
+  sub("_(small|large|near)$", "", sub("_(un)?balanced(_[IV]+)?$", "", name)) |>
+    (\(x) if (x == "mediation_simple") x else x)()
+}
 handler_of <- function(name) sub("_(small|large|near)$", "", sub("_(un)?balanced(_I+)?$", "", name))
 
 rows <- lapply(names(designs), function(name) {
@@ -230,13 +379,9 @@ rows <- lapply(names(designs), function(name) {
   diffs <- vapply(seq_len(n_designs), function(i) {
     ex <- designs[[name]]()
     s <- do.call(sufficient_stats, c(list(ex$x), ex$args))
-    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reprokit:::reproduce(s))
-  }, numeric(2))
-  worst <- apply(diffs, 1L, max)
-  data.frame(handler = name, designs = n_designs,
-             worst_absolute = signif(worst[["absolute"]], 3),
-             worst_scaled = signif(worst[["scaled"]], 3),
-             result = if (worst[["scaled"]] < tolerance) "PASS" else "FAIL")
+    compare_both(base_design_of(name), h, ex, s)
+  }, numeric(5))
+  row_of(name, diffs)
 })
 # Result route (ADR 0026): the same designs, shared from the fitted result instead of the
 # formula. The stored summaries must reproduce what the formula route reports on the raw data,
@@ -280,14 +425,19 @@ result_rows <- lapply(names(result_designs), function(name) {
     s <- do.call(sufficient_stats, c(list(result_of(name, ex)), result_args(name, ex),
                                      list(threshold = if (is.null(ex$args$threshold)) 5 else ex$args$threshold)))
     if (!identical(s$verdict, "summaries_suffice") || !identical(s$meta$route, route_of[[name]])) stop(name, ": ", s$verdict, " | ", s$verdict_reason, " | ", s$meta$route)
-    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reprokit:::reproduce(s))
-  }, numeric(2))
-  worst <- apply(diffs, 1L, max)
-  data.frame(handler = paste0(name, "_from_result"), designs = n_designs,
-             worst_absolute = signif(worst[["absolute"]], 3),
-             worst_scaled = signif(worst[["scaled"]], 3),
-             result = if (worst[["scaled"]] < tolerance) "PASS" else "FAIL")
+    compare_both(name, h, ex, s)
+  }, numeric(5))
+  row_of(paste0(name, "_from_result"), diffs)
 })
+# Chi-squared goodness-of-fit result route: sufficient_stats(chisq.test(<counts>)) currently gives
+# needs_raw_data ("'dimnames' applied to non-array", a known package bug being fixed on main), so
+# the case is recorded here as blocked, not run, not counted as a pass, and not worked around.
+gof_probe <- tryCatch(sufficient_stats(suppressWarnings(stats::chisq.test(c(5, 7, 9)))),
+                      error = function(e) NULL)
+gof_result_blocked <- is.null(gof_probe) || !identical(gof_probe$verdict, "summaries_suffice")
+cat("\nchisq_gof from a chisq.test() result: ",
+    if (gof_result_blocked) "BLOCKED by known package bug (needs_raw_data, 'dimnames' applied to non-array); re-run after the fix"
+    else "route works (add it to result_designs)", "\n", sep = "")
 
 # Mediation from two models: sufficient_stats(lm(M ~ X), lm(Y ~ X + M)) must give the same
 # summaries as the formula route (same handler, same round trip).
@@ -298,14 +448,14 @@ med_rows <- lapply(c("small", "large", "near"), function(size) {
     d <- ex$args$data
     s <- sufficient_stats(stats::lm(m ~ x, data = d), stats::lm(y ~ x + m, data = d))
     stopifnot(identical(s$verdict, "summaries_suffice"), identical(s$handler, "mediation_simple"))
-    worst_diff(do.call(h$reported, c(list(ex$x), ex$args)), reprokit:::reproduce(s))
-  }, numeric(2))
-  worst <- apply(diffs, 1L, max)
-  data.frame(handler = paste0("mediation_two_models_", size), designs = n_designs,
-             worst_absolute = signif(worst[["absolute"]], 3),
-             worst_scaled = signif(worst[["scaled"]], 3),
-             result = if (worst[["scaled"]] < tolerance) "PASS" else "FAIL")
+    compare_both("mediation_simple", h, ex, s)
+  }, numeric(5))
+  row_of(paste0("mediation_two_models_", size), diffs)
 })
-print(do.call(rbind, c(rows, result_rows, med_rows)), row.names = FALSE)
+table_out <- do.call(rbind, c(rows, result_rows, med_rows))
+print(table_out, row.names = FALSE)
+pass <- all(table_out$result == "PASS")
+cat(if (pass) "\nPASS" else "\nFAIL", ": ", sum(table_out$result == "PASS"), " of ", nrow(table_out),
+    " rows within ", format(tolerance), " (scaled) of reported() and of base R on the raw data\n", sep = "")
 
-record_stop()
+finish_validation(pass)

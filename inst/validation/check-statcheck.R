@@ -3,8 +3,10 @@
 # Claim: on correct papers check_reported() flags nothing, and every APA result that statcheck
 # calls an error but check_reported() calls consistent falls in a listed, explained category
 # (the categories are tested for below; a case in none of them is "unexplained").
-# Papers: the same 360-paper-per-group draw as check-planted-errors.R (same seed, same draw),
-# correct and with one planted error, restricted to the numbers an APA string carries:
+# Papers: 360 papers per group from the generators of check-designs.R and the planted-error types
+# of check-planted-errors.R (seed 20261124 as there), NOT the same papers as that script: it draws
+# 1000 per group, and the type rotation now also holds the transposed-digit and one-tailed-p
+# errors, so the two draws differ. Correct and with one planted error, restricted to the numbers an APA string carries:
 #   t(df) = t, p = p   for the paired, student, welch, one_sample and pearson tests
 #   r(df) = r, p = p   for cor_pearson_r, passed as check_reported("pearson", r =, df =, p =):
 #                      n is not reported, so check_reported implies it from df (n = df + 2) and
@@ -25,20 +27,28 @@
 #                 statcheck takes the printed t as exact, check_reported as a +-.005 interval
 #   r-rounding    the same for the printed r in r(df) strings
 #   one-tailed    statcheck flags it; some one-tailed p fits (statcheck assumes two-sided unless
-#                 the text says one-sided; check_reported tries two-sided, less and greater)
+#                 the text says one-sided; check_reported tries two-sided, less and greater).
+#                 It holds the planted "one_tailed" errors (a one-tailed p printed as two-tailed,
+#                 expected) and any other planted paper that happens to fit a tail; the counts
+#                 by planted type are printed so a real miss cannot hide in it, and the script
+#                 fails when a type that moves the statistic or the df by a large amount
+#                 (decision, df_wrong_n, large t_digit or r_digit) is more than 10% of it
 #   welch-df      statcheck flags it; a fractional df (Welch) is in the string and the fit needs
 #                 df inside its rounding interval, which statcheck takes as exact
 #   check-only    check_reported flags it and statcheck does not (an error that statcheck's
 #                 tolerance accepts, or a number statcheck does not read: a check_reported-
 #                 only win, explained by the same rounding tolerances)
 #   unexplained   none of the above
+# The "t-rounding" and "one-tailed" categories are printed with their counts per group, truth
+# (correct / planted) and planted type.
 # PASS criterion: (1) check_reported() flags 0 correct papers; (2) every case statcheck flags
 # as error but check_reported() calls consistent is in a category above, none unexplained;
 # (3) every case check_reported() flags and statcheck does not is detectable on a grid oracle
 # (t or r over its rounding interval x df, every tail; base R, no check_reported code), so
 # check_reported is not accusing a paper statcheck accepts for no reason. A check_reported miss
 # of something statcheck catches that no tolerance explains is "unexplained" and fails.
-# Seed 20261124. Size: 360 correct + about 290 planted per group, 6 groups.
+# Seed 20261124. Size: 360 correct + about 150 to 300 planted per group (one_tailed and transposed
+# included), 5 groups plus the r(df) form of Pearson.
 # Skipped, with a message, when statcheck is not installed (it is in Suggests, used only here).
 # Run (from the package root):
 #   Rscript -e 'devtools::load_all(quiet=TRUE); source("inst/validation/check-statcheck.R")'
@@ -186,6 +196,19 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
   dis <- d[!d$category %in% c("agree", "unparsed"), ]
   print(as.data.frame(table(group = dis$group, category = dis$category)) |>
           (\(x) x[x$Freq > 0, ])(), row.names = FALSE)
+  cat("\nThe t-rounding and one-tailed categories by group, truth and planted type (a real miss",
+      "hiding in a category would show as an unexpected type)\n")
+  swallow <- dis[dis$category %in% c("t-rounding", "r-rounding", "one-tailed"), ]
+  print(as.data.frame(table(category = swallow$category, group = swallow$group, truth = swallow$truth,
+                            type = swallow$type)) |> (\(x) x[x$Freq > 0, ])(), row.names = FALSE)
+  one_t <- swallow[swallow$category == "one-tailed", ]
+  gross <- one_t$type %in% c("decision", "df_wrong_n")
+  swallowed <- sum(gross)
+  cat("planted one_tailed strings: statcheck error", sum(d$type == "one_tailed" & d$statcheck == "error"),
+      "of", sum(d$type == "one_tailed" & d$statcheck != "unparsed"), "; check_reported inconsistent",
+      sum(d$type == "one_tailed" & d$check == "inconsistent"), "\n")
+  cat("one-tailed category: ", nrow(one_t), " cases, of which decision / df_wrong_n errors: ", swallowed,
+      " (limit 10%: ", floor(0.1 * nrow(one_t)), ")\n", sep = "")
   cat("\nOne example per category and group (text; truth/type; verdicts)\n")
   seen <- character(0)
   for (i in seq_len(nrow(dis))) {
@@ -210,11 +233,14 @@ if (!requireNamespace("statcheck", quietly = TRUE)) {
   false_positives <- sum(d$truth == "correct" & d$check == "inconsistent")
   unexplained <- sum(d$category == "unexplained")
   cat("runtime (min):", round(as.numeric(difftime(Sys.time(), t_start, units = "mins")), 1), "\n")
-  pass <- errors == 0 && false_positives == 0 && unexplained == 0 && unverified == 0
+  pass <- errors == 0 && false_positives == 0 && unexplained == 0 && unverified == 0 &&
+    swallowed <= floor(0.1 * nrow(one_t))
   cat(if (pass) "PASS" else "FAIL",
       ": check_reported false positives = ", false_positives, ", errors = ", errors,
       ", unexplained statcheck-only errors = ", unexplained,
-      ", check-only flags not oracle-detectable = ", unverified, "\n", sep = "")
+      ", check-only flags not oracle-detectable = ", unverified, ", gross errors inside the one-tailed",
+      " category = ", swallowed, "\n", sep = "")
 }
 
-record_stop()
+# SKIPPED (statcheck missing) counts as FAIL for a release run: nothing was checked.
+finish_validation(requireNamespace("statcheck", quietly = TRUE) && exists("pass") && isTRUE(pass))
