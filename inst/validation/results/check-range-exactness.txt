@@ -262,4 +262,4 @@ p from t on a box spanning t = 0: upper bound is 1 in 50 of 50 boxes; named case
 
 PASS: regression ranges, escaped draws = 0, vertex mismatches = 0, skipped boxes = 9
 
-PASS: all range-exactness sections (cores: 7, runtime 18.1 min)
+PASS: all range-exactness sections (cores: 8, runtime 3.5 min)

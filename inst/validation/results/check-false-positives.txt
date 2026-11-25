@@ -4,7 +4,7 @@ package: reprokit 0.1.0
 date: 2026-11-25
 R: R version 4.6.1 (2026-06-24)
 
-tasks: 690 chunks of up to 15 designs; cores: 7 
+tasks: 690 chunks of up to 15 designs; cores: 8 
                       handler designs checks checked % min % ties |r|>=.995
                      t_paired     300   3020      65.9    60    0        59
                    t_paired_d     300   1500      37.5    30    0        51
@@ -72,10 +72,10 @@ tasks: 690 chunks of up to 15 designs; cores: 7
     0        0     0   0          0        0         0               0      0
     0        0     0   0          0        0         0               0      0
     0        0     0   0          0        0         0               0      0
-    0        0     0   0          0      300         0            1107      0
+    0        0     0   0          0      300         0               0      0
    62       66     0   0          0        0         0               0      0
    72       56     0   0          0        0         0               0      0
-    0        0     0   0          0      298         0             734      0
+    0        0     0   0          0      298         0               0      0
    40       64     0   0          0        0         0               0      0
    16       36     0   0          0        0         0               0      0
    30        0     0   0          0        0         0               0      0
@@ -91,146 +91,90 @@ tasks: 690 chunks of up to 15 designs; cores: 7
     0        0     0   0          0        0         0               0      0
 
 Status of every reported number, per handler/variant:
-                      handler coherent inconsistent not checkable
-                     t_paired     7796            0          2261
-                   t_paired_d     3260            0          2194
-                  cor_pearson     4721            0           798
-        t_independent_student     7166            0           324
-          t_independent_welch     7000            0           329
-                 t_one_sample     7113            0           662
-                 anova_oneway     8077            0           719
- anova_oneway_negative_omega2    12937            0          1159
-              anova_factorial     8805            0           369
-          anova_factorial_2x2     9409            0            50
-           chisq_independence     4101            0             0
-       chisq_independence_2x2     4349            0             0
-                    chisq_gof     5659            0             0
-             chisq_gof_w_gt_1     5679            0             0
-                    lm_simple    32082            0          1231
-           lm_simple_weighted    32022            0          1215
-                  lm_multiple    57985            0          6277
-           lm_multiple_factor    61071            0          6670
-         lm_multiple_weighted    59997            0          6516
-                lm_moderation    59275            0          6287
-       lm_moderation_weighted    58004            0          6242
-              mediation_small    79411            0          7412
-              mediation_large    79232            0          7360
-              mediation_mixed    79164            0          7353
-        t_welch_df_0_decimals     4532         3617           326
-               likert_student     7102            0           314
-                 likert_welch     7082            0           325
-   likert_welch_df_0_decimals     5506         2358           328
-            likert_one_sample     7161            0           659
-                likert_paired     4910            0          1216
-               likert_pearson     4919            0           642
-             one_sided_paired     4638            0          1150
-            one_sided_pearson     2837            0           378
-            one_sided_student     4161            0           158
-              one_sided_welch     4012            0           164
-         one_sided_one_sample     4188            0           330
-     one_sided_likert_student     5425            0           215
-  one_sided_likert_one_sample     5558            0           449
-            lm_simple_small_n    16039            0           615
-          lm_multiple_small_n    29519            0          3221
-        lm_moderation_small_n    29253            0          3213
- not reproducible unconfirmed verified
-               41        1718     3944
-               25         365     1781
-                0         552     3331
-                0        1574     4711
-                0        1817     4621
-                0         854     4874
-                0         676     4600
-                0        1075     7412
-                0        1923     3034
-                0         404     4200
-               14         143     3293
-              111         366     3627
-                0         149     3159
-                0         128     3216
-              568        1770     4395
-              568        1782     4410
-             2318        5028     2630
-             2498        5175     2652
-             2424        4967     2661
-             2304        4831     2680
-             2288        5077     2610
-                0        6899    10808
-                0        7143    10696
-                0        7152    10800
-                0        1819     3420
-                0        1606     4761
-                0        1563     4734
-                0        1510     3928
-                0         722     4955
-               18         878     2532
-                0         291     3755
-               22         869     2592
-                0         209     2138
-                0         825     2982
-                0        1135     2808
-                0         374     3060
-                0        1064     3959
-                0         512     4089
-              288         899     2206
-             1198        2582     1326
-             1182        2481     1337
-
-FALSE POSITIVE t_welch_df_0_decimals (chunk t_welch_df_0_decimals#1 of seed 20261123 L'Ecuyer-CMRG): 
-List of 9
- $ n       : chr [1:2] "30" "10"
- $ m       : chr [1:2] "0.50" "-0.72"
- $ sd      : chr [1:2] "3.50" "3.29"
- $ t       : chr "1.01"
- $ df      : chr "16"
- $ p       : chr "0.329"
- $ ci_lower: chr "-0.90"
- $ ci_upper: chr "3.36"
- $ d       : chr "0.36"
-
-FALSE POSITIVE t_welch_df_0_decimals (chunk t_welch_df_0_decimals#1 of seed 20261123 L'Ecuyer-CMRG): 
-List of 7
- $ n : chr [1:2] "30" "10"
- $ m : chr [1:2] "0.50" "-0.72"
- $ sd: chr [1:2] "3.50" "3.29"
- $ t : chr "1.01"
- $ df: chr "16"
- $ p : chr "0.329"
- $ d : chr "0.36"
-
-FALSE POSITIVE t_welch_df_0_decimals (chunk t_welch_df_0_decimals#1 of seed 20261123 L'Ecuyer-CMRG): 
-List of 4
- $ n : chr [1:2] "30" "10"
- $ m : chr [1:2] "0.50" "-0.72"
- $ sd: chr [1:2] "3.50" "3.29"
- $ df: chr "16"
-
-FALSE POSITIVE likert_welch_df_0_decimals (chunk likert_welch_df_0_decimals#1 of seed 20261123 L'Ecuyer-CMRG): 
-List of 8
- $ n       : chr [1:2] "16" "4"
- $ m       : chr [1:2] "4.56" "3.50"
- $ sd      : chr [1:2] "1.63" "2.08"
- $ t       : chr "0.95"
- $ df      : chr "4"
- $ p       : chr "0.396"
- $ ci_lower: chr "-1.33"
- $ ci_upper: chr "3.45"
-
-FALSE POSITIVE likert_welch_df_0_decimals (chunk likert_welch_df_0_decimals#1 of seed 20261123 L'Ecuyer-CMRG): 
-List of 6
- $ n : chr [1:2] "16" "4"
- $ m : chr [1:2] "4.56" "3.50"
- $ sd: chr [1:2] "1.63" "2.08"
- $ t : chr "0.95"
- $ df: chr "4"
- $ p : chr "0.396"
-
-FALSE POSITIVE likert_welch_df_0_decimals (chunk likert_welch_df_0_decimals#1 of seed 20261123 L'Ecuyer-CMRG): 
-List of 4
- $ n : chr [1:2] "16" "4"
- $ m : chr [1:2] "4.56" "3.50"
- $ sd: chr [1:2] "1.63" "2.08"
- $ df: chr "4"
+                      handler coherent not checkable not reproducible
+                     t_paired     7796          2261               41
+                   t_paired_d     3260          2194               25
+                  cor_pearson     4721           798                0
+        t_independent_student     7166           324                0
+          t_independent_welch     7000           329                0
+                 t_one_sample     7113           662                0
+                 anova_oneway     8077           719                0
+ anova_oneway_negative_omega2    12937          1159                0
+              anova_factorial     8805           369                0
+          anova_factorial_2x2     9409            50                0
+           chisq_independence     4101             0               14
+       chisq_independence_2x2     4349             0              111
+                    chisq_gof     5659             0                0
+             chisq_gof_w_gt_1     5679             0                0
+                    lm_simple    32082          1231              568
+           lm_simple_weighted    32022          1215              568
+                  lm_multiple    57985          6277             2318
+           lm_multiple_factor    61071          6670             2498
+         lm_multiple_weighted    59997          6516             2424
+                lm_moderation    59275          6287             2304
+       lm_moderation_weighted    58004          6242             2288
+              mediation_small    79411          7412                0
+              mediation_large    79232          7360                0
+              mediation_mixed    79164          7353                0
+        t_welch_df_0_decimals     6961           326                0
+               likert_student     7102           314                0
+                 likert_welch     7082           325                0
+   likert_welch_df_0_decimals     7082           328                0
+            likert_one_sample     7161           659                0
+                likert_paired     4910          1216               18
+               likert_pearson     4919           642                0
+             one_sided_paired     4638          1150               22
+            one_sided_pearson     2837           378                0
+            one_sided_student     4161           158                0
+              one_sided_welch     4012           164                0
+         one_sided_one_sample     4188           330                0
+     one_sided_likert_student     5425           215                0
+  one_sided_likert_one_sample     5558           449                0
+            lm_simple_small_n    16039           615              288
+          lm_multiple_small_n    29519          3221             1198
+        lm_moderation_small_n    29253          3213             1182
+ unconfirmed verified
+        1718     3944
+         365     1781
+         552     3331
+        1574     4711
+        1817     4621
+         854     4874
+         676     4600
+        1075     7412
+        1923     3034
+         404     4200
+         143     3293
+         366     3627
+         149     3159
+         128     3216
+        1770     4395
+        1782     4410
+        5028     2630
+        5175     2652
+        4967     2661
+        4831     2680
+        5077     2610
+        6899    10808
+        7143    10696
+        7152    10800
+        1819     4608
+        1606     4761
+        1563     4734
+        1510     4710
+         722     4955
+         878     2532
+         291     3755
+         869     2592
+         209     2138
+         825     2982
+        1135     2808
+         374     3060
+        1064     3959
+         512     4089
+         899     2206
+        2582     1326
+        2481     1337
 
 one-way designs with F < 1 and a negative omega2 checked and not flagged: 482 
 goodness-of-fit designs with w > 1 checked and not flagged: 276 
@@ -244,6 +188,6 @@ integer-data draws printed half-even and half-up that met an exact tie (the two 
 one_sided_likert_one_sample 
                           7 
 not tested: one-sided papers for oneway, factorial, chisq, gof (upper-tail tests, no tail to state), lm and mediation (no tail variant)
-runtime (min): 48.3 
+runtime (min): 13.1 
 
-FAIL: false positives = 1841, errors = 0, groups below their checked-share minimum = 0
+PASS: false positives = 0, errors = 0, groups below their checked-share minimum = 0
