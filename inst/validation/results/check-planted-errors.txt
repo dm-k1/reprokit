@@ -1,7 +1,7 @@
 script: inst/validation/check-planted-errors.R
 seed: 20261124, 20261125
 package: reprokit 0.1.0
-date: 2026-11-25
+date: 2026-11-26
 R: R version 4.6.1 (2026-06-24)
 
 Detection by handler x error type x reported subset
@@ -404,7 +404,7 @@ one-tailed p printed as two-tailed (expected undetectable, not a criterion): pap
 
 pooled large-error rates (%): decision_all = 100, decision_tdfp = 100, decision_desc = 99.8, decision_rdfp = 84, df_wrong_n_all = 99.5, m_large_all = 91.8 
 informational: lowest handler rate, decision/df_wrong_n/m_change-large on all (%): 76.5 
-planted papers: 6000  checks: 17134  runtime (min): 9.4 
+planted papers: 6000  checks: 17134  runtime (min): 3.9 
 PASS: errors = 0, oracle-detectable not flagged = 0, oracle-undetectable flagged = 0, flagged on a subset but not on all = 0, oracle-detectable on a subset but not flagged on all = 0, cells never flagged = 0 (lowest large-error rate, informational = 76.5%)
 
 == Chi-squared planted errors: detection by handler x type x subset ==

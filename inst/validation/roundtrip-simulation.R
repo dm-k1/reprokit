@@ -424,7 +424,7 @@ result_rows <- lapply(names(result_designs), function(name) {
     if (name == "chisq_independence") ex$args$threshold <- 1
     s <- do.call(sufficient_stats, c(list(result_of(name, ex)), result_args(name, ex),
                                      list(threshold = if (is.null(ex$args$threshold)) 5 else ex$args$threshold)))
-    if (!identical(s$verdict, "summaries_suffice") || !identical(s$meta$route, route_of[[name]])) stop(name, ": ", s$verdict, " | ", s$verdict_reason, " | ", s$meta$route)
+    if (!(s$verdict %in% c("apa_suffices", "apa_plus_suffices")) || !identical(s$meta$route, route_of[[name]])) stop(name, ": ", s$verdict, " | ", s$verdict_reason, " | ", s$meta$route)
     compare_both(name, h, ex, s)
   }, numeric(5))
   row_of(paste0(name, "_from_result"), diffs)
@@ -434,7 +434,7 @@ result_rows <- lapply(names(result_designs), function(name) {
 # the case is recorded here as blocked, not run, not counted as a pass, and not worked around.
 gof_probe <- tryCatch(sufficient_stats(suppressWarnings(stats::chisq.test(c(5, 7, 9)))),
                       error = function(e) NULL)
-gof_result_blocked <- is.null(gof_probe) || !identical(gof_probe$verdict, "summaries_suffice")
+gof_result_blocked <- is.null(gof_probe) || !(gof_probe$verdict %in% c("apa_suffices", "apa_plus_suffices"))
 cat("\nchisq_gof from a chisq.test() result: ",
     if (gof_result_blocked) "BLOCKED by known package bug (needs_raw_data, 'dimnames' applied to non-array); re-run after the fix"
     else "route works (add it to result_designs)", "\n", sep = "")
@@ -447,7 +447,7 @@ med_rows <- lapply(c("small", "large", "near"), function(size) {
     ex <- mediation_design(size)
     d <- ex$args$data
     s <- sufficient_stats(stats::lm(m ~ x, data = d), stats::lm(y ~ x + m, data = d))
-    stopifnot(identical(s$verdict, "summaries_suffice"), identical(s$handler, "mediation_simple"))
+    stopifnot(s$verdict == "apa_plus_suffices", identical(s$handler, "mediation_simple"))
     compare_both("mediation_simple", h, ex, s)
   }, numeric(5))
   row_of(paste0("mediation_two_models_", size), diffs)

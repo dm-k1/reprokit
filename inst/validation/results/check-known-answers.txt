@@ -1,7 +1,7 @@
 script: inst/validation/check-known-answers.R
 seed: none (fixed cases)
 package: reprokit 0.1.0
-date: 2026-11-25
+date: 2026-11-26
 R: R version 4.6.1 (2026-06-24)
 
 == Table 7.8, row 2: recomputed ranges beside the reported values ==
@@ -262,5 +262,18 @@ PASS: regression known answers (13/13)
                 mediation F (a, b, c)  TRUE
 
 PASS: appendix extras known answers (12/12)
+
+-- verdict tiers and covered identities --
+                                                     check holds
+                       every v1 test has the expected tier  TRUE
+                  simple regression: standardized beta = r  TRUE
+                   simple regression: sign(b) sqrt(R2) = r  TRUE
+                  simple regression: t / sqrt(t2 + df) = r  TRUE
+               simple regression from data is apa_suffices  TRUE
+                   uniform goodness of fit is apa_suffices  TRUE
+               unequal H0 proportions is apa_plus_suffices  TRUE
+ typed paired numbers give apa_plus_suffices, no summaries  TRUE
+
+PASS: tier per test and covered identities (8/8)
 
 PASS: all known-answer sections

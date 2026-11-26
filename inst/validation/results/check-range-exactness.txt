@@ -1,7 +1,7 @@
 script: inst/validation/check-range-exactness.R
 seed: 20261123, 20261125
 package: reprokit 0.1.0
-date: 2026-11-25
+date: 2026-11-26
 R: R version 4.6.1 (2026-06-24)
 
                                               relation boxes escaped_samples
@@ -312,4 +312,4 @@ PASS: regression ranges, escaped draws = 0, vertex mismatches = 0, skipped boxes
 
 PASS: cross-complete ranges, escaped draws = 0, relations with no finite box = 0
 
-PASS: all range-exactness sections (cores: 8, runtime 6.7 min)
+PASS: all range-exactness sections (cores: 8, runtime 7.5 min)

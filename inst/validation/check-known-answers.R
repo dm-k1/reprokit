@@ -620,15 +620,15 @@ sm_a <- summary(lm(hp ~ wt, mt))
 sm_b <- summary(lm(mpg ~ wt + hp, mt))
 sm_c <- summary(lm(mpg ~ wt, mt))
 checks7 <- c(
-  `lm beta (wt)` = identical(extra_value(lm_txt, "beta (wt)"), unbounded2(beta_ref[["scale(wt)"]])),
-  `lm beta (hp)` = identical(extra_value(lm_txt, "beta (hp)"), unbounded2(beta_ref[["scale(hp)"]])),
+  `lm beta (wt)` = identical(extra_value(lm_txt, "β (standardized), wt"), unbounded2(beta_ref[["scale(wt)"]])),
+  `lm beta (hp)` = identical(extra_value(lm_txt, "β (standardized), hp"), unbounded2(beta_ref[["scale(hp)"]])),
   `Student R2` = identical(extra_value(t_txt, "R²"), apa2(t2 / (t2 + unname(st$parameter)))),
-  `Student eta2` = identical(extra_value(t_txt, "eta2"), apa2(t2 / (t2 + unname(st$parameter)))),
+  `Student eta2` = identical(extra_value(t_txt, "η²"), apa2(t2 / (t2 + unname(st$parameter)))),
   `Pearson R2` = identical(extra_value(p_txt, "R²"), apa2(r2)),
-  `Pearson adjusted R2` = identical(extra_value(p_txt, "Adjusted R²"),
+  `Pearson adjusted R2` = identical(extra_value(p_txt, "adjusted R²"),
                                     apa2(1 - (1 - r2) * (nrow(mt) - 1) / (nrow(mt) - 2))),
   `one-way R2` = identical(extra_value(o_txt, "R²"), apa2(ssb / sst)),
-  `one-way omega2` = identical(extra_value(o_txt, "omega2"),
+  `one-way omega2` = identical(extra_value(o_txt, "ω²"),
                                apa2((ssb - aov1[1L, "Df"] * aov1[2L, "Mean Sq"]) / (sst + aov1[2L, "Mean Sq"]))),
   `factorial partial eta2 (supp)` = grepl(apa2(dr["supp", "Sum of Sq"] / (dr["supp", "Sum of Sq"] + sse)), f_txt, fixed = TRUE),
   `factorial partial eta2 (interaction)` = grepl(apa2(dr["supp:dose", "Sum of Sq"] / (dr["supp:dose", "Sum of Sq"] + sse)), f_txt, fixed = TRUE),
@@ -638,6 +638,52 @@ cat("\n-- appendix extras against base R --\n")
 print(data.frame(extra = names(checks7), holds = unname(checks7)), row.names = FALSE)
 cat(if (all(checks7)) "\nPASS" else "\nFAIL", ": appendix extras known answers (", sum(checks7), "/", length(checks7), ")\n", sep = "")
 
-all_pass <- all(checks) && all(checks2) && all(checks3) && all(checks4) && all(checks5) && all(checks6) && all(checks7)
+# Section 8: the tier per v1 test, and the identity behind each covered addition.
+# The tier follows from the declared additions (sufficient minus APA): none open gives
+# apa_suffices, any open one gives apa_plus_suffices. Expected tiers are written here by hand,
+# from the statistics (r of a paired t is only bounded by t and the descriptives; a regression
+# with several predictors needs the predictor correlations; a goodness-of-fit H0 is an addition
+# only when the proportions are not equal), not read back from the registry.
+# The covered identity for simple regression is checked against base R at 1e-12.
+ct <- coverage_table()
+tier_of <- stats::setNames(ct$verdict, ct$test)
+expected_tier <- c(
+  "Pearson correlation test" = "apa_suffices",
+  "Paired-samples t-test" = "apa_plus_suffices",
+  "Moderation" = "apa_plus_suffices",
+  "Multiple regression" = "apa_plus_suffices",
+  "Simple mediation" = "apa_plus_suffices",
+  "Simple regression" = "apa_suffices",
+  "Chi-squared goodness of fit" = "apa_plus_suffices",
+  "Chi-squared test of independence" = "apa_suffices",
+  "Factorial ANOVA, two factors (between-subjects)" = "apa_suffices",
+  "Independent-samples t-test (Student, Welch)" = "apa_suffices",
+  "One-sample t-test" = "apa_suffices",
+  "One-way ANOVA (between-subjects)" = "apa_suffices")
+fit1 <- lm(mpg ~ wt, mt)
+r_true <- cor(mt$wt, mt$mpg)
+t1 <- summary(fit1)$coefficients["wt", "t value"]
+checks8 <- c(
+  `every v1 test has the expected tier` = identical(sort(names(tier_of)), sort(names(expected_tier))) &&
+    all(tier_of[names(expected_tier)] == expected_tier),
+  `simple regression: standardized beta = r` =
+    abs(unname(coef(lm(scale(mpg) ~ scale(wt), mt))[2L]) - r_true) < 1e-12,
+  `simple regression: sign(b) sqrt(R2) = r` =
+    abs(sign(coef(fit1)[["wt"]]) * sqrt(summary(fit1)$r.squared) - r_true) < 1e-12,
+  `simple regression: t / sqrt(t2 + df) = r` = abs(t1 / sqrt(t1^2 + fit1$df.residual) - r_true) < 1e-12,
+  `simple regression from data is apa_suffices` = identical(sufficient_stats(fit1)$verdict, "apa_suffices"),
+  `uniform goodness of fit is apa_suffices` =
+    identical(sufficient_stats(~ cyl, data = mt, test = "gof")$verdict, "apa_suffices"),
+  `unequal H0 proportions is apa_plus_suffices` =
+    identical(sufficient_stats(~ cyl, data = mt, test = "gof", p0 = c(.5, .3, .2))$verdict, "apa_plus_suffices"),
+  `typed paired numbers give apa_plus_suffices, no summaries` = {
+    ty <- sufficient_stats(test = "paired", n = "30", m = c("5.1", "4.6"), sd = c("1.2", "1.3"))
+    identical(ty$verdict, "apa_plus_suffices") && identical(ty$meta$route, "typed") && is.null(ty$stats)
+  })
+cat("\n-- verdict tiers and covered identities --\n")
+print(data.frame(check = names(checks8), holds = unname(checks8)), row.names = FALSE)
+cat(if (all(checks8)) "\nPASS" else "\nFAIL", ": tier per test and covered identities (", sum(checks8), "/", length(checks8), ")\n", sep = "")
+
+all_pass <- all(checks) && all(checks2) && all(checks3) && all(checks4) && all(checks5) && all(checks6) && all(checks7) && all(checks8)
 cat(if (all_pass) "\nPASS" else "\nFAIL", ": all known-answer sections\n", sep = "")
 finish_validation(all_pass)

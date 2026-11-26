@@ -1,7 +1,7 @@
 script: inst/validation/check-false-positives.R
 seed: 20261123
 package: reprokit 0.1.0
-date: 2026-11-25
+date: 2026-11-26
 R: R version 4.6.1 (2026-06-24)
 
 tasks: 690 chunks of up to 15 designs; cores: 8 
@@ -188,6 +188,6 @@ integer-data draws printed half-even and half-up that met an exact tie (the two 
 one_sided_likert_one_sample 
                           7 
 not tested: one-sided papers for oneway, factorial, chisq, gof (upper-tail tests, no tail to state), lm and mediation (no tail variant)
-runtime (min): 37 
+runtime (min): 28.6 
 
 PASS: false positives = 0, errors = 0, groups below their checked-share minimum = 0
