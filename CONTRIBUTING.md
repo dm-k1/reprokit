@@ -5,7 +5,7 @@
 1. Open a "New handler" issue: analysis, verdict, sufficient statistics, catch,
    reference implementation, what is lost.
 2. Add `R/handler-<name>.R` that calls `register_handler()` from `.onLoad()`.
-3. A `summaries_suffice` handler must supply `summarise`, `reproduce`, `reported` and an `example`
+3. An `apa_suffices` handler must declare `additions` (its sufficient quantities beyond the APA set, each marked covered by an exact identity or not; the tier follows from them) and supply `summarise`, `reproduce`, `reported` and an `example`
    model; the round-trip test in `test-infra-registry.R` then covers it automatically.
 4. Add refusal tests for what the handler cannot do (`class = "reprokit_impossible"`; a wrong call is `reprokit_error_input`).
 5. Document the evidence in `vignettes/validation.Rmd`.

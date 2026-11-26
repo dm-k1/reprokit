@@ -56,8 +56,8 @@ If a test has any, a paper that follows APA style does not give readers enough t
 reproduce the result. For the paired t-test the missing number is the correlation
 between the two conditions. `appendix()` prints these in block B.
 
-**Verdict.** The outcome of `sufficient_stats()`: `summaries_suffice`,
-`synthetic_possible` or `needs_raw_data` (see `verdicts()`). A verdict is advice
+**Verdict.** The outcome of `sufficient_stats()`: `apa_suffices`,
+`apa_plus_suffices` or `needs_raw_data` (see `verdicts()`). A verdict is advice
 about what is enough; it is not a judgement on the author.
 
 **Verdict only.** Version 0.1.0 stores statistics and checks reported numbers for

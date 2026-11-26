@@ -67,10 +67,17 @@ Then open them with `vignette("reprokit")`. Without installing, read them on the
 `sufficient_stats()` says whether summaries suffice. It never errors on the
 verdict, which is one of:
 
-* `summaries_suffice`: summary statistics determine the reported results exactly.
-* `synthetic_possible`: summaries do not suffice, but synthetic data could.
-* `needs_raw_data`: neither works, or the groups are so small that summaries are
-  almost the data.
+* `apa_suffices`: the numbers APA style asks for determine the reported results exactly.
+* `apa_plus_suffices`: a few numbers beyond APA style are needed (for the paired t-test,
+  the correlation between conditions). The advice names each one, says why, and gives the
+  range the APA numbers imply.
+* `needs_raw_data`: summaries do not suffice, or the groups are so small that summaries
+  are almost the data.
+
+Every verdict says that sharing the raw data remains the standard (APA Publication
+Manual section 1.14, Ethics Code 8.14). You can also get a verdict from typed numbers
+alone, without a model or data: `sufficient_stats(test = "paired", n = "30",
+m = c("5.1", "4.6"), sd = c("1.2", "1.3"))`.
 
 The printed object narrates the verdict, what to publish, what readers lose, and
 which group or cell a disclosure flag fired for. It stores the statistics at full
@@ -256,8 +263,8 @@ function names and output may still change. In this version:
   whether the analysis was appropriate, whether the data are plausible, or
   which number is wrong.
 * It cannot replace the raw data. For analyses where summaries do not suffice,
-  or that are outside the list above, `sufficient_stats()` says so (`synthetic_possible`
-  or `needs_raw_data`) and lists the alternatives; `appendix()` refuses.
+  or that are outside the list above, `sufficient_stats()` says so (`needs_raw_data`)
+  and lists the alternatives; `appendix()` refuses.
 * The disclosure check flags groups, cells, categories and factor levels with
   fewer than 5 cases (the default `threshold`). It lowers the risk of
   identifying a participant; it never removes it, and passing it is not a

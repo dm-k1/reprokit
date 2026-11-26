@@ -65,10 +65,13 @@ suffice, because ..." is an answer, and the printed object narrates it: the
 verdict and why, what to publish, what readers lose, and which group or cell a
 disclosure flag fired for. There are three verdicts:
 
-* `summaries_suffice`: the summary statistics determine the reported results
+* `apa_suffices`: the numbers APA style asks for determine the reported results
   exactly, and are not so close to the raw data that sharing them gains nothing.
-* `synthetic_possible`: summaries do not suffice, but synthetic data could.
-* `needs_raw_data`: neither works. The raw data are needed.
+* `apa_plus_suffices`: a few more numbers are needed. The advice names each one, says
+  why, and, when the APA numbers bound it, gives the range they imply.
+* `needs_raw_data`: summaries do not suffice. The raw data are needed.
+
+Every verdict ends by saying that sharing the raw data remains the standard.
 
 `needs_raw_data` is also the verdict when the groups are so small that the
 summaries are almost the data. By default, no group may rest on fewer than 5
@@ -99,8 +102,8 @@ Fitted `lm`, `aov` and `chisq.test()` results work without `data`. For a
 mediation give the two regressions, `sufficient_stats(lm(M ~ X), lm(Y ~ X + M))`.
 
 If the groups are too small, the verdict is `needs_raw_data`, the disclosure flag
-is named, and the alternatives are listed: share the raw data, share synthetic
-data, or offer federated analysis.
+is named, and the alternatives are listed: share the raw data, or offer
+federated analysis.
 
 ```{r}
 tiny <- sleep[c(1:3, 11:13), ]
@@ -280,8 +283,8 @@ check_reported("paired", n = "10", m = c("0.75", "2.33"), sd = c("1.79", "2.00")
 
 Here the paired t-test needs the correlation r between conditions. It was not
 reported, but t and the descriptives imply that it lies between 0.7912 and
-0.7982. The message "Reporting these would raise the level" says what to ask the
-authors for.
+0.7982. The closing line "Also report r (to level 3) to make this fully checkable." says what to
+ask the authors for.
 
 ### Derived quantities, and correlations
 

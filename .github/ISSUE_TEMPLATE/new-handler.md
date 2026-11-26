@@ -6,7 +6,9 @@ labels: handler
 
 **Analysis**: (e.g. Welch t-test)
 
-**Verdict claimed**: summaries_suffice / synthetic_possible / needs_raw_data
+**Verdict claimed**: apa_suffices / apa_plus_suffices / needs_raw_data
+
+**Additions beyond APA** (and which an exact identity covers):
 
 **Sufficient statistics**: (what `sufficient_stats()` stores)
 

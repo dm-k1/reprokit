@@ -65,12 +65,18 @@ on GitHub:
 `sufficient_stats()` says whether summaries suffice. It never errors on
 the verdict, which is one of:
 
-- `summaries_suffice`: summary statistics determine the reported results
-  exactly.
-- `synthetic_possible`: summaries do not suffice, but synthetic data
-  could.
-- `needs_raw_data`: neither works, or the groups are so small that
-  summaries are almost the data.
+- `apa_suffices`: the numbers APA style asks for determine the reported
+  results exactly.
+- `apa_plus_suffices`: a few numbers beyond APA style are needed (for
+  the paired t-test, the correlation between conditions). The advice
+  names each one, says why, and gives the range the APA numbers imply.
+- `needs_raw_data`: summaries do not suffice, or the groups are so small
+  that summaries are almost the data.
+
+Every verdict says that sharing the raw data remains the standard (APA
+Publication Manual section 1.14, Ethics Code 8.14). You can also get a
+verdict from typed numbers alone, without a model or data:
+`sufficient_stats(test = "paired", n = "30", m = c("5.1", "4.6"), sd = c("1.2", "1.3"))`.
 
 The printed object narrates the verdict, what to publish, what readers
 lose, and which group or cell a disclosure flag fired for. It stores the
@@ -82,14 +88,16 @@ library(reprokit)
 s <- sufficient_stats(extra ~ group, data = sleep, test = "welch")
 s
 #> <reprokit sufficient_stats>  analysis: independent-samples t-test  (input: formula)
-#> Verdict: summaries_suffice
+#> Verdict: apa_suffices
 #> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.
+#> The numbers APA style asks a paper to report suffice to reproduce this analysis exactly.
 #> To publish: per-group n, mean and SD (appendix() writes this out).
 #> Disclosure check: passed (group sizes, threshold 5).
 #> What readers lose compared with the raw data:
 #>   * checking the distribution and outliers within each group
 #>   * nonparametric or robust alternatives
 #> Statistics stored: n, mean, sd
+#> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).
 ```
 
 `appendix()` writes the appendix for your paper (Markdown, ready to
@@ -163,7 +171,7 @@ cat(x[seq(grep("Additional numbers", x), grep("Raw data", x) - 1)], sep = "\n")
 #> | Number | Value |
 #> | --- | --- |
 #> | R² | .16 |
-#> | omega2 | .11 |
+#> | ω² | .11 |
 ```
 
 ### From your fitted result
@@ -176,8 +184,9 @@ Welch, continuity correction) are read from it and marked as such.
 ``` r
 sufficient_stats(t.test(extra ~ group, data = sleep), data = sleep)
 #> <reprokit sufficient_stats>  analysis: independent-samples t-test  (input: t.test)
-#> Verdict: summaries_suffice
+#> Verdict: apa_suffices
 #> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.
+#> The numbers APA style asks a paper to report suffice to reproduce this analysis exactly.
 #> To publish: per-group n, mean and SD (appendix() writes this out).
 #> Disclosure check: passed (group sizes, threshold 5).
 #> Choices read from the t.test result: test = Welch.
@@ -185,10 +194,12 @@ sufficient_stats(t.test(extra ~ group, data = sleep), data = sleep)
 #>   * checking the distribution and outliers within each group
 #>   * nonparametric or robust alternatives
 #> Statistics stored: n, mean, sd
+#> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).
 sufficient_stats(aov(weight ~ group, data = PlantGrowth))
 #> <reprokit sufficient_stats>  analysis: one-way ANOVA  (input: aov)
-#> Verdict: summaries_suffice
+#> Verdict: apa_suffices
 #> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.
+#> The numbers APA style asks a paper to report suffice to reproduce this analysis exactly.
 #> To publish: per-group n, mean and SD (appendix() writes this out).
 #> Disclosure check: passed (group sizes, threshold 5).
 #> What readers lose compared with the raw data:
@@ -196,8 +207,9 @@ sufficient_stats(aov(weight ~ group, data = PlantGrowth))
 #>   * checking equal variances beyond the group SDs
 #>   * post-hoc comparisons that need the raw data or the error term of a model
 #> Statistics stored: n, mean, sd
+#> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).
 sufficient_stats(chisq.test(table(mtcars$am, mtcars$vs)))$verdict
-#> [1] "summaries_suffice"
+#> [1] "apa_suffices"
 ```
 
 For a mediation, give the two regressions:
@@ -320,20 +332,20 @@ checked and what cannot (with the reason), and the choices you have to
 declare. The table below is generated from the handler registry when
 this README is built, so it is the reference, not a copy:
 
-| test | apa | sufficient | missing | checkable | not_checkable | choices | extras |
-|:---|:---|:---|:---|:---|:---|:---|:---|
-| Pearson correlation test | n, M, SD per variable, r, df, p, CI | n, r | — | df, p, CI | M, SD per variable (r does not depend on them) | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%) | R², adjusted R² |
-| Paired-samples t-test | n, M, SD per condition, t, df, p, d, CI | n, M, SD per condition, r | r (the SD of the differences depends on the correlation between conditions; per-condition M and SD do not determine it) | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (d_z (SD of the differences), d_rm (repeated measures), d_av (average SD), g_av (average SD, Hedges’ correction), eta squared, omega squared); direction of the difference: first minus second in Pair(first, second) | eta2, omega2, R² |
-| Moderation | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations, the X·Z moments | the correlations (coefficients depend on how the predictors overlap); the X·Z moments (cannot be derived from X and Z summaries) | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); centering; coding | standardized beta |
-| Multiple regression | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations | the correlations (coefficients depend on how the predictors overlap) | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); factor coding | standardized beta |
-| Simple mediation | n, M, SD per variable, b, SE, t, p, CI, a·b and its CI | n, M, SD and correlations of X, M, Y | the correlations of X, M, Y | a, b, c, c′ (b, SE, t, p, CI each) | the CI of a·b (inferred by bootstrap, which resamples cases; summaries cannot) | confidence level (90%, 95%, 99%) | R², F |
-| Simple regression | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, r | — | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²) | standardized beta |
-| Chi-squared goodness of fit | the observed counts, chisq, df, p, N | the observed counts, H0 proportions | H0 proportions (the expected counts depend on them; not needed when they are equal) | chisq, df, p, N | — | effect-size convention (Cohen’s w) | — |
-| Chi-squared test of independence | the contingency table, chisq, df, p, N, V | the contingency table | — | chisq, df, p, N, V | — | test (Pearson chi-squared, Yates’ continuity correction); effect-size convention (Cramér’s V) | — |
-| Factorial ANOVA, two factors (between-subjects) | n, M, SD per condition, F, df1, df2, p, partial eta2 | n, M, SD per condition | — | F, df1, df2, p, partial eta2 | — | SS type for unbalanced designs (type III, type II, type I); effect-size convention (partial eta squared, partial omega squared) | partial eta2, partial omega2 |
-| Independent-samples t-test (Student, Welch) | n, M, SD per condition, t, df, p, d, CI | n, M, SD per condition | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); test (Student’s t, Welch’s t); effect-size convention (Cohen’s d (pooled SD), Hedges’ g, Cohen’s d (root mean square of the SDs), Glass’s Δ (SD of the first group), Glass’s Δ (SD of the second group), eta squared, omega squared) | eta2, omega2, R² |
-| One-sample t-test | n, M, SD, t, df, p, d, CI | n, M, SD | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (Cohen’s d, Hedges’ g, eta squared, omega squared); test value mu (default 0) | eta2, omega2, R² |
-| One-way ANOVA (between-subjects) | n, M, SD per condition, F, df1, df2, p, eta2 | n, M, SD per condition | — | F, df1, df2, p, eta2 | — | effect-size convention (eta squared, omega squared); variance assumption: equal variances (classical F test, not Welch’s) | R², omega2 |
+| test | verdict | apa | sufficient | missing | covered | checkable | not_checkable | choices | extras |
+|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
+| Pearson correlation test | apa_suffices | n, M, SD per variable, r, df, p, CI | n, r | — | — | df, p, CI | M, SD per variable (r does not depend on them) | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%) | R², adjusted R² |
+| Paired-samples t-test | apa_plus_suffices | n, M, SD per condition, t, df, p, d, CI | n, M, SD per condition, r | r (the SD of the differences depends on the correlation between conditions; per-condition M and SD do not determine it) | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (d_z (SD of the differences), d_rm (repeated measures), d_av (average SD), g_av (average SD, Hedges’ correction), eta squared, omega squared); direction of the difference: first minus second in Pair(first, second) | eta2, R², omega2 |
+| Moderation | apa_plus_suffices | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations, the X·Z moments | the correlations (coefficients depend on how the predictors overlap); the X·Z moments (cannot be derived from X and Z summaries) | — | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); centering; coding | standardized beta |
+| Multiple regression | apa_plus_suffices | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, the correlations | the correlations (coefficients depend on how the predictors overlap) | — | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); factor coding | standardized beta |
+| Simple mediation | apa_plus_suffices | n, M, SD per variable, b, SE, t, p, CI, a·b and its CI | n, M, SD and correlations of X, M, Y | the correlations of X, M, Y | — | a, b, c, c′ (b, SE, t, p, CI each) | the CI of a·b (inferred by bootstrap, which resamples cases; summaries cannot) | confidence level (90%, 95%, 99%) | R², F |
+| Simple regression | apa_suffices | n, M, SD per variable, b, SE, t, p, CI, R², F, df1, df2, model p | n, M, SD per variable, r | — | r (standardized β, sign(b)·√R², or t/√(t²+df)) | b, SE, t, p, CI, R², F, df1, df2, model p | — | confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²) | standardized beta |
+| Chi-squared goodness of fit | apa_plus_suffices | the observed counts, chisq, df, p, N | the observed counts, H0 proportions | H0 proportions (the expected counts depend on them; not needed when they are equal) | — | chisq, df, p, N | — | effect-size convention (Cohen’s w) | — |
+| Chi-squared test of independence | apa_suffices | the contingency table, chisq, df, p, N, V | the contingency table | — | — | chisq, df, p, N, V | — | test (Pearson chi-squared, Yates’ continuity correction); effect-size convention (Cramér’s V) | — |
+| Factorial ANOVA, two factors (between-subjects) | apa_suffices | n, M, SD per condition, F, df1, df2, p, partial eta2 | n, M, SD per condition | — | — | F, df1, df2, p, partial eta2 | — | SS type for unbalanced designs (type III, type II, type I); effect-size convention (partial eta squared, partial omega squared) | partial eta2, partial omega2 |
+| Independent-samples t-test (Student, Welch) | apa_suffices | n, M, SD per condition, t, df, p, d, CI | n, M, SD per condition | — | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); test (Student’s t, Welch’s t); effect-size convention (Cohen’s d (pooled SD), Hedges’ g, Cohen’s d (root mean square of the SDs), Glass’s Δ (SD of the first group), Glass’s Δ (SD of the second group), eta squared, omega squared) | eta2, R², omega2 |
+| One-sample t-test | apa_suffices | n, M, SD, t, df, p, d, CI | n, M, SD | — | — | t, df, p, d, CI | — | tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (Cohen’s d, Hedges’ g, eta squared, omega squared); test value mu (default 0) | eta2, R², omega2 |
+| One-way ANOVA (between-subjects) | apa_suffices | n, M, SD per condition, F, df1, df2, p, eta2 | n, M, SD per condition | — | — | F, df1, df2, p, eta2 | — | effect-size convention (eta squared, omega squared); variance assumption: equal variances (classical F test, not Welch’s) | R², omega2 |
 
 A one-way ANOVA is checked with `check_reported("oneway", ...)` (note
 the lowercase `f` for the statistic): per-group n, mean and SD, plus F,
@@ -463,8 +475,8 @@ version:
   plausible, or which number is wrong.
 - It cannot replace the raw data. For analyses where summaries do not
   suffice, or that are outside the list above, `sufficient_stats()` says
-  so (`synthetic_possible` or `needs_raw_data`) and lists the
-  alternatives; `appendix()` refuses.
+  so (`needs_raw_data`) and lists the alternatives; `appendix()`
+  refuses.
 - The disclosure check flags groups, cells, categories and factor levels
   with fewer than 5 cases (the default `threshold`). It lowers the risk
   of identifying a participant; it never removes it, and passing it is

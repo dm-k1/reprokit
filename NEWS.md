@@ -7,10 +7,28 @@ First release (lifecycle: experimental). Not on CRAN; names and output may chang
 * `sufficient_stats(x, ..., threshold = 5)` says whether summary statistics make an
   analysis reproducible without the raw data, what to publish and what readers lose,
   and stores the summaries at full precision. It never errors on the verdict
-  (`summaries_suffice`, `synthetic_possible` or `needs_raw_data`); the printed object
+  (`apa_suffices`, `apa_plus_suffices` or `needs_raw_data`); the printed object
   narrates the verdict, what to publish, what readers lose and which group or cell a
   disclosure flag fired for. Only invalid input is an error of class
   `reprokit_impossible`.
+* The verdict is a tier around the APA set. `apa_suffices`: the numbers APA style asks
+  for determine the result. `apa_plus_suffices`: a few more numbers are needed, and the
+  advice names each one, says why, and, where the APA numbers bound it, gives the range
+  they imply ("r is implied between .60 and .64 by the APA numbers; reporting it makes
+  the result exact"). Each handler declares these additions, and `coverage_table()` shows
+  the tier per test. Simple regression is `apa_suffices` because r follows exactly from the
+  standardized beta, sign(b) times the square root of R-squared, or t over the square root of
+  t-squared plus df. A goodness-of-fit test needs the null proportions only when they are
+  not equal. Every verdict ends by saying that sharing the raw data remains the standard.
+  Synthetic data is not a verdict; the advice mentions it only, as outside reprokit,
+  for analyses with no finite summaries.
+* `sufficient_stats(test = "paired", n = "30", m = c("5.1", "4.6"), sd = c("1.2", "1.3"))`
+  takes typed numbers as strings, with the same names, parsing and checks as
+  `check_reported()`, and returns a verdict and the additions (present, missing or implied
+  with a range). It holds no summaries, so `appendix()` refuses it.
+* `check_reported()` ends with one line, "Also report ... to make this fully checkable."
+* Appendix labels use the symbols APA style uses: eta squared, omega squared, partial eta
+  squared, partial omega squared, R squared, adjusted R squared, beta (standardized) and d.
 * What readers lose is stated by reprokit, from the test (`sufficient_stats(...)$lost`);
   it is not an argument.
 * `appendix(x, ..., sharing_reason, choices = list())` writes a Markdown appendix: the
