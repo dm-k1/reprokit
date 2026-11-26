@@ -6,7 +6,7 @@ register_anova_oneway <- function() {
     name = "anova_oneway",
     family = "Simple tests",
     analysis = "One-way ANOVA (between-subjects)",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = "per-group n, mean and SD",
     catch = "declare eta squared or omega squared",
     lost = c("checking the distribution and outliers within each group",
@@ -41,7 +41,7 @@ register_anova_oneway <- function() {
       r2 = appendix_extra("R\u00b2", function(s, answers, digits) {
         oneway_effect_sizes(s)[["eta2"]]
       }, TRUE),
-      omega2 = appendix_extra("omega2", function(s, answers, digits) {
+      omega2 = appendix_extra("\u03c9\u00b2", function(s, answers, digits) {
         oneway_effect_sizes(s)[["omega2"]]
       }, TRUE)
     ),

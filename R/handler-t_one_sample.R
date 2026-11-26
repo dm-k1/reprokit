@@ -6,7 +6,7 @@ register_t_one_sample <- function() {
     name = "t_one_sample",
     family = "Simple tests",
     analysis = "One-sample t-test",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = "n, mean and SD of the outcome, and the test value",
     catch = "declare the test value mu",
     lost = c("checking the distribution and outliers",

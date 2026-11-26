@@ -21,17 +21,17 @@ test_that("chi-squared independence flags a cell with 0 < count < threshold", {
   expect_error(appendix(tr, sharing_reason = "x"), class = "reprokit_impossible")
   # The same table is fine at a lower threshold.
   expect_identical(sufficient_stats(~ a + b, data = flagged, test = "chisq", threshold = 3)$verdict,
-                   "summaries_suffice")
+                   "apa_suffices")
 })
 
 test_that("chi-squared independence is unaffected by a clean table and ignores zeros", {
   clean <- from_counts(c(30, 10, 20, 40), c(2, 2))
   expect_identical(sufficient_stats(~ a + b, data = clean, test = "chisq")$verdict,
-                   "summaries_suffice")
+                   "apa_suffices")
   # A zero count is not flagged (ADR 0023 point 3); the other cells are large.
   zero <- from_counts(c(30, 0, 20, 40), c(2, 2))
   expect_identical(sufficient_stats(~ a + b, data = zero, test = "chisq")$verdict,
-                   "summaries_suffice")
+                   "apa_suffices")
   h <- get_handler("chisq_independence")
   summary <- h$summarise(~ a + b, data = zero, test = "chisq")
   expect_true(h$disclosure(summary, 5)$passed)
@@ -50,13 +50,13 @@ test_that("chi-squared goodness of fit flags a category with 0 < count < thresho
   expect_identical(tr$verdict, "needs_raw_data")
   expect_match(tr$verdict_reason, "category 'B' has n = 3 < 5")
   expect_identical(sufficient_stats(~ a, data = from_counts(c(30, 10, 20)), test = "gof")$verdict,
-                   "summaries_suffice")
+                   "apa_suffices")
 })
 
 test_that("chi-squared goodness of fit does not flag a zero category", {
   zero <- from_counts(c(30, 0, 20))
   expect_identical(table(zero$a)[["B"]], 0L)
-  expect_identical(sufficient_stats(~ a, data = zero, test = "gof")$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(~ a, data = zero, test = "gof")$verdict, "apa_suffices")
   s <- sufficient_stats(~ a, data = zero, test = "gof")
   expect_match(appendix_text(s), "Checked: category counts", fixed = TRUE)
 })
@@ -73,9 +73,9 @@ test_that("lm_multiple flags a factor level with fewer than threshold rows", {
   expect_identical(tr$handler, "lm_multiple")
   expect_identical(tr$verdict, "needs_raw_data")
   expect_match(tr$verdict_reason, "factor factor\\(cyl\\), level '6' has n = 3 < 5")
-  expect_identical(sufficient_stats(fit, threshold = 3)$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(fit, threshold = 3)$verdict, "apa_plus_suffices")
   clean <- lm(mpg ~ wt + factor(cyl), data = mtcars)
-  expect_identical(sufficient_stats(clean)$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(clean)$verdict, "apa_plus_suffices")
 })
 
 test_that("lm_moderation flags a factor level with fewer than threshold rows", {
@@ -87,7 +87,7 @@ test_that("lm_moderation flags a factor level with fewer than threshold rows", {
   expect_match(tr$verdict_reason, "factor factor\\(am\\), level '1' has n = 4 < 5")
   clean <- lm(mpg ~ wt * factor(am), data = mtcars)
   expect_identical(sufficient_stats(clean)$handler, "lm_moderation")
-  expect_identical(sufficient_stats(clean)$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(clean)$verdict, "apa_plus_suffices")
 })
 
 test_that("the general lm flags a factor level with fewer than threshold rows", {
@@ -98,7 +98,7 @@ test_that("the general lm flags a factor level with fewer than threshold rows", 
   expect_match(tr$verdict_reason, "level '6' has n = 3 < 5")
   clean <- lm(mpg ~ poly(wt, 2) + factor(cyl), data = mtcars)
   expect_identical(sufficient_stats(clean)$handler, "lm")
-  expect_identical(sufficient_stats(clean)$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(clean)$verdict, "apa_plus_suffices")
 })
 
 test_that("factor levels are counted unweighted, over the rows in the fit", {
@@ -150,7 +150,9 @@ test_that("handlers without groups state that the check is the sample size only"
   for (case in sample_size_cases(30)) {
     tr <- do.call(sufficient_stats, c(list(case$x), case$args))
     expect_identical(tr$handler, case$handler)
-    expect_identical(tr$verdict, "summaries_suffice", info = case$handler)
+    plus <- case$handler %in% c("t_paired", "mediation_simple")
+    expect_identical(tr$verdict, if (plus) "apa_plus_suffices" else "apa_suffices",
+                     info = case$handler)
     s <- do.call(sufficient_stats, c(list(case$x), case$args))
     expect_match(s$disclosure$checked, "sample size only", info = case$handler)
     expect_true(s$disclosure$passed, info = case$handler)

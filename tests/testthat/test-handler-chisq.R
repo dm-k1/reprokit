@@ -138,7 +138,8 @@ test_that("goodness of fit from a counts vector works on the result route and wi
   placeholder <- data.frame(category = 1)
   for (case in cases) {
     s <- sufficient_stats(case$r)
-    expect_identical(s$verdict, "summaries_suffice")
+    tier <- if (is.null(case$p)) "apa_suffices" else "apa_plus_suffices"
+    expect_identical(s$verdict, tier)
     got <- reproduce(s)
     expect_equal(unname(got[c("chisq", "df", "p")]),
                  unname(c(case$r$statistic, case$r$parameter, case$r$p.value)),
@@ -149,7 +150,7 @@ test_that("goodness of fit from a counts vector works on the result route and wi
       sufficient_stats(~ category, data = placeholder, test = "gof", table = case$counts,
                        p0 = case$p)
     }
-    expect_identical(k$verdict, "summaries_suffice")
+    expect_identical(k$verdict, tier)
     expect_equal(reproduce(k), got)
     expect_identical(s$stats, k$stats)
     expect_identical(s$meta[setdiff(names(s$meta), "route")],

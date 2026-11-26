@@ -27,7 +27,7 @@
 #' @examples
 #' s <- new_sufficient_stats(
 #'   handler = "example",
-#'   verdict = "summaries_suffice",
+#'   verdict = "apa_suffices",
 #'   verdict_reason = "Group means and SDs determine the t statistic.",
 #'   stats = list(n = c(20, 22), mean = c(5.1, 4.3), sd = c(1.2, 1.4)),
 #'   lost = c("outlier inspection", "alternative analyses")
@@ -49,7 +49,8 @@ new_sufficient_stats <- function(handler,
 build_sufficient_stats <- function(handler, verdict, verdict_reason, stats = list(),
                                    meta = list(), disclosure = list(),
                                    lost,
-                                   publish = NA_character_, choices_read = list()) {
+                                   publish = NA_character_, choices_read = list(),
+                                   additions = list()) {
   s <- structure(
     list(
       handler = handler,
@@ -60,6 +61,7 @@ build_sufficient_stats <- function(handler, verdict, verdict_reason, stats = lis
       meta = utils::modifyList(default_meta(), meta),
       disclosure = disclosure,
       choices_read = choices_read,
+      additions = additions,
       lost = lost
     ),
     class = "reprokit_sufficient_stats"
@@ -85,7 +87,8 @@ is_sufficient_stats <- function(x) inherits(x, "reprokit_sufficient_stats")
 
 validate_sufficient_stats <- function(s) {
   is_single_string <- function(x) is.character(x) && length(x) == 1L && !is.na(x)
-  suffice <- identical(s$verdict, "summaries_suffice")
+  suffice <- verdict_suffices(s$verdict)
+  typed <- identical(s$meta$route, "typed")
 
   if (!(is_single_string(s$handler) && nzchar(s$handler)) &&
         !(!suffice && identical(s$handler, NA_character_))) {
@@ -105,7 +108,8 @@ validate_sufficient_stats <- function(s) {
     if (!is.list(s[[field]])) stop("`", field, "` must be a list.", call. = FALSE)
   }
   # Summaries exist exactly when they suffice; otherwise there is nothing stored.
-  if (!is.list(s$stats) && !(is.null(s$stats) && !suffice)) {
+  # Typed numbers (ADR 0032) hold a verdict but no summaries.
+  if (!is.list(s$stats) && !(is.null(s$stats) && (!suffice || typed))) {
     stop("`stats` must be a list (NULL only when summaries do not suffice).", call. = FALSE)
   }
   s
@@ -121,7 +125,8 @@ print.reprokit_sufficient_stats <- function(x, ...) {
 # a disclosure flag fired, which group or cell. Also the text of the refusal when a verb is
 # given an object whose summaries do not suffice.
 sufficient_stats_narration <- function(x) {
-  suffice <- identical(x$verdict, "summaries_suffice")
+  suffice <- verdict_suffices(x$verdict)
+  typed <- identical(x$meta$route, "typed")
   known <- !is.na(x$handler) && x$handler %in% handlers()
   analysis <- if (known) analysis_name(get_handler(x$handler)) else "not recognised"
   route <- x$meta$route
@@ -140,16 +145,24 @@ sufficient_stats_narration <- function(x) {
     paste0("Choices read from the ", attr(read, "fn"), " result: ",
            paste0(names(read), " = ", unlist(read), collapse = ", "), ".")
   }
-  if (suffice) {
-    c(header, verdict,
+  standard <- paste0("Sharing the raw data remains the standard ",
+                     "(APA Publication Manual section 1.14, Ethics Code 8.14).")
+  tier <- if (suffice && known) tier_lines(get_handler(x$handler), x$verdict, x$additions)
+  if (typed) {
+    c(header, verdict, tier,
+      paste("Nothing is stored: typed numbers hold no reproducible summaries, so appendix()",
+            "needs a model or data."),
+      "What readers lose compared with the raw data:", paste0("  * ", x$lost), standard)
+  } else if (suffice) {
+    c(header, verdict, tier,
       paste0("To publish: ", x$publish, " (appendix() writes this out)."),
       disclosure, read_lines,
       "What readers lose compared with the raw data:", paste0("  * ", x$lost),
-      paste0("Statistics stored: ", paste(names(x$stats), collapse = ", ")))
+      paste0("Statistics stored: ", paste(names(x$stats), collapse = ", ")), standard)
   } else {
     c(header, verdict, disclosure, read_lines,
       "Nothing is stored: summary statistics do not make this analysis reproducible.",
       "What readers lose without the raw data:", paste0("  * ", x$lost),
-      "Instead you could:", paste0("  * ", default_alternatives()))
+      "Instead you could:", paste0("  * ", default_alternatives(synthetic = !known)), standard)
   }
 }

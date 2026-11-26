@@ -31,7 +31,8 @@ assess <- function(x, ..., threshold = 5) {
     }
   )
   list(verdict = res$verdict, reason = res$reason, handler = handler$name,
-       publish = handler$needs, lost = handler$lost, summary = res$summary,
+       additions = res$additions, publish = handler$needs, lost = handler$lost,
+       summary = res$summary,
        disclosure = c(res$disclosure, list(threshold = threshold)), prep = prep)
 }
 
@@ -39,7 +40,7 @@ assess_with <- function(handler, prep, threshold) {
   call_with <- function(f, ...) do.call(f, c(list(prep$x), prep$dots, list(...)))
   res <- if (is.null(handler$triage)) {
     list(verdict = handler$verdict,
-         reason = if (handler$verdict == "summaries_suffice") {
+         reason = if (verdict_suffices(handler$verdict)) {
            paste0("Summary statistics suffice: ", handler$needs,
                   " determine the reported results exactly.")
          } else {
@@ -49,7 +50,7 @@ assess_with <- function(handler, prep, threshold) {
   } else {
     call_with(handler$triage, threshold = threshold)
   }
-  if (res$verdict != "summaries_suffice" || is.null(handler$summarise)) return(res)
+  if (!verdict_suffices(res$verdict) || is.null(handler$summarise)) return(res)
   summary <- call_with(handler$summarise)
   mismatch <- match_problem(handler, summary, prep)
   if (!is.null(mismatch)) {
@@ -78,6 +79,10 @@ assess_with <- function(handler, prep, threshold) {
   summary$meta$route <- prep$route
   res$summary <- summary
   res$disclosure <- disclosure
+  # The tier follows from the handler's declared additions and, for the goodness-of-fit
+  # test, from the summary itself (uniform H0 proportions are no addition): ADR 0032.
+  res$verdict <- tier_from_additions(handler$additions, summary)
+  res$additions <- addition_report(handler, summary)
   res
 }
 

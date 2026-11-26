@@ -7,9 +7,12 @@
 sufficient_stats(x, ..., threshold = 5)
 }
 \arguments{
-\item{x}{A fitted model, a test result, or a formula; see above.}
+\item{x}{A fitted model, a test result, a formula, or the name of a test for typed
+numbers (see above).}
 
-\item{...}{Passed on: the second \code{lm} fit of a mediation, \code{data} for a formula or a
+\item{...}{Passed on: for typed numbers, the reported numbers and the test arguments of
+\code{\link[=check_reported]{check_reported()}} (\code{mu}, \code{dims}, \code{p0}, \code{effect}, \code{k}, \code{variants}); otherwise the second
+\code{lm} fit of a mediation, \code{data} for a formula or a
 \code{t.test} / \code{cor.test} result, \code{test} for a formula, and the choices of the analysis for a
 formula (\code{alternative},
 \code{conf_level}, \code{mu}, \code{correct}, \code{p0}, \code{ss_type}).}
@@ -21,8 +24,9 @@ least \code{2 * threshold}.}
 \value{
 An object of class \code{reprokit_sufficient_stats} with the verdict
 (\code{verdict}, \code{verdict_reason}), what to publish (\code{publish}), the handler's default
-\code{lost}, the \code{disclosure} check, and \code{stats} and \code{meta} (\code{NULL} and mostly empty
-when the summaries do not suffice).
+\code{lost}, the \code{disclosure} check, \code{additions} (one entry per number beyond the APA
+set: \code{quantity}, \code{why}, \code{covered}, \code{status} and \code{range}), and \code{stats} and \code{meta} (\code{NULL}
+and mostly empty when the summaries do not suffice, and for typed numbers).
 }
 \description{
 \code{sufficient_stats()} is the author's verb. Given the analysis, it says whether
@@ -61,6 +65,28 @@ fitted to the same cases. Covariates or more mediators get a verdict, not an err
 
 A result and the formula for the same analysis give the same summaries; the field
 \code{meta$route} records which one was used.
+
+The verdict is one of \code{\link[=verdicts]{verdicts()}}, drawn around what an APA-style report contains.
+\code{apa_suffices} means the numbers APA style asks for determine the analysis exactly.
+\code{apa_plus_suffices} means exact reproduction needs a number beyond them: the object
+names each addition, why it is needed and, when the APA numbers imply a range for it,
+that range ("r is implied between .60 and .64 by the APA numbers; reporting it makes
+the result exact"). An addition that follows from the APA numbers by an exact identity
+at printed precision (the correlation in a simple regression, which is the standardized
+coefficient) does not lower the verdict. Every verdict ends with the reminder that
+sharing the raw data remains the standard (APA Publication Manual section 1.14,
+Ethics Code 8.14).
+
+\strong{Typed numbers.} Without a model or data, the verdict can be had from the numbers a paper
+reports: give the test as the first argument or as \verb{test =}, and the numbers as strings,
+as in \code{\link[=check_reported]{check_reported()}} (same test names, parsing and checks for which quantities a test
+takes). So
+\code{sufficient_stats(test = "paired", n = "30", m = c("5.1", "4.6"), sd = c("1.2", "1.3"))}
+works, and a formula, a model or a test result is never mistaken for it, because those
+are not a single test name. The result has \code{meta$route = "typed"} and holds no summaries:
+\code{\link[=appendix]{appendix()}} refuses it, because an appendix needs a model or data. Each addition is
+marked as reported, implied (with its range) or missing. An unknown or inapplicable
+quantity is an input error; the verdict itself never errors.
 }
 \examples{
 sufficient_stats(extra ~ group, data = sleep, test = "welch")
@@ -71,6 +97,10 @@ sufficient_stats(chisq.test(table(mtcars$am, mtcars$vs)))
 
 # Mediation from two models, in either order:
 sufficient_stats(lm(hp ~ wt, data = mtcars), lm(mpg ~ wt + hp, data = mtcars))
+
+# From numbers typed from a paper, no data needed:
+sufficient_stats(test = "paired", n = "30", m = c("5.1", "4.6"), sd = c("1.2", "1.3"),
+                 t = "2.1", df = "29")
 
 # A verdict, not an error, when summaries cannot do it:
 sufficient_stats(glm(am ~ wt, data = mtcars, family = binomial))

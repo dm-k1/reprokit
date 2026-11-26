@@ -6,7 +6,7 @@ Authors@R:
            role = c("aut", "cre"))
 Description: Helps authors who cannot share raw data report the sufficient
     statistics that let readers reproduce their results exactly, or decide
-    that synthetic data or the raw data are needed. Helps readers check
+    that a few more numbers or the raw data are needed. Helps readers check
     whether reported test statistics are consistent with each other. The output
     lists what readers lose without the raw data, because sharing raw data
     remains the standard.

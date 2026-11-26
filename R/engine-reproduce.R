@@ -14,7 +14,11 @@ as_sufficient_stats <- function(x, ...) {
 
 # A verb that needs the summaries refuses, with the narration, when there are none.
 require_summaries <- function(s, what) {
-  if (!identical(s$verdict, "summaries_suffice") || is.null(s$stats)) {
+  if (identical(s$meta$route, "typed")) {
+    abort_input("Cannot ", what, " from typed numbers: an appendix needs a model or data, ",
+                "because typed numbers hold no reproducible summaries.")
+  }
+  if (!verdict_suffices(s$verdict) || is.null(s$stats)) {
     abort_impossible(what, paste0("the verdict is ", s$verdict, ".\n",
                                   paste(sufficient_stats_narration(s), collapse = "\n")),
                      alternatives = character())

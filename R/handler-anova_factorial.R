@@ -8,7 +8,7 @@ register_anova_factorial <- function() {
     name = "anova_factorial",
     family = "Simple tests",
     analysis = "Factorial ANOVA, two factors (between-subjects)",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = "per-cell n, mean and SD",
     catch = paste0("declare the SS type (unbalanced designs) and partial eta squared or ",
                    "partial omega squared"),
@@ -44,10 +44,10 @@ register_anova_factorial <- function() {
     domains = list(eta2 = c(-1, 1)),
     labels = c(eta2 = "partial eta2"),
     extras = list(
-      partial_eta2 = appendix_extra("partial eta2", function(s, answers, digits) {
+      partial_eta2 = appendix_extra("partial \u03b7\u00b2", function(s, answers, digits) {
         factorial_partial_effects(s, answers)[["partial_eta2"]]
       }, TRUE),
-      partial_omega2 = appendix_extra("partial omega2", function(s, answers, digits) {
+      partial_omega2 = appendix_extra("partial \u03c9\u00b2", function(s, answers, digits) {
         factorial_partial_effects(s, answers)[["partial_omega2"]]
       }, TRUE)
     ),

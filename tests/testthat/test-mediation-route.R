@@ -17,7 +17,7 @@ test_that("the two-model route equals the formula route, in either argument orde
   m <- lm(hp ~ wt, data = d)
   y <- lm(mpg ~ wt + hp, data = d)
   formula_route <- sufficient_stats(mpg ~ wt, data = d, test = "mediation", mediator = "hp")
-  expect_identical(formula_route$verdict, "summaries_suffice")
+  expect_identical(formula_route$verdict, "apa_plus_suffices")
   fwd <- sufficient_stats(m, y)
   expect_identical(fwd$meta$route, "lm")
   expect_identical(strip_route(fwd), strip_route(formula_route))
@@ -43,14 +43,14 @@ test_that("a covariate, an extra mediator or weights are not evaluable", {
   d <- med_data()
   m <- lm(hp ~ wt, data = d)
   with_cov <- sufficient_stats(m, lm(mpg ~ wt + hp + disp, data = d))
-  expect_false(identical(with_cov$verdict, "summaries_suffice"))
+  expect_false(identical(with_cov$verdict, "apa_suffices"))
   m_cov <- lm(hp ~ wt + disp, data = d)
   expect_false(identical(sufficient_stats(m_cov, lm(mpg ~ wt + hp, data = d))$verdict,
-                         "summaries_suffice"))
+                         "apa_suffices"))
   w <- seq_len(nrow(d))
   expect_false(identical(sufficient_stats(lm(hp ~ wt, data = d, weights = w),
                                           lm(mpg ~ wt + hp, data = d, weights = w))$verdict,
-                         "summaries_suffice"))
+                         "apa_suffices"))
 })
 
 test_that("the appendix gives a*b as a reproduced number, and its CI stays in block D and lost", {

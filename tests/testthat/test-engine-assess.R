@@ -8,17 +8,17 @@ test_that("sufficient_stats() never errors on unsupported input", {
 
 test_that("sufficient_stats() uses the matching handler", {
   local_handler(
-    "test_dummy", family = "Test", analysis = "Dummy", verdict = "synthetic_possible",
+    "test_dummy", family = "Test", analysis = "Dummy", verdict = "needs_raw_data",
     needs = "nothing", lost = "exactness", matches = function(x, ...) inherits(x, "dummy")
   )
   res <- sufficient_stats(structure(list(), class = "dummy"))
-  expect_identical(res$verdict, "synthetic_possible")
+  expect_identical(res$verdict, "needs_raw_data")
   expect_identical(res$handler, "test_dummy")
 })
 
 test_that("a failing handler becomes a verdict, not a crash", {
   local_handler(
-    "test_broken", family = "Test", analysis = "Broken", verdict = "synthetic_possible",
+    "test_broken", family = "Test", analysis = "Broken", verdict = "needs_raw_data",
     needs = "nothing", lost = "exactness", matches = function(x, ...) inherits(x, "broken"),
     triage = function(x, ...) stop("boom")
   )
@@ -30,7 +30,7 @@ test_that("a failing handler becomes a verdict, not a crash", {
 test_that("the general minimum n applies to every handler, with or without its own check", {
   # A handler with no disclosure function of its own: only the general rule protects it.
   local_handler(
-    "test_mean", family = "Test", analysis = "Mean", verdict = "summaries_suffice",
+    "test_mean", family = "Test", analysis = "Mean", verdict = "apa_suffices",
     needs = "n and mean", lost = "the raw values",
     matches = function(x, ...) inherits(x, "test_sample"),
     summarise = function(x, ...) {
@@ -45,15 +45,15 @@ test_that("the general minimum n applies to every handler, with or without its o
   tr <- sufficient_stats(sample_of(9))
   expect_identical(tr$verdict, "needs_raw_data")
   expect_match(tr$verdict_reason, "total n = 9 is below the minimum of 10")
-  expect_identical(sufficient_stats(sample_of(10))$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(sample_of(10))$verdict, "apa_suffices")
   # The minimum follows the threshold.
-  expect_identical(sufficient_stats(sample_of(9), threshold = 4)$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(sample_of(9), threshold = 4)$verdict, "apa_suffices")
   expect_error(appendix(sample_of(9), sharing_reason = "test"), class = "reprokit_impossible")
 })
 
 test_that("a summary without meta$n is downgraded rather than trusted", {
   local_handler(
-    "test_no_n", family = "Test", analysis = "No n", verdict = "summaries_suffice",
+    "test_no_n", family = "Test", analysis = "No n", verdict = "apa_suffices",
     needs = "mean", lost = "the raw values",
     matches = function(x, ...) inherits(x, "test_no_n"),
     summarise = function(x, ...) list(stats = list(mean = 1), meta = list()),

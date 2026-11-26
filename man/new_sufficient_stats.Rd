@@ -57,7 +57,7 @@ lose. The author's reason for not sharing is not stored here: it belongs to
 \examples{
 s <- new_sufficient_stats(
   handler = "example",
-  verdict = "summaries_suffice",
+  verdict = "apa_suffices",
   verdict_reason = "Group means and SDs determine the t statistic.",
   stats = list(n = c(20, 22), mean = c(5.1, 4.3), sd = c(1.2, 1.4)),
   lost = c("outlier inspection", "alternative analyses")

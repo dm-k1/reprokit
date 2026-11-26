@@ -8,7 +8,14 @@
 #'
 #' @param name Unique id, e.g. `"t_independent"`.
 #' @param family,analysis Labels for the coverage table.
-#' @param verdict One of [verdicts()].
+#' @param verdict `"needs_raw_data"`, or `"apa_suffices"` for a handler that can reproduce the
+#'   analysis exactly from summaries. The stored verdict of the latter is computed from
+#'   `additions`: `apa_suffices` when every addition is covered by an exact identity,
+#'   `apa_plus_suffices` otherwise.
+#' @param additions Named list, quantity name to an `addition()`: each quantity of `sufficient`
+#'   beyond the APA set, with why it is needed and, when the APA numbers determine it by an
+#'   exact identity at printed precision, that identity (`covered`). With a `design`, the
+#'   names must be exactly `setdiff(sufficient, apa)`. `NULL` for none.
 #' @param needs What must be stored, in words.
 #' @param catch Pitfalls, in words (`NA` if none).
 #' @param lost Character vector: what readers lose compared with raw data.
@@ -16,7 +23,7 @@
 #'   `x`. It receives the same `...` as [sufficient_stats()], so a formula can be matched
 #'   on the declared `test`.
 #' @param triage `function(x, ..., threshold)` returning a list with `verdict`
-#'   and `reason`; `NULL` means "always `verdict`". A `summaries_suffice`
+#'   and `reason`; `NULL` means "always `verdict`". A `apa_suffices`
 #'   verdict is then still checked against `disclosure`, so that summaries of tiny
 #'   groups do not count as sufficient.
 #' @param summarise `function(x, ...)` returning `list(stats = , meta = )`: the
@@ -28,7 +35,7 @@
 #'   `reported` returns, computed from `s` (made by [sufficient_stats()]) alone.
 #' @param reported `function(x, ...)` returning a named numeric vector of what
 #'   a paper reports, computed from the raw data with base R. Required for
-#'   `summaries_suffice` handlers: it is the reference in the round-trip test.
+#'   `apa_suffices` handlers: it is the reference in the round-trip test.
 #' @param disclosure `function(summary, threshold)`, where `summary` is what `summarise` returns
 #'   (`list(stats = , meta = , check = )`), returning
 #'   `list(passed = , checked = , problems = )`. A risk reduction, never a
@@ -44,7 +51,7 @@
 #'   accepts with a formula (e.g. `c("student", "welch")`), or `NULL`. Used to
 #'   tell users which tests exist when no handler matches.
 #' @param example `function()` returning `list(x = , args = list(...))`, an
-#'   input this handler supports. Required for `summaries_suffice` handlers.
+#'   input this handler supports. Required for `apa_suffices` handlers.
 #' @param design An `apa_design()`: which quantity is the test statistic, which
 #'   the effect size, and how many conditions have their own n, M and SD. The
 #'   quantities APA style asks a paper to report (`apa`) are built from it by
@@ -108,8 +115,9 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
                              not_checkable = NULL, test_args = NULL, domains = NULL,
                              labels = NULL, appendix_table = NULL, appendix_effects = NULL,
                              fallback = FALSE, coverage = NULL, missing_why = NULL,
-                             fractional = NULL, extras = NULL) {
+                             fractional = NULL, extras = NULL, additions = NULL) {
   check_verdict(verdict)
+  exact <- verdict_suffices(verdict)
   relations_at <- NULL
   if (is.function(relations)) {
     relations_at <- relations
@@ -145,6 +153,9 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
     is.null(appendix_effects) || is.function(appendix_effects),
     is.null(extras) || (is.list(extras) && !is.null(names(extras)) &&
                           all(vapply(extras, is_appendix_extra, logical(1)))),
+    is.null(additions) || (is.list(additions) && !is.null(names(additions)) &&
+                             all(vapply(additions, function(a) is.list(a) && !is.null(a$why),
+                                        logical(1)))),
     is.null(missing_why) || (is.character(missing_why) && !is.null(names(missing_why))),
     is.logical(fallback), length(fallback) == 1L, !is.na(fallback),
     is.null(coverage) || (is.character(coverage) && !is.null(names(coverage)) &&
@@ -169,17 +180,31 @@ register_handler <- function(name, family, analysis, verdict, needs, catch = NA_
   exact_parts <- list(summarise = summarise, reproduce = reproduce, reported = reported,
                       example = example)
   missing_parts <- names(exact_parts)[vapply(exact_parts, is.null, logical(1))]
-  if (verdict == "summaries_suffice" && length(missing_parts) > 0L) {
+  if (exact && length(missing_parts) > 0L) {
     stop("Handler '", name, "' claims exact reproduction but has no ",
          paste(missing_parts, collapse = "/"), ".", call. = FALSE)
   }
+  apa <- if (is.null(design)) NULL else apa_quantities(design)
+  if (!is.null(additions)) {
+    check_quantity_names(names(additions), "quantity name in `additions`")
+    if (!is.null(design) && !setequal(names(additions), setdiff(sufficient, apa))) {
+      stop("Handler '", name, "': `additions` must name exactly the sufficient quantities ",
+           "beyond the APA set (", paste(setdiff(sufficient, apa), collapse = ", "), ").",
+           call. = FALSE)
+    }
+  } else if (exact && !is.null(design) && length(setdiff(sufficient, apa)) > 0L) {
+    stop("Handler '", name, "' has sufficient quantities beyond the APA set (",
+         paste(setdiff(sufficient, apa), collapse = ", "), ") but declares no `additions`.",
+         call. = FALSE)
+  }
+  if (exact) verdict <- tier_from_additions(additions)
   assign(name, list(
-    name = name, family = family, analysis = analysis, verdict = verdict,
+    name = name, family = family, analysis = analysis, verdict = verdict, additions = additions,
     needs = needs, catch = catch, lost = lost, matches = matches, triage = triage,
     summarise = summarise, reproduce = reproduce, reported = reported, disclosure = disclosure,
     choices = choices, not_checkable = not_checkable,
     formula_tests = formula_tests, example = example, fallback = fallback,
-    design = design, apa = if (is.null(design)) NULL else apa_quantities(design),
+    design = design, apa = apa,
     cells = design$cells, sufficient = sufficient, relations = relations,
     relations_at = relations_at, test_args = test_args, domains = domains,
     labels = labels, appendix_table = appendix_table, appendix_effects = appendix_effects,
@@ -283,9 +308,16 @@ handlers <- function() sort(ls(.registry))
 # A regression reports b, SE and the model's R squared, which the relations take as
 # inputs: what an APA set reaches through them counts as reported, so the
 # sufficient quantities that follow from it (r from b and the SDs) are not missing.
+# Redefined by ADR 0032: the additions no exact identity covers (a covered one, such as r
+# in a simple regression, is reached from the APA numbers and is not missing).
 missing_quantities <- function(h) {
-  if (is.null(h$design$terms)) return(setdiff(h$sufficient, h$apa))
-  setdiff(h$sufficient, closure_under_relations(h, h$apa))
+  as.character(names(Filter(function(a) is.null(a$covered), h$additions)))
+}
+
+# The additions covered by an exact identity, as quantity name to the identity's words.
+covered_additions <- function(h) {
+  covered <- Filter(function(a) !is.null(a$covered), h$additions)
+  vapply(covered, function(a) a$covered, character(1))
 }
 
 # An appendix extra (ADR 0031): `label` is the row's name, `value` a

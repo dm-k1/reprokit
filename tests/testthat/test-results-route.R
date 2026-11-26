@@ -115,7 +115,7 @@ test_that("aov results equal the formula route: one-way and unbalanced factorial
   same_but_route(sufficient_stats(aov(y ~ a * b, data = u), data = u),
                  sufficient_stats(y ~ a * b, data = u, test = "factorial"))
   s <- sufficient_stats(aov(y ~ a * b, data = u), data = u)
-  expect_identical(s$verdict, "summaries_suffice")
+  expect_identical(s$verdict, "apa_suffices")
   expect_identical(s$meta$route, "aov")
   same_but_route(sufficient_stats(aov(y ~ a * b, data = u), data = u, ss_type = "II"),
                  sufficient_stats(y ~ a * b, data = u, test = "factorial", ss_type = "II"))
@@ -142,23 +142,23 @@ test_that("a result that does not match the data is refused", {
   wrong <- d
   wrong$extra[1L] <- wrong$extra[1L] + 3
   s <- sufficient_stats(fit, data = wrong)
-  expect_false(identical(s$verdict, "summaries_suffice"))
+  expect_false(identical(s$verdict, "apa_suffices"))
   expect_match(s$verdict_reason, "match|does not|differ", ignore.case = TRUE)
   subset_rows <- d[-1L, ]
   s2 <- sufficient_stats(fit, data = subset_rows)
-  expect_false(identical(s2$verdict, "summaries_suffice"))
+  expect_false(identical(s2$verdict, "apa_suffices"))
   expect_error(appendix(fit, data = wrong, sharing_reason = "x"), class = "reprokit_impossible")
   u <- factorial_unbalanced()
   fit_aov <- aov(y ~ a * b, data = u)
   # an aov carries its own model frame, so `data` is not what it is checked against
-  expect_identical(sufficient_stats(fit_aov, data = u[-1L, ])$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(fit_aov, data = u[-1L, ])$verdict, "apa_suffices")
 })
 
 test_that("an unmappable data.name is refused with a hint to the formula route", {
   d <- datasets::sleep
   fit <- t.test(d$extra[1:10], d$extra[11:20])
   s <- sufficient_stats(fit, data = d)
-  expect_false(identical(s$verdict, "summaries_suffice"))
+  expect_false(identical(s$verdict, "apa_suffices"))
   expect_match(s$verdict_reason, "formula", ignore.case = TRUE)
   expect_no_error(sufficient_stats(fit, data = d))
 })
@@ -184,12 +184,12 @@ test_that("unsupported results and designs are not evaluable, never an error", {
   not_eval(sufficient_stats(aov(weight ~ group, data = pg, weights = w), data = pg))
 })
 
-test_that("a simulated chi-squared p value is not summaries_suffice", {
+test_that("a simulated chi-squared p value is not apa_suffices", {
   d <- mt()
   set.seed(1)
   sim <- chisq.test(table(d$am, d$vs), simulate.p.value = TRUE, B = 500)
   s <- sufficient_stats(sim, data = d)
-  expect_false(identical(s$verdict, "summaries_suffice"))
+  expect_false(identical(s$verdict, "apa_suffices"))
   expect_match(s$verdict_reason, "simulat", ignore.case = TRUE)
 })
 

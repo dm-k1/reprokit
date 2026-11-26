@@ -269,12 +269,13 @@ print.reprokit_check <- function(x, ...) {
         paste0(names(x$implied_inputs), " = ", values, " (from ", sources, ")",
                collapse = ", "), ".\n", sep = "")
   }
-  if (nrow(x$missing) > 0L) {
-    cat("\nReporting these would raise the level: ",
-        paste0(x$missing$quantity, " (to level ", x$missing$would_reach_level, ")",
-               collapse = ", "), ".\n", sep = "")
-  }
   cat("\nAn inconsistency shows the numbers cannot all be correct as reported, ",
       "not which one is wrong or why.\n", sep = "")
+  # One closing line: what to report to raise the level (ADR 0032).
+  if (nrow(x$missing) > 0L) {
+    cat("Also report ",
+        paste0(x$missing$quantity, " (to level ", x$missing$would_reach_level, ")",
+               collapse = ", "), " to make this fully checkable.\n", sep = "")
+  }
   invisible(x)
 }

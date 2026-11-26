@@ -6,7 +6,7 @@ register_t_independent <- function() {
     name = "t_independent",
     family = "Simple tests",
     analysis = "Independent-samples t-test (Student, Welch)",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = "per-group n, mean and SD",
     catch = "declare Student or Welch",
     lost = c("checking the distribution and outliers within each group",
@@ -222,9 +222,10 @@ t_extras <- function() {
     }
   }
   list(
-    eta2 = appendix_extra("eta2", from_t(function(t2, df) t2 / (t2 + df)), TRUE),
-    omega2 = appendix_extra("omega2", from_t(function(t2, df) (t2 - 1) / (t2 + df + 1)), TRUE),
-    r2 = appendix_extra("R\u00b2", from_t(function(t2, df) t2 / (t2 + df)), TRUE)
+    # For a t test eta squared and R squared are the same number; eta squared comes first.
+    eta2 = appendix_extra("\u03b7\u00b2", from_t(function(t2, df) t2 / (t2 + df)), TRUE),
+    r2 = appendix_extra("R\u00b2", from_t(function(t2, df) t2 / (t2 + df)), TRUE),
+    omega2 = appendix_extra("\u03c9\u00b2", from_t(function(t2, df) (t2 - 1) / (t2 + df + 1)), TRUE)
   )
 }
 

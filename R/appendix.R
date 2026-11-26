@@ -170,6 +170,16 @@ appendix_extra_names <- function(h, extra) {
   unique(extra)
 }
 
+# An effect size as APA style writes it. The appendix is plain markdown, so no symbol is
+# italicised (t, p, F, R squared and d are plain throughout); Greek letters are the symbols.
+appendix_symbol <- function(code) {
+  symbols <- c(eta2 = "\u03b7\u00b2", omega2 = "\u03c9\u00b2",
+               partial_eta2 = "partial \u03b7\u00b2",
+               partial_omega2 = "partial \u03c9\u00b2", r2 = "R\u00b2", adj_r2 = "adjusted R\u00b2",
+               beta = "\u03b2 (standardized)")
+  if (code %in% names(symbols)) symbols[[code]] else code
+}
+
 # The requested extras as a table after block D: each from the stored summaries, formatted as
 # APA asks (no leading zero for a number that cannot exceed 1; adjusted R squared may be negative).
 appendix_block_extras <- function(h, s, answers, extra, digits) {
@@ -180,7 +190,13 @@ appendix_block_extras <- function(h, s, answers, extra, digits) {
     if (is.null(value) || !all(is.finite(value))) {
       return(appendix_row(c(spec$label, "not determined by the stored summaries")))
     }
-    labels <- if (is.null(names(value))) spec$label else paste0(spec$label, " (", names(value), ")")
+    labels <- if (is.null(names(value))) {
+      spec$label
+    } else if (grepl(")$", spec$label)) {
+      paste0(spec$label, ", ", names(value))
+    } else {
+      paste0(spec$label, " (", names(value), ")")
+    }
     vapply(seq_along(value), function(i) {
       appendix_row(c(labels[i], appendix_number(value[[i]], digits,
                                                 leading_zero = !spec$bounded)))
@@ -357,7 +373,7 @@ appendix_block_a <- function(h, s, vals, answers, labels, digits) {
   } else {
     es_label <- if (is.na(answers$convention)) "convention not declared" else
       variant_label(answers$convention)
-    c(if (es == "v") es_label else paste0(es, ", ", es_label),
+    c(if (es == "v") es_label else paste0(appendix_symbol(es), ", ", es_label),
       appendix_number(vals[[es]], digits, leading_zero = !es %in% c("eta2", "v")))
   }
   level <- if (is.null(s$meta$conf_level)) "" else

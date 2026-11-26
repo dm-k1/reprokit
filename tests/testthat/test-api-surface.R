@@ -16,7 +16,7 @@ test_that("sufficient_stats() returns, and never errors, for each refusal", {
   for (s in list(sufficient_stats(gl), sufficient_stats(list()),
                  sufficient_stats(structure(list(), class = "locked")))) {
     expect_s3_class(s, "reprokit_sufficient_stats")
-    expect_false(identical(s$verdict, "summaries_suffice"))
+    expect_false(identical(s$verdict, "apa_suffices"))
     expect_null(s$stats)
     expect_true(nzchar(s$verdict_reason))
     expect_output(print(s), "Verdict")
@@ -29,7 +29,7 @@ test_that("sufficient_stats() returns for each disclosure flag and the print nam
   d <- data.frame(y = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), g = c(rep("a", 2), rep("b", 9)))
   s <- sufficient_stats(y ~ g, data = d, test = "welch")
   expect_s3_class(s, "reprokit_sufficient_stats")
-  expect_false(identical(s$verdict, "summaries_suffice"))
+  expect_false(identical(s$verdict, "apa_suffices"))
   expect_output(print(s), "a")
   flagged <- data.frame(a = rep(c("x", "y"), c(3, 40)), b = rep(c("u", "v"), 21)[seq_len(43)])
   s2 <- sufficient_stats(~ a + b, data = flagged, test = "chisq")

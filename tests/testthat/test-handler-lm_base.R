@@ -26,7 +26,7 @@ test_that("weighted lm and offsets reproduce summary(lm) exactly", {
     lm(mpg ~ wt + offset(qsec), data = mtcars, weights = hp)
   )
   for (fit in fits) {
-    expect_identical(sufficient_stats(fit)$verdict, "summaries_suffice")
+    expect_true(verdict_suffices(sufficient_stats(fit)$verdict))
     expect_reproduces(lm_reported(fit), reproduce(sufficient_stats(fit)))
   }
 })
@@ -56,7 +56,7 @@ test_that("glm gets no verdict of sufficiency, and aov does not match the lm han
   # aov is accepted through its own route (ADR 0027): one factor is a one-way ANOVA ...
   one <- sufficient_stats(aov(mpg ~ factor(cyl), data = mtcars))
   expect_identical(one$handler, "anova_oneway")
-  expect_identical(one$verdict, "summaries_suffice")
+  expect_identical(one$verdict, "apa_suffices")
   # ... and a covariate (ANCOVA) has no handler
   ancova <- sufficient_stats(aov(mpg ~ factor(cyl) + wt, data = mtcars))
   expect_identical(ancova$verdict, "needs_raw_data")
@@ -69,5 +69,5 @@ test_that("small factor cells are flagged by the disclosure check", {
   tr <- sufficient_stats(fit)
   expect_identical(tr$verdict, "needs_raw_data")
   expect_match(tr$verdict_reason, "factor\\(cyl\\)8 = 1 & am = 1: n = 2")
-  expect_identical(sufficient_stats(fit, threshold = 2)$verdict, "summaries_suffice")
+  expect_identical(sufficient_stats(fit, threshold = 2)$verdict, "apa_plus_suffices")
 })

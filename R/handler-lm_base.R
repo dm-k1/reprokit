@@ -10,7 +10,7 @@ register_lm <- function() {
     name = "lm",
     family = "Linear models",
     analysis = "Linear regression, lm() (numeric and factor predictors, weights, offset)",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = paste0("n, means and covariance matrix of the model-matrix columns and the outcome ",
                    "(with weights: sum of weights, weighted means and weighted cross-products)"),
     catch = "declare the contrasts; an offset is stored as outcome minus offset",
@@ -25,6 +25,7 @@ register_lm <- function() {
     reproduce = lm_reproduce,
     reported = lm_reported,
     disclosure = lm_disclosure,
+    additions = list(r_all = addition(why = lm_overlap_why)),
     choices = "contrasts for factor predictors (stored with the statistics)",
     example = function() {
       list(x = stats::lm(mpg ~ wt + factor(cyl), data = base_data("mtcars")), args = list())

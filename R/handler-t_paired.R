@@ -14,7 +14,7 @@ register_t_paired <- function() {
     name = "t_paired",
     family = "Longitudinal",
     analysis = "Paired-samples t-test",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = "n, M and SD per condition, and r between the conditions",
     catch = "r between the conditions is rarely reported; report it next to M and SD",
     lost = c("checking the distribution and outliers of the differences",
@@ -29,6 +29,12 @@ register_t_paired <- function() {
     formula_tests = "paired",
     design = apa_design(statistic = "t", effect_size = "d", cells = 2L),
     sufficient = c("n", "m", "sd", "r"),
+    # r is rough: the descriptives, t and the CI at printed precision pin it to about
+    # +-0.02, not exactly (ADR 0032).
+    additions = list(r = addition(
+      why = "the spread of the difference scores depends on how the two conditions correlate.",
+      range = t_paired_r_range
+    )),
     domains = list(eta2 = c(-1, 1)),
     choices = "direction of the difference: first minus second in Pair(first, second)",
     extras = t_extras(),
@@ -118,6 +124,25 @@ t_paired_relations <- function(mu = 0) {
     relation_omega2_from_t()
   )
   Filter(Negate(is.null), relations)
+}
+
+# The range of r that the APA numbers imply, from the author's summaries rounded at APA
+# precision (two decimals), by check_reported(), which uses derive_implied_inputs() and
+# implied_ranges(). Rounded outward to two decimals; NULL when nothing is implied.
+t_paired_r_range <- function(s) {
+  two <- function(x) formatC(x, format = "f", digits = 2L)
+  reproduced <- t_paired_reproduce(s)
+  args <- list("paired", n = as.character(s$stats$n), m = two(unname(s$stats$mean)),
+               sd = two(unname(s$stats$sd)), t = two(reproduced[["t"]]),
+               df = as.character(reproduced[["df"]]), mu = s$meta$mu)
+  level <- formatC(s$meta$conf_level, format = "f", digits = 2L)
+  if (identical(s$meta$alternative, "two.sided") && level %in% c("0.90", "0.95", "0.99")) {
+    args <- c(args, list(ci_lower = two(reproduced[["ci_lower"]]),
+                         ci_upper = two(reproduced[["ci_upper"]]), variants = level))
+  }
+  found <- do.call(check_reported, args)$implied$r
+  if (is.null(found) || !isTRUE(found$feasible)) return(NULL)
+  c(max(-1, floor(found$lower * 100) / 100), min(1, ceiling(found$upper * 100) / 100))
 }
 
 # The two paired columns of `Pair(first, second) ~ 1`, complete pairs.

@@ -11,7 +11,7 @@ register_chisq_independence <- function() {
     name = "chisq_independence",
     family = "Simple tests",
     analysis = "Chi-squared test of independence",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = "the contingency table of counts",
     catch = "declare whether the continuity correction was used (2 x 2 tables)",
     lost = chisq_lost(),
@@ -44,7 +44,7 @@ register_chisq_gof <- function() {
     name = "chisq_gof",
     family = "Simple tests",
     analysis = "Chi-squared goodness of fit",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = "the observed counts and the H0 proportions",
     catch = "report the H0 proportions unless they are equal",
     lost = chisq_lost(),
@@ -59,6 +59,12 @@ register_chisq_gof <- function() {
     design = apa_design(statistic = "chisq", effect_size = NULL, cells = NA_integer_, ci = FALSE,
                         descriptives = "n", extra = "n_total"),
     sufficient = c("n", "p0"),
+    # The H0 proportions are an addition only when they are not equal: equal proportions are a
+    # declared choice that a paper states with the test (ADR 0032).
+    additions = list(p0 = addition(
+      why = "the expected counts follow from them, and they are not equal.",
+      applies = function(s) !gof_uniform(s$meta$p0)
+    )),
     per_cell = "n",
     # Cohen's w is not bounded by 1 (sqrt(k - 1) for a uniform H0 with every count in one
     # category), unlike Cramer's V.
@@ -70,6 +76,10 @@ register_chisq_gof <- function() {
       list(x = ~ cyl, args = list(data = data.frame(cyl = base_data("mtcars")$cyl), test = "gof"))
     }
   )
+}
+
+gof_uniform <- function(p0) {
+  is.null(p0) || all(abs(p0 - 1 / length(p0)) < 1e-8)
 }
 
 chisq_lost <- function() {

@@ -227,7 +227,7 @@
       | --- | --- |
       | F(2, 27) | 4.85 |
       | p | .016 |
-      | eta2, eta squared | .26 |
+      | η², eta squared | .26 |
       
       ### B. Numbers APA does not require that the result needs
       
@@ -892,7 +892,7 @@
       | --- | --- |
       | F(2, 27) | 4.85 |
       | p | .016 |
-      | eta2, convention not declared | .26 |
+      | η², convention not declared | .26 |
       
       ### B. Numbers APA does not require that the result needs
       

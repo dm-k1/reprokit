@@ -10,9 +10,18 @@ coverage_table()
 A data frame of character columns, one row per test:
 \itemize{
 \item \code{test}: the analysis;
+\item \code{verdict}: the tier the analysis reaches, one of \code{\link[=verdicts]{verdicts()}}: \code{apa_suffices} when the
+APA numbers determine every summary the analysis needs, \code{apa_plus_suffices} when a
+number beyond them is needed (the tier is computed from the additions each handler
+declares, not set per test). For the goodness-of-fit test the null proportions are an
+addition only when they are not equal, so the tier depends on the data; the table shows
+the stricter case, \code{apa_plus_suffices};
 \item \code{apa}: what APA style asks a paper to report;
 \item \code{sufficient}: the quantities that determine every reported result;
-\item \code{missing}: sufficient but not in APA, each with its reason;
+\item \code{missing}: sufficient but not in APA, and not covered by an identity, each with
+its reason (these are the additions that make the verdict \code{apa_plus_suffices});
+\item \code{covered}: sufficient but not in APA, yet determined by the APA numbers through an
+exact identity at printed precision, each with that identity;
 \item \code{checkable}: APA numbers the relations derive from \code{sufficient};
 \item \code{not_checkable}: APA numbers they do not reach, each with its reason;
 \item \code{choices}: what the author must declare;

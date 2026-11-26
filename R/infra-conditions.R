@@ -1,10 +1,12 @@
 # Classed conditions. Tests check the class, not the message text, so messages
 # can be improved without breaking tests.
 
-default_alternatives <- function() {
+# Synthetic data is not something reprokit makes or checks (ADR 0032), so it is named only,
+# and only for an analysis reprokit has no summaries for (a logistic or multilevel model).
+default_alternatives <- function(synthetic = FALSE) {
   c(
     "share the raw data (possibly under a data-use agreement)",
-    "share synthetic data and report its utility",
+    if (synthetic) "share synthetic data and report its utility (outside reprokit)",
     "offer federated analysis (e.g. DataSHIELD)"
   )
 }

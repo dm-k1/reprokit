@@ -22,7 +22,7 @@ register_mediation_simple <- function() {
     name = "mediation_simple",
     family = "Regression",
     analysis = "Simple mediation",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = "n, means and covariance matrix of X, M and Y",
     catch = "give the mediator by name: test = \"mediation\", mediator = \"m\"",
     lost = c("the bootstrap (or Monte Carlo) confidence interval of the indirect effect a*b",
@@ -40,6 +40,10 @@ register_mediation_simple <- function() {
                         terms = 4L, model = FALSE,
                         extra = c("indirect", "indirect_ci_lower", "indirect_ci_upper")),
     sufficient = c("n", "m", "sd", "r_all"),
+    additions = list(r_all = addition(
+      why = paste("the paths b and c\u2032 depend on how X and M overlap, which the APA numbers",
+                  "do not show.")
+    )),
     # The wording of plan section 4 (named paths cannot be generated from the quantities).
     coverage = c(sufficient = "n, M, SD and correlations of X, M, Y",
                  missing = "the correlations of X, M, Y",

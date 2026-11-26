@@ -91,7 +91,7 @@ lm_triage <- function(x, ..., threshold) {
                       "the covariance matrix cannot be inverted to reproduce it.")
     ))
   }
-  list(verdict = "summaries_suffice",
+  list(verdict = "apa_suffices", # a sentinel: assess_with() computes the tier
        reason = paste0("Summary statistics suffice: n, the means and the covariance ",
                        "matrix of the predictors and outcome determine the fit exactly."))
 }
@@ -239,12 +239,15 @@ relations_lm_multiple <- function(terms = "x", k = NULL) lm_relations(terms, k)
 # can be negative.
 lm_domains <- function() list(r2 = c(-1, 1))
 
+lm_overlap_why <- paste("the coefficients depend on how the predictors overlap,",
+                        "which the APA numbers do not show.")
+
 # Registration -------------------------------------------------------------------
 
 register_lm_family <- function() {
   shared <- list(
     family = "Regression",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     catch = "declare the contrasts; an offset is stored as outcome minus offset",
     lost = c("residual diagnostics (normality, outliers, influence)",
              "refitting with other predictors or transformations",
@@ -258,7 +261,7 @@ register_lm_family <- function() {
     appendix_table = lm_appendix_table,
     appendix_effects = lm_appendix_effects,
     extras = list(
-      beta = appendix_extra("beta", lm_beta_values, FALSE)
+      beta = appendix_extra("\u03b2 (standardized)", lm_beta_values, FALSE)
     )
   )
   register <- function(...) do.call(register_handler, c(shared, list(...)))
@@ -272,6 +275,12 @@ register_lm_family <- function() {
     design = apa_design(statistic = "t", effect_size = "r2", cells = 2L, ci = TRUE,
                         terms = 1L, model = TRUE),
     sufficient = c("n", "m", "sd", "r"),
+    # r is the standardized beta, sign(b) sqrt(R squared) and t / sqrt(t^2 + df), each exact at
+    # printed precision (ADR 0032).
+    additions = list(r = addition(
+      why = "the correlation of the predictor and the outcome.",
+      covered = "standardized \u03b2, sign(b)\u00b7\u221aR\u00b2, or t/\u221a(t\u00b2+df)"
+    )),
     relations = relations_lm_simple,
     example = function() {
       list(x = stats::lm(mpg ~ wt, data = base_data("mtcars")), args = list())
@@ -287,6 +296,7 @@ register_lm_family <- function() {
     design = apa_design(statistic = "t", effect_size = "r2", cells = NA_integer_, ci = TRUE,
                         terms = NA_integer_, model = TRUE),
     sufficient = c("n", "m", "sd", "r_all"),
+    additions = list(r_all = addition(why = lm_overlap_why)),
     relations = relations_lm_multiple,
     example = function() {
       list(x = stats::lm(mpg ~ wt + hp + factor(am), data = base_data("mtcars")),
@@ -303,6 +313,11 @@ register_lm_family <- function() {
     design = apa_design(statistic = "t", effect_size = "r2", cells = NA_integer_, ci = TRUE,
                         terms = NA_integer_, model = TRUE),
     sufficient = c("n", "m", "sd", "r_all", "xz"),
+    additions = list(
+      r_all = addition(why = lm_overlap_why),
+      xz = addition(why = paste("the moments of the product term depend on how X and Z are",
+                                "distributed together."))
+    ),
     relations = relations_lm_multiple,
     example = function() {
       list(x = stats::lm(mpg ~ wt * hp, data = base_data("mtcars")), args = list())

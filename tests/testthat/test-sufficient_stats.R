@@ -30,7 +30,7 @@ test_that("sufficient_stats() returns a verdict when the handler says summaries 
   expect_error(reproduce(s), class = "reprokit_impossible")
 })
 
-test_that("reproduce() refuses statistics that is not summaries_suffice", {
+test_that("reproduce() refuses statistics that is not apa_suffices", {
   args <- valid_stats_args()
   args$verdict <- "needs_raw_data"
   k <- do.call(new_sufficient_stats, args)
@@ -61,7 +61,7 @@ test_that("a group below the threshold downgrades the verdict and blocks appendi
                class = "reprokit_impossible")
   # The same data pass with a lower threshold, which the object records.
   k <- sufficient_stats(y ~ g, data = d, test = "welch", threshold = 3)
-  expect_identical(k$verdict, "summaries_suffice")
+  expect_identical(k$verdict, "apa_suffices")
   expect_identical(k$disclosure$threshold, 3)
 })
 

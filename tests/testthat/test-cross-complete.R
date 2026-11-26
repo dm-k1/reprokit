@@ -112,5 +112,5 @@ test_that("every handler with extras prints them under 'all'", {
   f <- sufficient_stats(len ~ supp * dose, data = tg, test = "factorial")
   txt <- paste(appendix(f, sharing_reason = "r", extra = "all", choices = list(ss_type = "III")),
                collapse = "\n")
-  expect_match(txt, "partial eta2", fixed = TRUE)
+  expect_match(txt, "partial \u03b7\u00b2", fixed = TRUE)
 })

@@ -9,8 +9,8 @@ test_that("registered handlers appear in handlers() and coverage_table()", {
 })
 
 test_that("coverage_table() has a fixed shape even when empty", {
-  cols <- c("test", "apa", "sufficient", "missing", "checkable", "not_checkable", "choices",
-            "extras")
+  cols <- c("test", "verdict", "apa", "sufficient", "missing", "covered", "checkable",
+            "not_checkable", "choices", "extras")
   expect_named(coverage_table(), cols)
   saved <- as.list(.registry)
   rm(list = ls(.registry), envir = .registry)
@@ -23,7 +23,7 @@ test_that("coverage_table() has a fixed shape even when empty", {
 test_that("a handler claiming exact reproduction must supply summarise and reproduce", {
   expect_error(
     register_handler(
-      "test_bad", family = "Test", analysis = "Bad", verdict = "summaries_suffice",
+      "test_bad", family = "Test", analysis = "Bad", verdict = "apa_suffices",
       needs = "x", lost = "y", matches = function(x, ...) FALSE
     ),
     "claims exact reproduction"
@@ -32,7 +32,7 @@ test_that("a handler claiming exact reproduction must supply summarise and repro
 
 test_that("every handler that claims exact reproduction round-trips (scaled difference < 1e-8)", {
   # Grows automatically as handlers are added.
-  exact <- Filter(function(n) get_handler(n)$verdict == "summaries_suffice", handlers())
+  exact <- Filter(function(n) get_handler(n)$verdict == "apa_suffices", handlers())
   expect_gt(length(exact), 0L)
   for (name in exact) {
     h <- get_handler(name)

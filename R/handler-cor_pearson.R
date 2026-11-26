@@ -9,7 +9,7 @@ register_cor_pearson <- function() {
     name = "cor_pearson",
     family = "Correlation",
     analysis = "Pearson correlation test",
-    verdict = "summaries_suffice",
+    verdict = "apa_suffices",
     needs = "n, M and SD of both variables, and r",
     lost = c("checking the scatterplot for outliers and non-linearity",
              "Spearman, Kendall or robust alternatives"),
@@ -28,7 +28,7 @@ register_cor_pearson <- function() {
       r2 = appendix_extra("R\u00b2", function(s, answers, digits) {
         source_reproduce(s)[["r"]]^2
       }, TRUE),
-      adj_r2 = appendix_extra("Adjusted R\u00b2", function(s, answers, digits) {
+      adj_r2 = appendix_extra("adjusted R\u00b2", function(s, answers, digits) {
         1 - (1 - source_reproduce(s)[["r"]]^2) * (s$stats$n - 1) / (s$stats$n - 2)
       }, TRUE)
     ),
