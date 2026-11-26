@@ -81,18 +81,19 @@ alone, is optional, and is never filled in by reprokit.
 ``` r
 s <- new_sufficient_stats(
   handler = "example",
-  verdict = "summaries_suffice",
+  verdict = "apa_suffices",
   verdict_reason = "Group means and SDs determine the t statistic.",
   stats = list(n = c(20, 22), mean = c(5.1, 4.3), sd = c(1.2, 1.4)),
   lost = c("outlier inspection", "alternative analyses")
 )
 s
 #> <reprokit sufficient_stats>  analysis: not recognised
-#> Verdict: summaries_suffice
+#> Verdict: apa_suffices
 #> Because: Group means and SDs determine the t statistic.
 #> To publish: NA (appendix() writes this out).
 #> What readers lose compared with the raw data:
 #>   * outlier inspection
 #>   * alternative analyses
 #> Statistics stored: n, mean, sd
+#> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).
 ```

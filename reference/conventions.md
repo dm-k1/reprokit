@@ -46,11 +46,13 @@ code (V, w) uses it.
 
 ``` r
 conventions("t_paired")
-#>    handler     choice code default                                 label
-#> 1 t_paired convention  d_z   FALSE           d_z (SD of the differences)
-#> 2 t_paired convention d_rm   FALSE              d_rm (repeated measures)
-#> 3 t_paired convention d_av   FALSE                     d_av (average SD)
-#> 4 t_paired convention g_av   FALSE g_av (average SD, Hedges' correction)
+#>    handler     choice   code default                                 label
+#> 1 t_paired convention    d_z   FALSE           d_z (SD of the differences)
+#> 2 t_paired convention   d_rm   FALSE              d_rm (repeated measures)
+#> 3 t_paired convention   d_av   FALSE                     d_av (average SD)
+#> 4 t_paired convention   g_av   FALSE g_av (average SD, Hedges' correction)
+#> 5 t_paired convention   eta2   FALSE                           eta squared
+#> 6 t_paired convention omega2   FALSE                         omega squared
 subset(conventions(), choice == "ss_type")
 #>           handler  choice code default    label
 #> 3 anova_factorial ss_type  III    TRUE type III

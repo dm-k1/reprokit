@@ -16,7 +16,8 @@ appendix(
   choices = list(),
   digits = 2L,
   digits_added = 4L,
-  threshold = 5
+  threshold = 5,
+  extra = character()
 )
 ```
 
@@ -78,6 +79,19 @@ appendix(
   Passed to
   [`sufficient_stats()`](https://dm-k1.github.io/reprokit/reference/sufficient_stats.md)
   when it is called here.
+
+- extra:
+
+  Names of further numbers to add after block D, or `"all"`. They are
+  quantities of the test that APA style does not ask for and that the
+  stored summaries determine: the R-squared family (`"r2"`, `"adj_r2"`,
+  `"eta2"`, `"omega2"`, `"partial_eta2"`, `"partial_omega2"`), the F of
+  each mediation model, or `"beta"` for the standardized coefficients of
+  a regression.
+  [`coverage_table()`](https://dm-k1.github.io/reprokit/reference/coverage_table.md)
+  lists them per test (column `extras`). A name the test does not offer
+  is an error that lists the ones it does. The default adds nothing, and
+  the rest of the appendix does not change.
 
 ## Value
 
@@ -148,6 +162,85 @@ appendix(chisq.test(table(mtcars$am, mtcars$vs)),
 #> - any variable other than the ones in the table
 #> 
 #> **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: cell counts (a count above 0 and below 5 is flagged; zeros are not). This lowers the risk of identifying a participant; it does not remove it.
+
+# Add the standardized coefficients (and, for other tests, the R-squared family)
+appendix(lm(mpg ~ wt + hp, data = mtcars), extra = "beta",
+         sharing_reason = "Consent did not cover public sharing.")
+#> ## Appendix: sufficient statistics for the multiple regression
+#> 
+#> The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (§3.7) and for data that "allow readers to confirm the basic reported analyses" (§6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (§3.7). This is that appendix.
+#> 
+#> ### A. The numbers APA style asks for
+#> 
+#> n = 32
+#> 
+#> | Variable | M | SD |
+#> | --- | --- | --- |
+#> | wt | 3.22 | 0.98 |
+#> | hp | 146.69 | 68.56 |
+#> | mpg (outcome) | 20.09 | 6.03 |
+#> 
+#> Correlations of the model columns and the outcome:
+#> 
+#> |  | wt | hp | mpg (outcome) |
+#> | --- | --- | --- | --- |
+#> | wt | 1.00 | .66 | −.87 |
+#> | hp | .66 | 1.00 | −.78 |
+#> | mpg (outcome) | −.87 | −.78 | 1.00 |
+#> 
+#> | Coefficient | b | SE | t | p |
+#> | --- | --- | --- | --- | --- |
+#> | (Intercept) | 37.23 | 1.60 | 23.28 | < .001 |
+#> | wt | −3.88 | 0.63 | −6.13 | < .001 |
+#> | hp | −0.03 | 0.01 | −3.52 | .001 |
+#> 
+#> df = 29 for every coefficient. Each coefficient's confidence interval is b ± t(df) × SE at the level the paper states.
+#> 
+#> | Model | Value |
+#> | --- | --- |
+#> | R² | .83 |
+#> | Adjusted R² | .81 |
+#> | F(2, 29) | 69.21 |
+#> | p (model) | < .001 |
+#> 
+#> ### B. Numbers APA does not require that the result needs
+#> 
+#> | Number | Value | Why it is needed |
+#> | --- | --- | --- |
+#> | the correlations | shown in block A | APA does not require this; coefficients depend on how the predictors overlap |
+#> 
+#> ### C. Analysis choices
+#> 
+#> | Choice | Answer |
+#> | --- | --- |
+#> | Confidence level | not declared |
+#> | Effect-size convention | not declared (declaring it is a reprokit rule; APA does not require it) |
+#> | Factor coding | no factor predictors |
+#> 
+#> ### D. APA numbers a reader cannot check from these statistics
+#> 
+#> None: every number in block A follows from blocks A and B.
+#> 
+#> ### Additional numbers
+#> 
+#> Computed from the stored summaries at the author's request.
+#> 
+#> | Number | Value |
+#> | --- | --- |
+#> | β (standardized), wt | −0.63 |
+#> | β (standardized), hp | −0.36 |
+#> 
+#> ### Raw data
+#> 
+#> Reason for not sharing the raw data: Consent did not cover public sharing.
+#> 
+#> **What readers lose compared with the raw data:**
+#> 
+#> - residual diagnostics (normality, outliers, influence)
+#> - refitting with other predictors or transformations
+#> - heteroscedasticity-robust standard errors
+#> 
+#> **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: factor levels (unweighted rows in the fit), counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.
 
 sleep_wide <- data.frame(drug1 = sleep$extra[sleep$group == 1],
                          drug2 = sleep$extra[sleep$group == 2])

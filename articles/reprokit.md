@@ -28,7 +28,7 @@ and a reader later checks the reported numbers (check):
 model <- t.test(extra ~ group, data = sleep)
 s0 <- sufficient_stats(model, data = sleep)
 s0$verdict
-#> [1] "summaries_suffice"
+#> [1] "apa_suffices"
 a0 <- appendix(model, data = sleep, choices = list(convention = "pooled"),
                sharing_reason = "Consent did not cover public sharing.")
 cat(head(a0, 6), sep = "\n")
@@ -61,8 +61,9 @@ came from:
 model <- t.test(extra ~ group, data = sleep)
 sufficient_stats(model, data = sleep)
 #> <reprokit sufficient_stats>  analysis: independent-samples t-test  (input: t.test)
-#> Verdict: summaries_suffice
+#> Verdict: apa_suffices
 #> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.
+#> The numbers APA style asks a paper to report suffice to reproduce this analysis exactly.
 #> To publish: per-group n, mean and SD (appendix() writes this out).
 #> Disclosure check: passed (group sizes, threshold 5).
 #> Choices read from the t.test result: test = Welch.
@@ -70,6 +71,7 @@ sufficient_stats(model, data = sleep)
 #>   * checking the distribution and outliers within each group
 #>   * nonparametric or robust alternatives
 #> Statistics stored: n, mean, sd
+#> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).
 ```
 
 [`sufficient_stats()`](https://dm-k1.github.io/reprokit/reference/sufficient_stats.md)
@@ -78,12 +80,16 @@ because …” is an answer, and the printed object narrates it: the verdict
 and why, what to publish, what readers lose, and which group or cell a
 disclosure flag fired for. There are three verdicts:
 
-- `summaries_suffice`: the summary statistics determine the reported
+- `apa_suffices`: the numbers APA style asks for determine the reported
   results exactly, and are not so close to the raw data that sharing
   them gains nothing.
-- `synthetic_possible`: summaries do not suffice, but synthetic data
-  could.
-- `needs_raw_data`: neither works. The raw data are needed.
+- `apa_plus_suffices`: a few more numbers are needed. The advice names
+  each one, says why, and, when the APA numbers bound it, gives the
+  range they imply.
+- `needs_raw_data`: summaries do not suffice. The raw data are needed.
+
+Every verdict ends by saying that sharing the raw data remains the
+standard.
 
 `needs_raw_data` is also the verdict when the groups are so small that
 the summaries are almost the data. By default, no group may rest on
@@ -93,7 +99,7 @@ fewer than 5 cases and the total must be at least 10 (change this with
 ``` r
 
 verdicts()
-#> [1] "summaries_suffice"  "synthetic_possible" "needs_raw_data"
+#> [1] "apa_suffices"      "apa_plus_suffices" "needs_raw_data"
 ```
 
 ### Step 2. The sufficient statistics
@@ -115,14 +121,16 @@ the formula route then). The same analysis can be given as a formula:
 
 sufficient_stats(extra ~ group, data = sleep, test = "welch")
 #> <reprokit sufficient_stats>  analysis: independent-samples t-test  (input: formula)
-#> Verdict: summaries_suffice
+#> Verdict: apa_suffices
 #> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.
+#> The numbers APA style asks a paper to report suffice to reproduce this analysis exactly.
 #> To publish: per-group n, mean and SD (appendix() writes this out).
 #> Disclosure check: passed (group sizes, threshold 5).
 #> What readers lose compared with the raw data:
 #>   * checking the distribution and outliers within each group
 #>   * nonparametric or robust alternatives
 #> Statistics stored: n, mean, sd
+#> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).
 ```
 
 Fitted `lm`, `aov` and
@@ -132,7 +140,7 @@ without `data`. For a mediation give the two regressions,
 
 If the groups are too small, the verdict is `needs_raw_data`, the
 disclosure flag is named, and the alternatives are listed: share the raw
-data, share synthetic data, or offer federated analysis.
+data, or offer federated analysis.
 
 ``` r
 
@@ -149,8 +157,8 @@ sufficient_stats(extra ~ group, data = tiny, test = "welch")
 #>   * nonparametric or robust alternatives
 #> Instead you could:
 #>   * share the raw data (possibly under a data-use agreement)
-#>   * share synthetic data and report its utility
 #>   * offer federated analysis (e.g. DataSHIELD)
+#> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).
 ```
 
 ### Step 3. Write the appendix
@@ -177,6 +185,41 @@ blocks:
   reader: one- or two-sided, confidence level, Student or Welch, and
   which effect-size convention you used.
 - **D. APA numbers a reader cannot check** from these statistics.
+
+A further section of numbers is added on request with `extra` (names, or
+`"all"`), for example the R squared family:
+
+``` r
+
+out <- appendix(s0, extra = c("eta2", "r2"), choices = list(convention = "pooled"),
+                sharing_reason = "Consent did not cover public sharing.")
+x <- strsplit(paste(out, collapse = "\n"), "\n")[[1]]
+cat(x[seq(grep("Additional numbers", x), grep("Raw data", x) - 1)], sep = "\n")
+#> ### Additional numbers
+#> 
+#> Computed from the stored summaries at the author's request.
+#> 
+#> | Number | Value |
+#> | --- | --- |
+#> | η² | .16 |
+#> | R² | .16 |
+```
+
+When
+[`appendix()`](https://dm-k1.github.io/reprokit/reference/appendix.md)
+is given a model or a test result, the numbers it prints are the model’s
+own, and each is also recomputed from the stored summaries. A fit that
+disagrees is refused.
+
+R squared is checked like any other number: it follows from `r` for a
+correlation, so this is inconsistent:
+
+``` r
+
+check_reported("pearson", n = "32", r = "0.40", r2 = "0.30")$consistent
+#> [1] FALSE
+```
+
 - **Raw data.** Why they are not shared, what readers lose, and a
   disclosure check.
 
@@ -199,7 +242,7 @@ give a wrong one, the error lists the allowed values.
 appendix(model, data = sleep, choices = list(convention = "d_av"),
          sharing_reason = "Consent did not cover public sharing.")
 #> Error in `appendix_answers()`:
-#> ! `choices$convention` must be one of: "pooled", "hedges_g", "average", "glass_sd1", "glass_sd2".
+#> ! `choices$convention` must be one of: "pooled", "hedges_g", "average", "glass_sd1", "glass_sd2", "eta2", "omega2".
 ```
 
 ``` r
@@ -279,14 +322,17 @@ wide <- data.frame(drug1 = sleep$extra[sleep$group == 1],
 sp <- sufficient_stats(Pair(drug1, drug2) ~ 1, data = wide, test = "paired")
 sp
 #> <reprokit sufficient_stats>  analysis: paired-samples t-test  (input: formula)
-#> Verdict: summaries_suffice
+#> Verdict: apa_plus_suffices
 #> Because: Summary statistics suffice: n, M and SD per condition, and r between the conditions determine the reported results exactly.
+#> The APA numbers alone do not reproduce this analysis exactly; these numbers beyond them are needed:
+#>   * r is implied between .79 and .80 by the APA numbers; reporting it makes the result exact (needed because the spread of the difference scores depends on how the two conditions correlate).
 #> To publish: n, M and SD per condition, and r between the conditions (appendix() writes this out).
 #> Disclosure check: passed (sample size only (no groups or cells; no individual values stored), threshold 5).
 #> What readers lose compared with the raw data:
 #>   * checking the distribution and outliers of the differences
 #>   * nonparametric or robust alternatives
 #> Statistics stored: n, mean, sd, r
+#> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).
 ```
 
 ``` r
@@ -396,8 +442,6 @@ check_reported("welch",
 #>         t      -1.86 verified  t_from_descriptives; p_from_t
 #>        df       17.8 verified            df_from_n; p_from_t
 #>         p       .079 coherent                       p_from_t
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 The first argument names the test (see
@@ -452,6 +496,7 @@ check_reported("paired", n = "20", t = "2.85", df = "19", p = ".050")
 #>         p     .050 inconsistent            p_from_t
 #> 
 #> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+#> Also report m, sd and r (together, to level 3) to make this fully checkable.
 ```
 
 Here the test is a paired t-test. With t(19) = 2.85, the two-sided p is
@@ -476,26 +521,30 @@ check_reported("paired", n = "10", m = c("0.75", "2.33"), sd = c("1.79", "2.00")
 #> Level 1: internal coherence only (statistic, df, p and CI are checked against each other, not against the descriptives).
 #> Variants that fit: two-sided
 #> 
-#>  quantity   reported      status               checked_against
-#>         n         10    coherent                     df_from_n
-#>         m 0.75, 2.33 unconfirmed t_from_descriptives (needs r)
-#>        sd 1.79, 2.00 unconfirmed t_from_descriptives (needs r)
-#>         t      -4.06    coherent                      p_from_t
-#>        df          9    verified           df_from_n; p_from_t
-#>         p       .003    coherent                      p_from_t
+#>  quantity   reported      status
+#>         n         10    coherent
+#>         m 0.75, 2.33 unconfirmed
+#>        sd 1.79, 2.00 unconfirmed
+#>         t      -4.06    coherent
+#>        df          9    verified
+#>         p       .003    coherent
+#>                                          checked_against
+#>                                                df_from_n
+#>                            t_from_descriptives (needs r)
+#>                            t_from_descriptives (needs r)
+#>  p_from_t; t_from_descriptives would verify it (needs r)
+#>                                      df_from_n; p_from_t
+#>                                                 p_from_t
 #> 
 #> Implied ranges for numbers that were not reported:
 #>   r: 0.7912 to 0.7982
-#> 
-#> Reporting these would raise the level: r (to level 3).
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+#> Also report r (to level 3) to make this fully checkable.
 ```
 
 Here the paired t-test needs the correlation r between conditions. It
 was not reported, but t and the descriptives imply that it lies between
-0.7912 and 0.7982. The message “Reporting these would raise the level”
-says what to ask the authors for.
+0.7912 and 0.7982. The closing line “Also report r (to level 3) to make
+this fully checkable.” says what to ask the authors for.
 
 ### Derived quantities, and correlations
 
@@ -515,8 +564,6 @@ check_reported("pearson", r = ".41", df = "28", p = ".024")
 #>         p     .024 verified                p_from_t
 #> 
 #> Derived from the reported numbers: n = 30 (from df).
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 For a one-sample test, give the test value with `mu` if it is not 0.
@@ -537,8 +584,6 @@ check_reported("one_sample", n = "32", m = "20.09", sd = "6.03",
 #>         t     0.08 verified  t_from_descriptives; p_from_t
 #>        df       31 verified            df_from_n; p_from_t
 #>         p      .94 coherent                       p_from_t
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 ### Restricting the variants
@@ -597,8 +642,6 @@ check_reported("oneway", n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
 #>       df2               27 verified           df2_from_n; p_from_f; eta2_from_f
 #>      eta2             0.26 coherent                                 eta2_from_f
 #>         p             .016 coherent                                    p_from_f
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 ### A chi-squared test
@@ -623,8 +666,6 @@ check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04
 #>        df              1 coherent                   df_from_dims; p_from_chisq
 #>         p          .0001 verified                   p_from_table; p_from_chisq
 #>         v            .41 verified                                 v_from_table
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 ### A two-factor ANOVA
@@ -665,8 +706,6 @@ check_reported("factorial", n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.4
 #>                                                eta2_from_f
 #> 
 #> Note: Effect checked: A (the factor in the rows of the cell matrices).
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 ### A regression
@@ -699,8 +738,7 @@ check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp =
 #>       df1        2 coherent                                       f_from_r2
 #>       df2       29 verified p_from_t:wt; p_from_t:hp; f_from_r2; df2_from_n
 #>         n       32 coherent                                      df2_from_n
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+#> Also report m, sd and r_all (together, to level 3) to make this fully checkable.
 ```
 
 Use `"lm_simple"` or `"lm_moderation"` as the test for those designs.
@@ -792,12 +830,21 @@ check_reported(
 #>                                                                            -
 #> 
 #> Note: The confidence interval of the indirect effect is not checkable: it is inferred by bootstrap, which resamples cases; summaries cannot. No Sobel, Aroian or Goodman test is computed.
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+#> Also report m, sd and r_all (together, to level 3) to make this fully checkable.
 ```
+
+Models can be checked too, as PROCESS prints them: `r2`, `f`, `df1`,
+`df2` and `p_model`, one value per model. `a` is the model of the
+mediator on X, `b` the outcome on X and the mediator, and `c` the
+outcome on X alone. R squared, F and its p are checked against each
+other and against n.
 
 [`quantity_names()`](https://dm-k1.github.io/reprokit/reference/quantity_names.md)
 lists the names you can pass.
+
+When a number is coherent but not verified, the `checked_against` column
+says which relation would verify it and what it needs, for example
+`t_from_descriptives would verify it (needs n, m, sd)`.
 
 ## Limits
 

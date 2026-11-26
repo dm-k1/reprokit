@@ -28,5 +28,6 @@ quantity_names()
 #> [19] "b"                 "se"                "beta"             
 #> [22] "r2"                "p_model"           "r_all"            
 #> [25] "xz"                "indirect"          "indirect_ci_lower"
-#> [28] "indirect_ci_upper"
+#> [28] "indirect_ci_upper" "adj_r2"            "omega2"           
+#> [31] "partial_eta2"      "partial_omega2"   
 ```

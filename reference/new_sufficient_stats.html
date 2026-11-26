@@ -118,20 +118,21 @@ lose. The author's reason for not sharing is not stored here: it belongs to
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu">new_sufficient_stats</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  handler <span class="op">=</span> <span class="st">"example"</span>,</span></span>
-<span class="r-in"><span>  verdict <span class="op">=</span> <span class="st">"summaries_suffice"</span>,</span></span>
+<span class="r-in"><span>  verdict <span class="op">=</span> <span class="st">"apa_suffices"</span>,</span></span>
 <span class="r-in"><span>  verdict_reason <span class="op">=</span> <span class="st">"Group means and SDs determine the t statistic."</span>,</span></span>
 <span class="r-in"><span>  stats <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">20</span>, <span class="fl">22</span><span class="op">)</span>, mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5.1</span>, <span class="fl">4.3</span><span class="op">)</span>, sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.2</span>, <span class="fl">1.4</span><span class="op">)</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  lost <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"outlier inspection"</span>, <span class="st">"alternative analyses"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">s</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;reprokit sufficient_stats&gt;  analysis: not recognised</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: summaries_suffice</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: apa_suffices</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Because: Group means and SDs determine the t statistic.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> To publish: NA (appendix() writes this out).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> What readers lose compared with the raw data:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * outlier inspection</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * alternative analyses</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Statistics stored: n, mean, sd</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

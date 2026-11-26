@@ -57,31 +57,42 @@ extra choices are declared by each handler.</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data frame of character columns, one row per test:</p><ul><li><p><code>test</code>: the analysis;</p></li>
+<li><p><code>verdict</code>: the tier the analysis reaches, one of <code><a href="verdicts.html">verdicts()</a></code>: <code>apa_suffices</code> when the
+APA numbers determine every summary the analysis needs, <code>apa_plus_suffices</code> when a
+number beyond them is needed (the tier is computed from the additions each handler
+declares, not set per test). For the goodness-of-fit test the null proportions are an
+addition only when they are not equal, so the tier depends on the data; the table shows
+the stricter case, <code>apa_plus_suffices</code>;</p></li>
 <li><p><code>apa</code>: what APA style asks a paper to report;</p></li>
 <li><p><code>sufficient</code>: the quantities that determine every reported result;</p></li>
-<li><p><code>missing</code>: sufficient but not in APA, each with its reason;</p></li>
+<li><p><code>missing</code>: sufficient but not in APA, and not covered by an identity, each with
+its reason (these are the additions that make the verdict <code>apa_plus_suffices</code>);</p></li>
+<li><p><code>covered</code>: sufficient but not in APA, yet determined by the APA numbers through an
+exact identity at printed precision, each with that identity;</p></li>
 <li><p><code>checkable</code>: APA numbers the relations derive from <code>sufficient</code>;</p></li>
 <li><p><code>not_checkable</code>: APA numbers they do not reach, each with its reason;</p></li>
-<li><p><code>choices</code>: what the author must declare.</p></li>
+<li><p><code>choices</code>: what the author must declare;</p></li>
+<li><p><code>extras</code>: the further quantities <code>appendix(extra = )</code> can add, which the stored
+summaries determine.</p></li>
 </ul><p>An empty cell shows an em dash. Handlers without a design are left out.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">coverage_table</span><span class="op">(</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                                               test</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                         Pearson correlation test</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2                            Paired-samples t-test</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                                       Moderation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4                              Multiple regression</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                 Simple mediation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6                                Simple regression</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7                      Chi-squared goodness of fit</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8                 Chi-squared test of independence</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9  Factorial ANOVA, two factors (between-subjects)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10     Independent-samples t-test (Student, Welch)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 11                               One-sample t-test</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 12                One-way ANOVA (between-subjects)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                               test           verdict</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                         Pearson correlation test      apa_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                            Paired-samples t-test apa_plus_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                                       Moderation apa_plus_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                              Multiple regression apa_plus_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                 Simple mediation apa_plus_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                                Simple regression      apa_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                      Chi-squared goodness of fit apa_plus_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                 Chi-squared test of independence      apa_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9  Factorial ANOVA, two factors (between-subjects)      apa_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10     Independent-samples t-test (Student, Welch)      apa_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11                               One-sample t-test      apa_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12                One-way ANOVA (between-subjects)      apa_suffices</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                                                                 apa</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                               n, M, SD per variable, r, df, p, CI</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2                           n, M, SD per condition, t, df, p, d, CI</span>
@@ -121,6 +132,19 @@ extra choices are declared by each handler.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 10                                                                                                                                —</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 11                                                                                                                                —</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 12                                                                                                                                —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                           covered</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                                               —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                                               —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                                               —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                                               —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                               —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6  r (standardized β, sign(b)·√R², or t/√(t²+df))</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                                               —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                                               —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                                               —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10                                              —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11                                              —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12                                              —</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                                    checkable</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                                  df, p, CI</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2                            t, df, p, d, CI</span>
@@ -147,19 +171,32 @@ extra choices are declared by each handler.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 10                                                                              —</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 11                                                                              —</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 12                                                                              —</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                                                                                                                                                                                                                                         choices</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                                                                                                                                                                                                                    tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2  tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (d_z (SD of the differences), d_rm (repeated measures), d_av (average SD), g_av (average SD, Hedges' correction)); direction of the difference: first minus second in Pair(first, second)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                                                                                                                                                                                                                 confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); centering; coding</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4                                                                                                                                                                                                                     confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); factor coding</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                                                                                                                                                                                                                                                              confidence level (90%, 95%, 99%)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6                                                                                                                                                                                                                                    confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7                                                                                                                                                                                                                                                                            effect-size convention (Cohen's w)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8                                                                                                                                                                                                                 test (Pearson chi-squared, Yates' continuity correction); effect-size convention (Cramér's V)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9                                                                                                                                                                               SS type for unbalanced designs (type III, type II, type I); effect-size convention (partial eta squared, partial omega squared)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10         tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); test (Student's t, Welch's t); effect-size convention (Cohen's d (pooled SD), Hedges' g, Cohen's d (root mean square of the SDs), Glass's Δ (SD of the first group), Glass's Δ (SD of the second group))</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 11                                                                                                                                         tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (Cohen's d, Hedges' g); test value mu (default 0)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 12                                                                                                                                                                                    effect-size convention (eta squared, omega squared); variance assumption: equal variances (classical F test, not Welch's)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                                                                                                                                                                                                                                                                     choices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                                                                                                                                                                                                                                                tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2  tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (d_z (SD of the differences), d_rm (repeated measures), d_av (average SD), g_av (average SD, Hedges' correction), eta squared, omega squared); direction of the difference: first minus second in Pair(first, second)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                                                                                                                                                                                                                                             confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); centering; coding</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                                                                                                                                                                                                                                                 confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); factor coding</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                                                                                                                                                                                                                                                                                          confidence level (90%, 95%, 99%)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                                                                                                                                                                                                                                                                confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                                                                                                                                                                                                                                                                                                        effect-size convention (Cohen's w)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                                                                                                                                                                                                                                             test (Pearson chi-squared, Yates' continuity correction); effect-size convention (Cramér's V)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                                                                                                                                                                                                           SS type for unbalanced designs (type III, type II, type I); effect-size convention (partial eta squared, partial omega squared)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10         tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); test (Student's t, Welch's t); effect-size convention (Cohen's d (pooled SD), Hedges' g, Cohen's d (root mean square of the SDs), Glass's Δ (SD of the first group), Glass's Δ (SD of the second group), eta squared, omega squared)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11                                                                                                                                         tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (Cohen's d, Hedges' g, eta squared, omega squared); test value mu (default 0)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12                                                                                                                                                                                                                effect-size convention (eta squared, omega squared); variance assumption: equal variances (classical F test, not Welch's)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                          extras</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1               R², adjusted R²</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2              eta2, R², omega2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3             standardized beta</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4             standardized beta</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                         R², F</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6             standardized beta</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                             —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                             —</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9  partial eta2, partial omega2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10             eta2, R², omega2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11             eta2, R², omega2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12                   R², omega2</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

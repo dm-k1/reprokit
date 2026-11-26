@@ -31,6 +31,20 @@ check_reported(
   character vector (`m = c("5.1", "4.2")`). Integer-valued numbers are
   taken as exact.
 
+  Each test accepts the quantities that apply to it, and no others. A
+  name reprokit knows that does not apply to the test (`d` for a
+  correlation, `r2` for a chi-squared test) is an input error that lists
+  the names the test takes, and an unknown name is an error too. Besides
+  the numbers of the APA set, the tests take the R squared family where
+  it exists: `r2` and `adj_r2` for a correlation (`r2` is `r` squared),
+  `eta2`, `r2` and `omega2` for the t tests, `eta2`, `r2` (identical to
+  `eta2`) and `omega2` for a one-way ANOVA, `partial_eta2` and
+  `partial_omega2` per effect for a factorial ANOVA, `r2`, `adj_r2` and
+  the model `F` for a regression, and `r2` and `F` per model for a
+  mediation. Where the convention behind a number is not stated in a
+  paper (omega squared, a Cohen's d), a number that does not match is
+  "not reproducible", never "inconsistent".
+
   For `"mediation"` (a simple, regression-based mediation, as in PROCESS
   model 4), a quantity with one value per path is a character vector
   named by path, `a` (X to M), `b` (M to Y), `c` (X to Y) and `c_prime`
@@ -91,7 +105,8 @@ check_reported(
     `"glass_sd1"`, `"glass_sd2"` (Glass's delta), `"cohen"`, `"d_z"`,
     `"d_rm"`, `"d_av"`, `"g_av"`, `"eta2"` (eta squared), `"omega2"`
     (omega squared), `"partial_eta2"`, `"partial_omega2"` (factorial
-    ANOVA). Which of them a handler has depends on the test.
+    ANOVA). Which of them a handler has depends on the test. For the t
+    tests, `"eta2"` and `"omega2"` are computed from t and df.
 
 - mu:
 
@@ -137,17 +152,19 @@ check_reported(
 
 A `reprokit_check` object: `$numbers` (status of each reported number),
 `$level` (coverage, 0 to 3), `$missing` (what would raise the level, and
-the range implied for it), `$variants` (a list with one data frame per
-kind of variant the handler has, each of the variants tried and whether
-they fit: `tail`, `level`, `test` (Student or Welch) and `convention`
-(how an effect size was computed)), `$relations` (one row per relation
-and variant; `$variant` and `$kind` join the values and kinds of a
-relation that varies over several with "+", and there is one column per
-kind, `tail`, `level`, `test`, `convention`, holding the row's value or
-`NA`), `$implied`, `$implied_inputs` (numbers derived from reported
-ones, such as `n` from `df`) and `$checked` (whether any relation that
-can falsify was compared with a reported number; without one there is no
-verdict).
+the range implied for it: one row per number that raises the level on
+its own, and, when none does, one row with `together = TRUE` whose
+`quantity` lists the smallest set that raises it jointly, such as
+`"m, sd, r"`), `$variants` (a list with one data frame per kind of
+variant the handler has, each of the variants tried and whether they
+fit: `tail`, `level`, `test` (Student or Welch) and `convention` (how an
+effect size was computed)), `$relations` (one row per relation and
+variant; `$variant` and `$kind` join the values and kinds of a relation
+that varies over several with "+", and there is one column per kind,
+`tail`, `level`, `test`, `convention`, holding the row's value or `NA`),
+`$implied`, `$implied_inputs` (numbers derived from reported ones, such
+as `n` from `df`) and `$checked` (whether any relation that can falsify
+was compared with a reported number; without one there is no verdict).
 
 The reported numbers come from one analysis, so they share one test and
 one confidence level: a variant fits only if one choice per kind
@@ -179,13 +196,17 @@ check_reported("paired", n = "20", t = "2.85", df = "19", p = ".010")
 #> Level 1: internal coherence only (statistic, df, p and CI are checked against each other, not against the descriptives).
 #> Variants that fit: two-sided
 #> 
-#>  quantity reported   status     checked_against
-#>         n       20 coherent           df_from_n
-#>         t     2.85 coherent            p_from_t
-#>        df       19 verified df_from_n; p_from_t
-#>         p     .010 coherent            p_from_t
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+#>  quantity reported   status
+#>         n       20 coherent
+#>         t     2.85 coherent
+#>        df       19 verified
+#>         p     .010 coherent
+#>                                                 checked_against
+#>                                                       df_from_n
+#>  p_from_t; t_from_descriptives would verify it (needs m, sd, r)
+#>                                             df_from_n; p_from_t
+#>                                                        p_from_t
+#> Also report m, sd and r (together, to level 3) to make this fully checkable.
 
 # A 2 x 2 table: Yates' correction is a variant, V is a convention
 check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04",
@@ -201,8 +222,6 @@ check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04
 #>        df              1 coherent                   df_from_dims; p_from_chisq
 #>         p          .0001 verified                   p_from_table; p_from_chisq
 #>         v            .41 verified                                 v_from_table
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 
 # A regression reports a number per coefficient: name them.
 # A simple mediation (mpg ~ wt through hp): the paths, and the indirect effect
@@ -230,8 +249,7 @@ check_reported("mediation",
 #>   t:c_prime    -6.13      coherent             t_from_b_se:c_prime
 #>           n       32 not checkable                               -
 #>    indirect    -1.46      coherent                indirect_from_ab
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+#> Also report m, sd and r_all (together, to level 3) to make this fully checkable.
 
 # A regression reports a number per coefficient: name them.
 check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp = "0.01"),
@@ -255,6 +273,5 @@ check_reported("lm", b = c(wt = "-3.88", hp = "-0.03"), se = c(wt = "0.63", hp =
 #>       df1        2 coherent                                       f_from_r2
 #>       df2       29 verified p_from_t:wt; p_from_t:hp; f_from_r2; df2_from_n
 #>         n       32 coherent                                      df2_from_n
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+#> Also report m, sd and r_all (together, to level 3) to make this fully checkable.
 ```

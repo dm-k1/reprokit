@@ -73,6 +73,17 @@ Pass strings, so the decimals count: <code>t = "2.85"</code>, <code>p = "&lt; .0
 <code>df = "29"</code>. A quantity with one value per group or condition is a
 character vector (<code>m = c("5.1", "4.2")</code>). Integer-valued numbers are taken
 as exact.</p>
+<p>Each test accepts the quantities that apply to it, and no others. A name
+reprokit knows that does not apply to the test (<code>d</code> for a correlation, <code>r2</code> for a
+chi-squared test) is an input error that lists the names the test takes, and an
+unknown name is an error too. Besides the numbers of the APA set, the tests take
+the R squared family where it exists: <code>r2</code> and <code>adj_r2</code> for a correlation
+(<code>r2</code> is <code>r</code> squared), <code>eta2</code>, <code>r2</code> and <code>omega2</code> for the t tests, <code>eta2</code>, <code>r2</code>
+(identical to <code>eta2</code>) and <code>omega2</code> for a one-way ANOVA, <code>partial_eta2</code> and
+<code>partial_omega2</code> per effect for a factorial ANOVA, <code>r2</code>, <code>adj_r2</code> and the model
+<code>F</code> for a regression, and <code>r2</code> and <code>F</code> per model for a mediation. Where the
+convention behind a number is not stated in a paper (omega squared, a Cohen's d),
+a number that does not match is "not reproducible", never "inconsistent".</p>
 <p>For <code>"mediation"</code> (a simple, regression-based mediation, as in PROCESS model 4),
 a quantity with one value per path is a character vector named by path, <code>a</code>
 (X to M), <code>b</code> (M to Y), <code>c</code> (X to Y) and <code>c_prime</code> (X to Y with M held constant;
@@ -120,7 +131,8 @@ type III, type II, type I).</p></li>
 <code>"glass_sd2"</code> (Glass's delta), <code>"cohen"</code>, <code>"d_z"</code>, <code>"d_rm"</code>, <code>"d_av"</code>,
 <code>"g_av"</code>, <code>"eta2"</code> (eta squared), <code>"omega2"</code> (omega squared),
 <code>"partial_eta2"</code>, <code>"partial_omega2"</code> (factorial ANOVA). Which of
-them a handler has depends on the test.</p></li>
+them a handler has depends on the test. For the t tests, <code>"eta2"</code> and
+<code>"omega2"</code> are computed from t and df.</p></li>
 </ul></dd>
 
 
@@ -164,7 +176,10 @@ number of coefficients reported (a paper may leave some out). A plain number.</p
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A <code>reprokit_check</code> object: <code>$numbers</code> (status of each reported
 number), <code>$level</code> (coverage, 0 to 3), <code>$missing</code> (what would raise the
-level, and the range implied for it), <code>$variants</code> (a list with one data
+level, and the range implied for it: one row per number that raises the level
+on its own, and, when none does, one row with <code>together = TRUE</code> whose
+<code>quantity</code> lists the smallest set that raises it jointly, such as <code>"m, sd, r"</code>),
+<code>$variants</code> (a list with one data
 frame per kind of variant the handler has, each of the variants tried and
 whether they fit: <code>tail</code>, <code>level</code>, <code>test</code> (Student or Welch) and
 <code>convention</code> (how an effect size was computed)), <code>$relations</code> (one row per
@@ -202,13 +217,17 @@ the coverage level, but <code>df</code> is never checked against it.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Level 1: internal coherence only (statistic, df, p and CI are checked against each other, not against the descriptives).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Variants that fit: two-sided</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  quantity reported   status     checked_against</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         n       20 coherent           df_from_n</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         t     2.85 coherent            p_from_t</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        df       19 verified df_from_n; p_from_t</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         p     .010 coherent            p_from_t</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  quantity reported   status</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         n       20 coherent</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         t     2.85 coherent</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        df       19 verified</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         p     .010 coherent</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                                 checked_against</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                                       df_from_n</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  p_from_t; t_from_descriptives would verify it (needs m, sd, r)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                             df_from_n; p_from_t</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                                        p_from_t</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Also report m, sd and r (together, to level 3) to make this fully checkable.</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># A 2 x 2 table: Yates' correction is a variant, V is a convention</span></span></span>
 <span class="r-in"><span><span class="fu">check_reported</span><span class="op">(</span><span class="st">"chisq"</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"30"</span>, <span class="st">"10"</span>, <span class="st">"20"</span>, <span class="st">"40"</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span>, chisq <span class="op">=</span> <span class="st">"15.04"</span>,</span></span>
@@ -224,8 +243,6 @@ the coverage level, but <code>df</code> is never checked against it.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        df              1 coherent                   df_from_dims; p_from_chisq</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>         p          .0001 verified                   p_from_table; p_from_chisq</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>         v            .41 verified                                 v_from_table</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># A regression reports a number per coefficient: name them.</span></span></span>
 <span class="r-in"><span><span class="co"># A simple mediation (mpg ~ wt through hp): the paths, and the indirect effect</span></span></span>
@@ -253,8 +270,7 @@ the coverage level, but <code>df</code> is never checked against it.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   t:c_prime    -6.13      coherent             t_from_b_se:c_prime</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>           n       32 not checkable                               -</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    indirect    -1.46      coherent                indirect_from_ab</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Also report m, sd and r_all (together, to level 3) to make this fully checkable.</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># A regression reports a number per coefficient: name them.</span></span></span>
 <span class="r-in"><span><span class="fu">check_reported</span><span class="op">(</span><span class="st">"lm"</span>, b <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>wt <span class="op">=</span> <span class="st">"-3.88"</span>, hp <span class="op">=</span> <span class="st">"-0.03"</span><span class="op">)</span>, se <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>wt <span class="op">=</span> <span class="st">"0.63"</span>, hp <span class="op">=</span> <span class="st">"0.01"</span><span class="op">)</span>,</span></span>
@@ -278,8 +294,7 @@ the coverage level, but <code>df</code> is never checked against it.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       df1        2 coherent                                       f_from_r2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       df2       29 verified p_from_t:wt; p_from_t:hp; f_from_r2; df2_from_n</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>         n       32 coherent                                      df2_from_n</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Also report m, sd and r_all (together, to level 3) to make this fully checkable.</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

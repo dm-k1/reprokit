@@ -74,11 +74,14 @@ explicit choice that conflicts with the result.</p>
 
 
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
-<dd><p>A fitted model, a test result, or a formula; see above.</p></dd>
+<dd><p>A fitted model, a test result, a formula, or the name of a test for typed
+numbers (see above).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Passed on: the second <code>lm</code> fit of a mediation, <code>data</code> for a formula or a
+<dd><p>Passed on: for typed numbers, the reported numbers and the test arguments of
+<code><a href="check_reported.html">check_reported()</a></code> (<code>mu</code>, <code>dims</code>, <code>p0</code>, <code>effect</code>, <code>k</code>, <code>variants</code>); otherwise the second
+<code>lm</code> fit of a mediation, <code>data</code> for a formula or a
 <code>t.test</code> / <code>cor.test</code> result, <code>test</code> for a formula, and the choices of the analysis for a
 formula (<code>alternative</code>,
 <code>conf_level</code>, <code>mu</code>, <code>correct</code>, <code>p0</code>, <code>ss_type</code>).</p></dd>
@@ -94,8 +97,9 @@ least <code>2 * threshold</code>.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An object of class <code>reprokit_sufficient_stats</code> with the verdict
 (<code>verdict</code>, <code>verdict_reason</code>), what to publish (<code>publish</code>), the handler's default
-<code>lost</code>, the <code>disclosure</code> check, and <code>stats</code> and <code>meta</code> (<code>NULL</code> and mostly empty
-when the summaries do not suffice).</p>
+<code>lost</code>, the <code>disclosure</code> check, <code>additions</code> (one entry per number beyond the APA
+set: <code>quantity</code>, <code>why</code>, <code>covered</code>, <code>status</code> and <code>range</code>), and <code>stats</code> and <code>meta</code> (<code>NULL</code>
+and mostly empty when the summaries do not suffice, and for typed numbers).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -120,26 +124,49 @@ The second fit goes in <code>...</code>. reprokit works out which is which; the 
 fitted to the same cases. Covariates or more mediators get a verdict, not an error.</p></li>
 </ul><p>A result and the formula for the same analysis give the same summaries; the field
 <code>meta$route</code> records which one was used.</p>
+<p>The verdict is one of <code><a href="verdicts.html">verdicts()</a></code>, drawn around what an APA-style report contains.
+<code>apa_suffices</code> means the numbers APA style asks for determine the analysis exactly.
+<code>apa_plus_suffices</code> means exact reproduction needs a number beyond them: the object
+names each addition, why it is needed and, when the APA numbers imply a range for it,
+that range ("r is implied between .60 and .64 by the APA numbers; reporting it makes
+the result exact"). An addition that follows from the APA numbers by an exact identity
+at printed precision (the correlation in a simple regression, which is the standardized
+coefficient) does not lower the verdict. Every verdict ends with the reminder that
+sharing the raw data remains the standard (APA Publication Manual section 1.14,
+Ethics Code 8.14).</p>
+<p><strong>Typed numbers.</strong> Without a model or data, the verdict can be had from the numbers a paper
+reports: give the test as the first argument or as <code>test =</code>, and the numbers as strings,
+as in <code><a href="check_reported.html">check_reported()</a></code> (same test names, parsing and checks for which quantities a test
+takes). So
+<code>sufficient_stats(test = "paired", n = "30", m = c("5.1", "4.6"), sd = c("1.2", "1.3"))</code>
+works, and a formula, a model or a test result is never mistaken for it, because those
+are not a single test name. The result has <code>meta$route = "typed"</code> and holds no summaries:
+<code><a href="appendix.html">appendix()</a></code> refuses it, because an appendix needs a model or data. Each addition is
+marked as reported, implied (with its range) or missing. An unknown or inapplicable
+quantity is an input error; the verdict itself never errors.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">sufficient_stats</span><span class="op">(</span><span class="va">extra</span> <span class="op">~</span> <span class="va">group</span>, data <span class="op">=</span> <span class="va">sleep</span>, test <span class="op">=</span> <span class="st">"welch"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;reprokit sufficient_stats&gt;  analysis: independent-samples t-test  (input: formula)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: summaries_suffice</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: apa_suffices</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The numbers APA style asks a paper to report suffice to reproduce this analysis exactly.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> To publish: per-group n, mean and SD (appendix() writes this out).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Disclosure check: passed (group sizes, threshold 5).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> What readers lose compared with the raw data:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * checking the distribution and outliers within each group</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * nonparametric or robust alternatives</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Statistics stored: n, mean, sd</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># From the result you already have:</span></span></span>
 <span class="r-in"><span><span class="fu">sufficient_stats</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/t.test.html" class="external-link">t.test</a></span><span class="op">(</span><span class="va">extra</span> <span class="op">~</span> <span class="va">group</span>, data <span class="op">=</span> <span class="va">sleep</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">sleep</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;reprokit sufficient_stats&gt;  analysis: independent-samples t-test  (input: t.test)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: summaries_suffice</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: apa_suffices</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Because: Summary statistics suffice: per-group n, mean and SD determine the reported results exactly.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The numbers APA style asks a paper to report suffice to reproduce this analysis exactly.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> To publish: per-group n, mean and SD (appendix() writes this out).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Disclosure check: passed (group sizes, threshold 5).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Choices read from the t.test result: test = Welch.</span>
@@ -147,10 +174,12 @@ fitted to the same cases. Covariates or more mediators get a verdict, not an err
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * checking the distribution and outliers within each group</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * nonparametric or robust alternatives</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Statistics stored: n, mean, sd</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).</span>
 <span class="r-in"><span><span class="fu">sufficient_stats</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/chisq.test.html" class="external-link">chisq.test</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">mtcars</span><span class="op">$</span><span class="va">am</span>, <span class="va">mtcars</span><span class="op">$</span><span class="va">vs</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;reprokit sufficient_stats&gt;  analysis: chi-squared test of independence  (input: chisq.test)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: summaries_suffice</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: apa_suffices</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Because: Summary statistics suffice: the contingency table of counts determine the reported results exactly.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The numbers APA style asks a paper to report suffice to reproduce this analysis exactly.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> To publish: the contingency table of counts (appendix() writes this out).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Disclosure check: passed (cell counts (a count above 0 and below 5 is flagged; zeros are not), threshold 5).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Choices read from the chisq.test result: test = Yates.</span>
@@ -159,12 +188,15 @@ fitted to the same cases. Covariates or more mediators get a verdict, not an err
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * exact, Fisher or Monte Carlo alternatives for sparse tables</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * any variable other than the ones in the table</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Statistics stored: n</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Mediation from two models, in either order:</span></span></span>
 <span class="r-in"><span><span class="fu">sufficient_stats</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">hp</span> <span class="op">~</span> <span class="va">wt</span>, data <span class="op">=</span> <span class="va">mtcars</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">mpg</span> <span class="op">~</span> <span class="va">wt</span> <span class="op">+</span> <span class="va">hp</span>, data <span class="op">=</span> <span class="va">mtcars</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;reprokit sufficient_stats&gt;  analysis: simple mediation  (input: lm)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: summaries_suffice</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: apa_plus_suffices</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Because: Summary statistics suffice: n, means and covariance matrix of X, M and Y determine the reported results exactly.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The APA numbers alone do not reproduce this analysis exactly; these numbers beyond them are needed:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   * the correlations is not implied by the APA numbers; reporting it makes the result exact (needed because the paths b and c′ depend on how X and M overlap, which the APA numbers do not show).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> To publish: n, means and covariance matrix of X, M and Y (appendix() writes this out).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Disclosure check: passed (sample size only (no groups or cells; no individual values stored), threshold 5).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> What readers lose compared with the raw data:</span>
@@ -172,6 +204,21 @@ fitted to the same cases. Covariates or more mediators get a verdict, not an err
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * residual diagnostics (normality, outliers, influence)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * refitting with covariates, other mediators or transformations</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Statistics stored: n, mean, cov</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># From numbers typed from a paper, no data needed:</span></span></span>
+<span class="r-in"><span><span class="fu">sufficient_stats</span><span class="op">(</span>test <span class="op">=</span> <span class="st">"paired"</span>, n <span class="op">=</span> <span class="st">"30"</span>, m <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"5.1"</span>, <span class="st">"4.6"</span><span class="op">)</span>, sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1.2"</span>, <span class="st">"1.3"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                 t <span class="op">=</span> <span class="st">"2.1"</span>, df <span class="op">=</span> <span class="st">"29"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;reprokit sufficient_stats&gt;  analysis: paired-samples t-test  (input: typed)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Verdict: apa_plus_suffices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Because: From the typed numbers: paired-samples t-test, the APA numbers need a further number to determine the result.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The APA numbers alone do not reproduce this analysis exactly; these numbers beyond them are needed:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   * r is implied between .10 and .70 by the APA numbers; reporting it makes the result exact (needed because the spread of the difference scores depends on how the two conditions correlate).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Nothing is stored: typed numbers hold no reproducible summaries, so appendix() needs a model or data.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> What readers lose compared with the raw data:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   * checking the distribution and outliers of the differences</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   * nonparametric or robust alternatives</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># A verdict, not an error, when summaries cannot do it:</span></span></span>
 <span class="r-in"><span><span class="fu">sufficient_stats</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></span><span class="op">(</span><span class="va">am</span> <span class="op">~</span> <span class="va">wt</span>, data <span class="op">=</span> <span class="va">mtcars</span>, family <span class="op">=</span> <span class="va">binomial</span><span class="op">)</span><span class="op">)</span></span></span>
@@ -183,8 +230,9 @@ fitted to the same cases. Covariates or more mediators get a verdict, not an err
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * exact reproduction of this analysis</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Instead you could:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * share the raw data (possibly under a data-use agreement)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   * share synthetic data and report its utility</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   * share synthetic data and report its utility (outside reprokit)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * offer federated analysis (e.g. DataSHIELD)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Sharing the raw data remains the standard (APA Publication Manual section 1.14, Ethics Code 8.14).</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -41,7 +41,7 @@
 <h2 id="adding-a-model--adding-a-handler">Adding a model = adding a handler<a class="anchor" aria-label="anchor" href="#adding-a-model--adding-a-handler"></a></h2>
 <ol style="list-style-type: decimal"><li>Open a “New handler” issue: analysis, verdict, sufficient statistics, catch, reference implementation, what is lost.</li>
 <li>Add <code>R/handler-&lt;name&gt;.R</code> that calls <code>register_handler()</code> from <code>.onLoad()</code>.</li>
-<li>A <code>summaries_suffice</code> handler must supply <code>summarise</code>, <code>reproduce</code>, <code>reported</code> and an <code>example</code> model; the round-trip test in <code>test-infra-registry.R</code> then covers it automatically.</li>
+<li>An <code>apa_suffices</code> handler must declare <code>additions</code> (its sufficient quantities beyond the APA set, each marked covered by an exact identity or not; the tier follows from them) and supply <code>summarise</code>, <code>reproduce</code>, <code>reported</code> and an <code>example</code> model; the round-trip test in <code>test-infra-registry.R</code> then covers it automatically.</li>
 <li>Add refusal tests for what the handler cannot do (<code>class = "reprokit_impossible"</code>; a wrong call is <code>reprokit_error_input</code>).</li>
 <li>Document the evidence in <code>vignettes/validation.Rmd</code>.</li>
 </ol></div>

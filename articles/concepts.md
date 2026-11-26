@@ -60,7 +60,7 @@ prints these in block B.
 
 **Verdict.** The outcome of
 [`sufficient_stats()`](https://dm-k1.github.io/reprokit/reference/sufficient_stats.md):
-`summaries_suffice`, `synthetic_possible` or `needs_raw_data` (see
+`apa_suffices`, `apa_plus_suffices` or `needs_raw_data` (see
 [`verdicts()`](https://dm-k1.github.io/reprokit/reference/verdicts.md)).
 A verdict is advice about what is enough; it is not a judgement on the
 author.

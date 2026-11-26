@@ -17,17 +17,35 @@ A data frame of character columns, one row per test:
 
 - `test`: the analysis;
 
+- `verdict`: the tier the analysis reaches, one of
+  [`verdicts()`](https://dm-k1.github.io/reprokit/reference/verdicts.md):
+  `apa_suffices` when the APA numbers determine every summary the
+  analysis needs, `apa_plus_suffices` when a number beyond them is
+  needed (the tier is computed from the additions each handler declares,
+  not set per test). For the goodness-of-fit test the null proportions
+  are an addition only when they are not equal, so the tier depends on
+  the data; the table shows the stricter case, `apa_plus_suffices`;
+
 - `apa`: what APA style asks a paper to report;
 
 - `sufficient`: the quantities that determine every reported result;
 
-- `missing`: sufficient but not in APA, each with its reason;
+- `missing`: sufficient but not in APA, and not covered by an identity,
+  each with its reason (these are the additions that make the verdict
+  `apa_plus_suffices`);
+
+- `covered`: sufficient but not in APA, yet determined by the APA
+  numbers through an exact identity at printed precision, each with that
+  identity;
 
 - `checkable`: APA numbers the relations derive from `sufficient`;
 
 - `not_checkable`: APA numbers they do not reach, each with its reason;
 
-- `choices`: what the author must declare.
+- `choices`: what the author must declare;
+
+- `extras`: the further quantities `appendix(extra = )` can add, which
+  the stored summaries determine.
 
 An empty cell shows an em dash. Handlers without a design are left out.
 
@@ -35,19 +53,19 @@ An empty cell shows an em dash. Handlers without a design are left out.
 
 ``` r
 coverage_table()
-#>                                               test
-#> 1                         Pearson correlation test
-#> 2                            Paired-samples t-test
-#> 3                                       Moderation
-#> 4                              Multiple regression
-#> 5                                 Simple mediation
-#> 6                                Simple regression
-#> 7                      Chi-squared goodness of fit
-#> 8                 Chi-squared test of independence
-#> 9  Factorial ANOVA, two factors (between-subjects)
-#> 10     Independent-samples t-test (Student, Welch)
-#> 11                               One-sample t-test
-#> 12                One-way ANOVA (between-subjects)
+#>                                               test           verdict
+#> 1                         Pearson correlation test      apa_suffices
+#> 2                            Paired-samples t-test apa_plus_suffices
+#> 3                                       Moderation apa_plus_suffices
+#> 4                              Multiple regression apa_plus_suffices
+#> 5                                 Simple mediation apa_plus_suffices
+#> 6                                Simple regression      apa_suffices
+#> 7                      Chi-squared goodness of fit apa_plus_suffices
+#> 8                 Chi-squared test of independence      apa_suffices
+#> 9  Factorial ANOVA, two factors (between-subjects)      apa_suffices
+#> 10     Independent-samples t-test (Student, Welch)      apa_suffices
+#> 11                               One-sample t-test      apa_suffices
+#> 12                One-way ANOVA (between-subjects)      apa_suffices
 #>                                                                 apa
 #> 1                               n, M, SD per variable, r, df, p, CI
 #> 2                           n, M, SD per condition, t, df, p, d, CI
@@ -87,6 +105,19 @@ coverage_table()
 #> 10                                                                                                                                —
 #> 11                                                                                                                                —
 #> 12                                                                                                                                —
+#>                                           covered
+#> 1                                               —
+#> 2                                               —
+#> 3                                               —
+#> 4                                               —
+#> 5                                               —
+#> 6  r (standardized β, sign(b)·√R², or t/√(t²+df))
+#> 7                                               —
+#> 8                                               —
+#> 9                                               —
+#> 10                                              —
+#> 11                                              —
+#> 12                                              —
 #>                                    checkable
 #> 1                                  df, p, CI
 #> 2                            t, df, p, d, CI
@@ -113,17 +144,30 @@ coverage_table()
 #> 10                                                                              —
 #> 11                                                                              —
 #> 12                                                                              —
-#>                                                                                                                                                                                                                                                                                                         choices
-#> 1                                                                                                                                                                                                                    tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%)
-#> 2  tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (d_z (SD of the differences), d_rm (repeated measures), d_av (average SD), g_av (average SD, Hedges' correction)); direction of the difference: first minus second in Pair(first, second)
-#> 3                                                                                                                                                                                                                 confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); centering; coding
-#> 4                                                                                                                                                                                                                     confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); factor coding
-#> 5                                                                                                                                                                                                                                                                              confidence level (90%, 95%, 99%)
-#> 6                                                                                                                                                                                                                                    confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²)
-#> 7                                                                                                                                                                                                                                                                            effect-size convention (Cohen's w)
-#> 8                                                                                                                                                                                                                 test (Pearson chi-squared, Yates' continuity correction); effect-size convention (Cramér's V)
-#> 9                                                                                                                                                                               SS type for unbalanced designs (type III, type II, type I); effect-size convention (partial eta squared, partial omega squared)
-#> 10         tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); test (Student's t, Welch's t); effect-size convention (Cohen's d (pooled SD), Hedges' g, Cohen's d (root mean square of the SDs), Glass's Δ (SD of the first group), Glass's Δ (SD of the second group))
-#> 11                                                                                                                                         tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (Cohen's d, Hedges' g); test value mu (default 0)
-#> 12                                                                                                                                                                                    effect-size convention (eta squared, omega squared); variance assumption: equal variances (classical F test, not Welch's)
+#>                                                                                                                                                                                                                                                                                                                                     choices
+#> 1                                                                                                                                                                                                                                                tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%)
+#> 2  tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (d_z (SD of the differences), d_rm (repeated measures), d_av (average SD), g_av (average SD, Hedges' correction), eta squared, omega squared); direction of the difference: first minus second in Pair(first, second)
+#> 3                                                                                                                                                                                                                                             confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); centering; coding
+#> 4                                                                                                                                                                                                                                                 confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²); factor coding
+#> 5                                                                                                                                                                                                                                                                                                          confidence level (90%, 95%, 99%)
+#> 6                                                                                                                                                                                                                                                                confidence level (90%, 95%, 99%); effect-size convention (R², adjusted R²)
+#> 7                                                                                                                                                                                                                                                                                                        effect-size convention (Cohen's w)
+#> 8                                                                                                                                                                                                                                             test (Pearson chi-squared, Yates' continuity correction); effect-size convention (Cramér's V)
+#> 9                                                                                                                                                                                                           SS type for unbalanced designs (type III, type II, type I); effect-size convention (partial eta squared, partial omega squared)
+#> 10         tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); test (Student's t, Welch's t); effect-size convention (Cohen's d (pooled SD), Hedges' g, Cohen's d (root mean square of the SDs), Glass's Δ (SD of the first group), Glass's Δ (SD of the second group), eta squared, omega squared)
+#> 11                                                                                                                                         tails (two-sided, one-sided (less), one-sided (greater)); confidence level (90%, 95%, 99%); effect-size convention (Cohen's d, Hedges' g, eta squared, omega squared); test value mu (default 0)
+#> 12                                                                                                                                                                                                                effect-size convention (eta squared, omega squared); variance assumption: equal variances (classical F test, not Welch's)
+#>                          extras
+#> 1               R², adjusted R²
+#> 2              eta2, R², omega2
+#> 3             standardized beta
+#> 4             standardized beta
+#> 5                         R², F
+#> 6             standardized beta
+#> 7                             —
+#> 8                             —
+#> 9  partial eta2, partial omega2
+#> 10             eta2, R², omega2
+#> 11             eta2, R², omega2
+#> 12                   R², omega2
 ```

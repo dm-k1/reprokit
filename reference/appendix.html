@@ -58,7 +58,8 @@ markdown, in four blocks generated from reprokit's test definitions:</p>
 <span>  choices <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  digits <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>  digits_added <span class="op">=</span> <span class="fl">4L</span>,</span>
-<span>  threshold <span class="op">=</span> <span class="fl">5</span></span>
+<span>  threshold <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  extra <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -113,6 +114,16 @@ itself keeps full precision.</p></dd>
 
 <dt id="arg-threshold">threshold<a class="anchor" aria-label="anchor" href="#arg-threshold"></a></dt>
 <dd><p>Passed to <code><a href="sufficient_stats.html">sufficient_stats()</a></code> when it is called here.</p></dd>
+
+
+<dt id="arg-extra">extra<a class="anchor" aria-label="anchor" href="#arg-extra"></a></dt>
+<dd><p>Names of further numbers to add after block D, or <code>"all"</code>. They are
+quantities of the test that APA style does not ask for and that the stored summaries
+determine: the R-squared family (<code>"r2"</code>, <code>"adj_r2"</code>, <code>"eta2"</code>, <code>"omega2"</code>,
+<code>"partial_eta2"</code>, <code>"partial_omega2"</code>), the F of each mediation model, or <code>"beta"</code> for
+the standardized coefficients of a regression. <code><a href="coverage_table.html">coverage_table()</a></code> lists them per test
+(column <code>extras</code>). A name the test does not offer is an error that lists the ones it
+does. The default adds nothing, and the rest of the appendix does not change.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -180,6 +191,85 @@ the disclosure check.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> - any variable other than the ones in the table</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: cell counts (a count above 0 and below 5 is flagged; zeros are not). This lowers the risk of identifying a participant; it does not remove it.</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Add the standardized coefficients (and, for other tests, the R-squared family)</span></span></span>
+<span class="r-in"><span><span class="fu">appendix</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">mpg</span> <span class="op">~</span> <span class="va">wt</span> <span class="op">+</span> <span class="va">hp</span>, data <span class="op">=</span> <span class="va">mtcars</span><span class="op">)</span>, extra <span class="op">=</span> <span class="st">"beta"</span>,</span></span>
+<span class="r-in"><span>         sharing_reason <span class="op">=</span> <span class="st">"Consent did not cover public sharing."</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ## Appendix: sufficient statistics for the multiple regression</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The APA Publication Manual (7th ed.) asks for "sufficient information to help readers fully understand the analyses conducted" (§3.7) and for data that "allow readers to confirm the basic reported analyses" (§6.43). When that set is extensive, "the information could be supplied in a supplementary data set or an appendix" (§3.7). This is that appendix.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ### A. The numbers APA style asks for</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> n = 32</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Variable | M | SD |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | --- | --- | --- |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | wt | 3.22 | 0.98 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | hp | 146.69 | 68.56 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | mpg (outcome) | 20.09 | 6.03 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Correlations of the model columns and the outcome:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> |  | wt | hp | mpg (outcome) |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | --- | --- | --- | --- |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | wt | 1.00 | .66 | −.87 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | hp | .66 | 1.00 | −.78 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | mpg (outcome) | −.87 | −.78 | 1.00 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Coefficient | b | SE | t | p |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | --- | --- | --- | --- | --- |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | (Intercept) | 37.23 | 1.60 | 23.28 | &lt; .001 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | wt | −3.88 | 0.63 | −6.13 | &lt; .001 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | hp | −0.03 | 0.01 | −3.52 | .001 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> df = 29 for every coefficient. Each coefficient's confidence interval is b ± t(df) × SE at the level the paper states.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Model | Value |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | --- | --- |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | R² | .83 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Adjusted R² | .81 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | F(2, 29) | 69.21 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | p (model) | &lt; .001 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ### B. Numbers APA does not require that the result needs</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Number | Value | Why it is needed |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | --- | --- | --- |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | the correlations | shown in block A | APA does not require this; coefficients depend on how the predictors overlap |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ### C. Analysis choices</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Choice | Answer |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | --- | --- |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Confidence level | not declared |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Effect-size convention | not declared (declaring it is a reprokit rule; APA does not require it) |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Factor coding | no factor predictors |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ### D. APA numbers a reader cannot check from these statistics</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> None: every number in block A follows from blocks A and B.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ### Additional numbers</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Computed from the stored summaries at the author's request.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | Number | Value |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | --- | --- |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | β (standardized), wt | −0.63 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | β (standardized), hp | −0.36 |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ### Raw data</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Reason for not sharing the raw data: Consent did not cover public sharing.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> **What readers lose compared with the raw data:**</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> - residual diagnostics (normality, outliers, influence)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> - refitting with other predictors or transformations</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> - heteroscedasticity-robust standard errors</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> **Disclosure check.** No summary rests on fewer than 5 cases, and n is at least 10. Checked: factor levels (unweighted rows in the fit), counts of 0/1 columns and their pairwise tables. This lowers the risk of identifying a participant; it does not remove it.</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">sleep_wide</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>drug1 <span class="op">=</span> <span class="va">sleep</span><span class="op">$</span><span class="va">extra</span><span class="op">[</span><span class="va">sleep</span><span class="op">$</span><span class="va">group</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span>,</span></span>
 <span class="r-in"><span>                         drug2 <span class="op">=</span> <span class="va">sleep</span><span class="op">$</span><span class="va">extra</span><span class="op">[</span><span class="va">sleep</span><span class="op">$</span><span class="va">group</span> <span class="op">==</span> <span class="fl">2</span><span class="op">]</span><span class="op">)</span></span></span>

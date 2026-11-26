@@ -10,11 +10,38 @@ may change.
 - `sufficient_stats(x, ..., threshold = 5)` says whether summary
   statistics make an analysis reproducible without the raw data, what to
   publish and what readers lose, and stores the summaries at full
-  precision. It never errors on the verdict (`summaries_suffice`,
-  `synthetic_possible` or `needs_raw_data`); the printed object narrates
+  precision. It never errors on the verdict (`apa_suffices`,
+  `apa_plus_suffices` or `needs_raw_data`); the printed object narrates
   the verdict, what to publish, what readers lose and which group or
   cell a disclosure flag fired for. Only invalid input is an error of
   class `reprokit_impossible`.
+- The verdict is a tier around the APA set. `apa_suffices`: the numbers
+  APA style asks for determine the result. `apa_plus_suffices`: a few
+  more numbers are needed, and the advice names each one, says why, and,
+  where the APA numbers bound it, gives the range they imply (“r is
+  implied between .60 and .64 by the APA numbers; reporting it makes the
+  result exact”). Each handler declares these additions, and
+  [`coverage_table()`](https://dm-k1.github.io/reprokit/reference/coverage_table.md)
+  shows the tier per test. Simple regression is `apa_suffices` because r
+  follows exactly from the standardized beta, sign(b) times the square
+  root of R-squared, or t over the square root of t-squared plus df. A
+  goodness-of-fit test needs the null proportions only when they are not
+  equal. Every verdict ends by saying that sharing the raw data remains
+  the standard. Synthetic data is not a verdict; the advice mentions it
+  only, as outside reprokit, for analyses with no finite summaries.
+- `sufficient_stats(test = "paired", n = "30", m = c("5.1", "4.6"), sd = c("1.2", "1.3"))`
+  takes typed numbers as strings, with the same names, parsing and
+  checks as
+  [`check_reported()`](https://dm-k1.github.io/reprokit/reference/check_reported.md),
+  and returns a verdict and the additions (present, missing or implied
+  with a range). It holds no summaries, so
+  [`appendix()`](https://dm-k1.github.io/reprokit/reference/appendix.md)
+  refuses it.
+- [`check_reported()`](https://dm-k1.github.io/reprokit/reference/check_reported.md)
+  ends with one line, “Also report … to make this fully checkable.”
+- Appendix labels use the symbols APA style uses: eta squared, omega
+  squared, partial eta squared, partial omega squared, R squared,
+  adjusted R squared, beta (standardized) and d.
 - What readers lose is stated by reprokit, from the test
   (`sufficient_stats(...)$lost`); it is not an argument.
 - `appendix(x, ..., sharing_reason, choices = list())` writes a Markdown
@@ -42,6 +69,22 @@ may change.
   not match its data is refused, and so is a `data.name` that cannot be
   mapped to the data (with a hint to the formula route). A formula with
   `data` and `test` still works for any covered test.
+- `appendix(x, ..., extra = character())` adds a section of further
+  numbers, computed from the stored summaries and formatted as APA asks:
+  pass names, or `"all"`. The R squared family where the test has one
+  (eta squared, omega squared, R squared, adjusted R squared, partial
+  effect sizes, per-model R squared and F of a mediation) and
+  standardized betas for a regression. Invalid names are an input error
+  that lists the valid extras; the default appendix is unchanged.
+  [`coverage_table()`](https://dm-k1.github.io/reprokit/reference/coverage_table.md)
+  has an `extras` column.
+- Given a model or a test result,
+  [`appendix()`](https://dm-k1.github.io/reprokit/reference/appendix.md)
+  prints the numbers the model itself holds
+  ([`summary()`](https://rdrr.io/r/base/summary.html) of the `lm`, the
+  `aov` table, the `htest` fields). Each is also recomputed from the
+  stored summaries; a fit that differs by more than the round-trip
+  tolerance is refused with `reprokit_impossible`.
 - Mediation: `sufficient_stats(lm(M ~ X), lm(Y ~ X + M))` stores n, the
   means and the covariance of X, M and Y.
 - Handlers
@@ -90,6 +133,15 @@ may change.
   a verdict, a coverage level (0 to 3), a status for each number, the
   analysis variants that fit, and the ranges implied for numbers that
   were not reported. An inconsistency never says which number is wrong.
+- Each test accepts the quantities that apply to it. A known name that
+  does not apply (`d` for a correlation) is an input error listing the
+  names the test takes. The R squared family is cross-checked where it
+  exists: Pearson `r2` and `adj_r2`, one-way `r2` (identical to `eta2`),
+  `eta2`, `r2` and `omega2` from t and df, partial effect sizes in a
+  factorial ANOVA, `adj_r2` in a regression, and per-model `r2` and `F`
+  in a mediation. Student degrees of freedom are checked against the
+  group sizes when the test is declared `"student"`, and the hint for a
+  missing number no longer lists a relation another one already covers.
 - Pearson: r is not reported as “not checkable” when it reaches p only
   through an unreported t (for example
   `check_reported("pearson", r = ".41", df = "28", p = ".024")`).
@@ -184,3 +236,15 @@ may change.
 - The package help page
   ([`?reprokit`](https://dm-k1.github.io/reprokit/reference/reprokit-package.md))
   gives an overview of both directions.
+
+### check_reported() additions
+
+- A “coherent” number now says which relation would verify it and what
+  that needs (for example “t_from_descriptives would verify it (needs n,
+  m, sd)”).
+- With the test declared as Student, df is checked against n alone (df =
+  n1 + n2 - 2); Welch is never held to it. d is cross-checked from t and
+  n (not falsifying).
+- eta squared (omega squared) of the t tests is checked from t and df; R
+  squared of Pearson’s r from r; simple mediation checks R squared, F
+  and p per model.
