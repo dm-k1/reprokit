@@ -654,6 +654,12 @@ format_implied <- function(found) {
 }
 
 # Unreported quantities of the handler that would raise the level if reported.
+# One row per quantity that raises the level on its own (`together` FALSE). When no
+# single number does and the level is below the maximum (3), one extra row names the
+# smallest set of unreported candidates that raises it only jointly: `quantity` is
+# then the set ("m, sd, r"), `would_reach_level` the level the set reaches, and
+# `together` TRUE. Among sets of the same size the one reaching the highest level wins,
+# then the first in order (the handler's sufficient numbers before the rest).
 missing_numbers <- function(handler, reported_names, level, implied) {
   candidates <- union(handler$apa, handler$sufficient)
   if (!is.null(handler$design$terms)) {
@@ -670,15 +676,42 @@ missing_numbers <- function(handler, reported_names, level, implied) {
   reach <- vapply(candidates, function(quantity) {
     coverage_level(handler, c(reported_names, quantity))
   }, integer(1))
-  candidates <- candidates[reach > level]
-  data.frame(
-    quantity = candidates,
-    would_reach_level = unname(reach[candidates]),
-    implied_range = vapply(candidates, function(quantity) {
+  singles <- candidates[reach > level]
+  rows <- data.frame(
+    quantity = singles,
+    would_reach_level = unname(reach[singles]),
+    implied_range = vapply(singles, function(quantity) {
       if (is.null(implied[[quantity]])) NA_character_ else format_implied(implied[[quantity]])
     }, character(1)),
+    together = rep(FALSE, length(singles)),
     stringsAsFactors = FALSE, row.names = NULL
   )
+  if (nrow(rows) == 0L && level < 3L) {
+    ordered <- c(intersect(handler$sufficient, candidates),
+                 setdiff(candidates, handler$sufficient))
+    group <- smallest_joint_set(handler, reported_names, level, ordered)
+    if (!is.null(group)) {
+      rows <- data.frame(quantity = paste(group$set, collapse = ", "),
+                         would_reach_level = group$level, implied_range = NA_character_,
+                         together = TRUE, stringsAsFactors = FALSE)
+    }
+  }
+  rows
+}
+
+# The smallest set of candidates that raises the level together (sizes 2 to 4), or NULL.
+smallest_joint_set <- function(handler, reported_names, level, candidates) {
+  for (size in seq_len(min(4L, length(candidates)))[-1L]) {
+    sets <- utils::combn(candidates, size, simplify = FALSE)
+    reached <- vapply(sets, function(set) {
+      coverage_level(handler, c(reported_names, set))
+    }, integer(1))
+    if (any(reached > level)) {
+      best <- which(reached == max(reached))[1L]
+      return(list(set = sets[[best]], level = reached[[best]]))
+    }
+  }
+  NULL
 }
 
 # The relations that can falsify, joined by the kinds of variant they share.

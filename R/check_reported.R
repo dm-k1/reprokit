@@ -98,7 +98,10 @@
 #'   with three F tests gets three calls with the same cell descriptives.
 #' @return A `reprokit_check` object: `$numbers` (status of each reported
 #'   number), `$level` (coverage, 0 to 3), `$missing` (what would raise the
-#'   level, and the range implied for it), `$variants` (a list with one data
+#'   level, and the range implied for it: one row per number that raises the level
+#'   on its own, and, when none does, one row with `together = TRUE` whose
+#'   `quantity` lists the smallest set that raises it jointly, such as `"m, sd, r"`),
+#'   `$variants` (a list with one data
 #'   frame per kind of variant the handler has, each of the variants tried and
 #'   whether they fit: `tail`, `level`, `test` (Student or Welch) and
 #'   `convention` (how an effect size was computed)), `$relations` (one row per
@@ -269,13 +272,28 @@ print.reprokit_check <- function(x, ...) {
         paste0(names(x$implied_inputs), " = ", values, " (from ", sources, ")",
                collapse = ", "), ".\n", sep = "")
   }
-  cat("\nAn inconsistency shows the numbers cannot all be correct as reported, ",
-      "not which one is wrong or why.\n", sep = "")
-  # One closing line: what to report to raise the level (ADR 0032).
+  if (any(x$numbers$status == "inconsistent")) {
+    cat("\nAn inconsistency shows the numbers cannot all be correct as reported, ",
+        "not which one is wrong or why.\n", sep = "")
+  }
+  # One closing line: what to report to raise the level.
   if (nrow(x$missing) > 0L) {
-    cat("Also report ",
-        paste0(x$missing$quantity, " (to level ", x$missing$would_reach_level, ")",
-               collapse = ", "), " to make this fully checkable.\n", sep = "")
+    single <- !x$missing$together
+    parts <- character(0)
+    if (any(single)) {
+      parts <- paste0(x$missing$quantity[single], " (to level ",
+                      x$missing$would_reach_level[single], ")", collapse = ", ")
+    }
+    for (i in which(x$missing$together)) {
+      set <- strsplit(x$missing$quantity[i], ", ", fixed = TRUE)[[1L]]
+      listed <- set
+      if (length(set) > 1L) {
+        listed <- paste0(paste(set[-length(set)], collapse = ", "), " and ", set[length(set)])
+      }
+      parts <- c(parts, paste0(listed, " (together, to level ",
+                               x$missing$would_reach_level[i], ")"))
+    }
+    cat("Also report ", paste(parts, collapse = ", "), " to make this fully checkable.\n", sep = "")
   }
   invisible(x)
 }

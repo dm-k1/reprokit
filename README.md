@@ -242,8 +242,6 @@ check_reported("welch",
 #>         t      -1.86 verified  t_from_descriptives; p_from_t
 #>        df       17.8 verified            df_from_n; p_from_t
 #>         p       .079 coherent                       p_from_t
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 Reading the check output:
@@ -274,6 +272,7 @@ check_reported("paired", n = "20", t = "2.85", df = "19", p = ".050")
 #>         p     .050 inconsistent            p_from_t
 #> 
 #> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+#> Also report m, sd and r (together, to level 3) to make this fully checkable.
 ```
 
 The R squared family is checked too: a Pearson correlation reported as
@@ -368,8 +367,6 @@ check_reported("oneway", n = c("10", "10", "10"), m = c("5.03", "4.66", "5.53"),
 #>       df2               27 verified           df2_from_n; p_from_f; eta2_from_f
 #>      eta2             0.26 coherent                                 eta2_from_f
 #>         p             .016 coherent                                    p_from_f
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 A two-factor between-subjects ANOVA is checked with
@@ -409,8 +406,6 @@ check_reported("factorial", n = cells, m = matrix(c("4.10", "5.20", "4.80", "7.4
 #>                                                eta2_from_f
 #> 
 #> Note: Effect checked: A (the factor in the rows of the cell matrices).
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 A chi-squared test is checked with `check_reported("chisq", ...)`
@@ -432,8 +427,6 @@ check_reported("chisq", n = matrix(c("30", "10", "20", "40"), 2), chisq = "15.04
 #>        df              1 coherent                   df_from_dims; p_from_chisq
 #>         p          .0001 verified                   p_from_table; p_from_chisq
 #>         v            .41 verified                                 v_from_table
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 ```
 
 A regression is checked with `check_reported("lm", ...)`, with one named
@@ -460,8 +453,7 @@ check_reported("lm", b = c(wt = "-3.19", hp = "-0.04"), se = c(wt = "0.64", hp =
 #>       df2       29 not checkable               -
 #> 
 #> Derived from the reported numbers: n = 32 (from df2).
-#> 
-#> An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
+#> Also report m, sd and r_all (together, to level 3) to make this fully checkable.
 ```
 
 ## Status and limits

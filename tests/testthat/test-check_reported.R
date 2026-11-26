@@ -94,12 +94,12 @@ test_that("nothing checkable gives level 0 and says so", {
   expect_output(print(checked), "No check was possible")
 })
 
-test_that("print gives the verdict, the level and the fixed closing sentence", {
+test_that("print gives the verdict and the level, with no caveat when consistent", {
   out <- paste(utils::capture.output(print(run_check("paired", paper_paired()))),
                collapse = "\n")
   expect_match(out, "consistent with the reported statistics")
   expect_match(out, "Level 3")
-  expect_match(out, "cannot all be correct as reported, not which one is wrong or why")
+  expect_false(grepl("cannot all be correct as reported", out))
   expect_false(grepl("error", out, ignore.case = TRUE))
 })
 
@@ -160,4 +160,38 @@ test_that("test = student or welch refuses a variants request for the other test
 test_that("a range of implied n is printed as 'lower to upper'", {
   expect_identical(format_implied_input(list(lower = 30, upper = 30)), "30")
   expect_identical(format_implied_input(list(lower = 28, upper = 31)), "28 to 31")
+})
+
+test_that("numbers needed together get one grouped missing row and closing line", {
+  paired <- check_reported("paired", n = "30", t = "2.1", df = "29", p = ".044")
+  expect_equal(paired$missing$quantity, "m, sd, r")
+  expect_equal(paired$missing$would_reach_level, 3L)
+  expect_true(paired$missing$together)
+  expect_match(capture.output(print(paired)),
+               "Also report m, sd and r (together, to level 3) to make this fully checkable.",
+               fixed = TRUE, all = FALSE)
+
+  student <- check_reported("student", n = c("20", "20"), t = "2.1", df = "38", p = ".042")
+  expect_equal(student$missing$quantity, "m, sd")
+  expect_true(student$missing$together)
+  expect_match(capture.output(print(student)),
+               "Also report m and sd (together, to level 3)", fixed = TRUE, all = FALSE)
+
+  # A single number that raises the level keeps the plain row; nothing is grouped.
+  single <- check_reported("paired", n = "30", m = c("5.1", "4.2"), sd = c("1.1", "1.2"),
+                           t = "2.1", df = "29", p = ".044")
+  expect_false(any(single$missing$together))
+  expect_equal(names(paired$missing), names(single$missing))
+
+  # Typed sufficient_stats() takes its verdict from the additions, not from $missing.
+  typed <- sufficient_stats("paired", n = "30", t = "2.1", df = "29", p = ".044")
+  expect_equal(typed$verdict, "apa_plus_suffices")
+})
+
+test_that("the inconsistency caveat prints only when a number is inconsistent", {
+  fine <- check_reported("paired", n = "30", t = "2.1", df = "29", p = ".044")
+  expect_false(any(grepl("An inconsistency shows", capture.output(print(fine)))))
+  bad <- check_reported("paired", n = "30", t = "2.1", df = "29", p = ".9")
+  expect_true(any(bad$numbers$status == "inconsistent"))
+  expect_true(any(grepl("An inconsistency shows", capture.output(print(bad)))))
 })

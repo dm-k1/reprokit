@@ -38,8 +38,6 @@ Effect-size conventions that fit: none
                          df_from_n; df_from_n_student; p_from_t
                                                        p_from_t
  no variant tried reproduces it (d_from_descriptives; d_from_t)
-
-An inconsistency shows the numbers cannot all be correct as reported, not which one is wrong or why.
 The analysis is inconsistent with the reported statistics.
 Level 3: the sufficient set is reported (the numbers contain everything needed to reproduce the analysis; that is not itself a check).
 Variants that fit: two-sided

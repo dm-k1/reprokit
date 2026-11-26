@@ -112,7 +112,10 @@ number of coefficients reported (a paper may leave some out). A plain number.}
 \value{
 A \code{reprokit_check} object: \verb{$numbers} (status of each reported
 number), \verb{$level} (coverage, 0 to 3), \verb{$missing} (what would raise the
-level, and the range implied for it), \verb{$variants} (a list with one data
+level, and the range implied for it: one row per number that raises the level
+on its own, and, when none does, one row with \code{together = TRUE} whose
+\code{quantity} lists the smallest set that raises it jointly, such as \code{"m, sd, r"}),
+\verb{$variants} (a list with one data
 frame per kind of variant the handler has, each of the variants tried and
 whether they fit: \code{tail}, \code{level}, \code{test} (Student or Welch) and
 \code{convention} (how an effect size was computed)), \verb{$relations} (one row per
